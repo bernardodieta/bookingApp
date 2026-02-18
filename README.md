@@ -20,8 +20,14 @@ npm install
 npm run dev
 npm run dev:web
 npm run dev:api
+npm run dev:prep
+npm run dev:reset:win
 npm run test:e2e -w @apoint/api
 ```
+
+Notas de arranque en Windows:
+- `npm run dev` ahora ejecuta `dev:prep` para limpiar artefactos (`apps/web/.next`, `apps/api/dist`) antes de iniciar.
+- Si quedó un proceso Node colgado (puertos ocupados o locks), usa `npm run dev:reset:win` y vuelve a ejecutar `npm run dev`.
 
 ## Docker Compose (PostgreSQL + Redis)
 
@@ -57,6 +63,11 @@ npm run seed:demo -w @apoint/api
 
 Copiar `.env.example` en `.env` y completar valores.
 
+Notificaciones email (MVP):
+- Proveedor principal: `SendGrid` (`SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`)
+- Fallback automático: `Nodemailer SMTP` si SendGrid falla (`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL`)
+- Destinatario opcional para alertas al negocio: `NOTIFICATIONS_BUSINESS_EMAIL`
+
 ## API disponible (Sprint 1 base)
 
 ## Control de planes aplicado (MVP)
@@ -75,13 +86,16 @@ Copiar `.env.example` en `.env` y completar valores.
 
 Pruebas e2e disponibles en API (`npm run test:e2e -w @apoint/api`):
 - Reglas críticas de reservas (colisiones y límite mensual del plan `free`)
+- CRUD de disponibilidad autenticado (update/delete de rules y exceptions)
 - Auditoría de creación de reservas
 - Rate limiting en rutas públicas
 - Flujo público: slots, auto-waitlist por slot ocupado y notificación de waitlist al cancelar
+- Flujo público configurable: `bookingFormFields` expuestos por slug y validación backend de campos requeridos
 - Smoke MVP: registro de negocio -> setup base -> reserva pública completa
 - Aislamiento multi-tenant: sin acceso cruzado entre tenants
 
 Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
+- AvailabilityService: update/remove de rules/exceptions + validaciones de tenant/not found
 - Colisiones de horario
 - Políticas de cancelación/reprogramación por ventana de aviso
 - Límites de reservas por día/semana/mes (plan `free`)
@@ -142,12 +156,17 @@ Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
 - Login directo (email/password contra `/auth/login`)
 - El token se guarda en `localStorage` automáticamente
 - Dashboard en `http://localhost:3000/dashboard`
+- Página pública funcional por slug en `http://localhost:3000/public/:slug`
 - Seleccionar rango `day`, `week` o `month` y fecha base
 - Filtro de staff por nombre (dropdown cargado desde `GET /staff`)
 - Filtro de estado por dropdown (`pending`, `confirmed`, `cancelled`, `rescheduled`, `no_show`, `completed`)
 - Consumir en vivo `GET /dashboard/appointments`
 - Consultar auditoría con filtros (`action`, `actorUserId`, fechas, `limit`) y paginación por `nextCursor`
 - Acciones rápidas para crear `service`, `staff`, `booking`, `availability rule` y `availability exception` desde la misma vista
+- Panel de visibilidad para listar `availability rules` y `availability exceptions` con refresh manual
+- Acciones mínimas para editar/eliminar disponibilidad: toggle y delete de rules, edición de nota/tipo y delete de exceptions
+- Editor MVP de `tenant settings` para actualizar `bookingFormFields` (JSON) desde dashboard
+- Presets rápidos en dashboard para `bookingFormFields`: `phone`, `dni`, `notes`
 - Acciones desde tabla para cancelar y reprogramar bookings
 - Acción rápida para agregar clientes a waitlist desde dashboard (`POST /bookings/waitlist`)
 
@@ -168,7 +187,7 @@ Notas CRM:
 	- `maxBookingsPerWeek`
 	- `cancellationNoticeHours`
 	- `rescheduleNoticeHours`
-	- `bookingFormFields` (array de campos configurables)
+	- `bookingFormFields` (array de campos configurables; `required: true` exige `customFields[key]` al reservar)
 
 ### Public Booking (sin auth)
 - `GET /public/:slug`

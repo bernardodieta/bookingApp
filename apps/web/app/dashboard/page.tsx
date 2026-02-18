@@ -14,6 +14,25 @@ type ServiceItem = {
   name: string;
 };
 
+type AvailabilityRuleItem = {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  isActive: boolean;
+  staffId: string | null;
+};
+
+type AvailabilityExceptionItem = {
+  id: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  isUnavailable: boolean;
+  note: string | null;
+  staffId: string | null;
+};
+
 type DashboardResponse = {
   range: 'day' | 'week' | 'month';
   period: {
@@ -52,6 +71,19 @@ type AuditLogsResponse = {
   nextCursor: string | null;
 };
 
+type TenantSettingsResponse = {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  bookingBufferMinutes: number;
+  maxBookingsPerDay: number | null;
+  maxBookingsPerWeek: number | null;
+  cancellationNoticeHours: number;
+  rescheduleNoticeHours: number;
+  bookingFormFields: Array<Record<string, unknown>> | null;
+};
+
 const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
 const today = new Date().toISOString().slice(0, 10);
@@ -74,6 +106,11 @@ const auditFilterSchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
   limit: z.number().int().min(1).max(200)
+});
+
+const tenantSettingsSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.')
 });
 
 const quickCreateServiceSchema = z.object({
@@ -146,6 +183,103 @@ const quickJoinWaitlistSchema = z.object({
   notes: z.string().optional()
 });
 
+const availabilityListSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.')
+});
+
+const DAY_OF_WEEK_LABEL: Record<number, string> = {
+  0: 'Domingo',
+  1: 'Lunes',
+  2: 'Martes',
+  3: 'Miércoles',
+  4: 'Jueves',
+  5: 'Viernes',
+  6: 'Sábado'
+};
+
+type NoticeTone = 'error' | 'success' | 'warning';
+
+function Notice({
+  tone,
+  message,
+  withMargin = false,
+  onClose
+}: {
+  tone: NoticeTone;
+  message: string;
+  withMargin?: boolean;
+  onClose?: () => void;
+}) {
+  if (!message) {
+    return null;
+  }
+
+  const palette: Record<NoticeTone, { background: string; color: string }> = {
+    error: { background: '#fee', color: '#900' },
+    success: { background: '#ecfdf3', color: '#166534' },
+    warning: { background: '#fff4e5', color: '#8a5300' }
+  };
+
+  return (
+    <div
+      style={{
+        background: palette[tone].background,
+        color: palette[tone].color,
+        padding: 10,
+        borderRadius: 6,
+        marginBottom: withMargin ? 12 : 0,
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: 8
+      }}
+      role="status"
+      aria-live="polite"
+    >
+      <span style={{ flex: 1 }}>{message}</span>
+      {onClose ? (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar mensaje"
+          style={{
+            border: 'none',
+            background: 'transparent',
+            color: 'inherit',
+            cursor: 'pointer',
+            fontSize: 16,
+            lineHeight: 1,
+            padding: 0
+          }}
+        >
+          ×
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function useAutoDismissSuccess(message: string, clear: () => void, delayMs = 5000) {
+  useEffect(() => {
+    if (!message) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      clear();
+    }, delayMs);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [message, clear, delayMs]);
+}
+
+function looksLikeEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 function toDateTimeLocalInput(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -182,6 +316,11 @@ export default function DashboardPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState('');
+  const [tenantSettingsLoading, setTenantSettingsLoading] = useState(false);
+  const [tenantSettingsError, setTenantSettingsError] = useState('');
+  const [tenantSettingsSuccess, setTenantSettingsSuccess] = useState('');
+  const [tenantSettings, setTenantSettings] = useState<TenantSettingsResponse | null>(null);
+  const [bookingFormFieldsText, setBookingFormFieldsText] = useState('[]');
   const [quickServiceName, setQuickServiceName] = useState('');
   const [quickServiceDuration, setQuickServiceDuration] = useState('30');
   const [quickServicePrice, setQuickServicePrice] = useState('100');
@@ -231,11 +370,220 @@ export default function DashboardPage() {
   const [quickWaitlistLoading, setQuickWaitlistLoading] = useState(false);
   const [quickWaitlistError, setQuickWaitlistError] = useState('');
   const [quickWaitlistSuccess, setQuickWaitlistSuccess] = useState('');
+  const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRuleItem[]>([]);
+  const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityExceptionItem[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState('');
+  const [availabilityActionLoadingId, setAvailabilityActionLoadingId] = useState('');
+  const [availabilityActionError, setAvailabilityActionError] = useState('');
+  const [availabilityActionSuccess, setAvailabilityActionSuccess] = useState('');
+  const [availabilityExceptionNoteDrafts, setAvailabilityExceptionNoteDrafts] = useState<Record<string, string>>({});
+  const [availabilityExceptionUnavailableDrafts, setAvailabilityExceptionUnavailableDrafts] = useState<Record<string, boolean>>({});
+
+  useAutoDismissSuccess(quickServiceSuccess, () => setQuickServiceSuccess(''));
+  useAutoDismissSuccess(quickStaffSuccess, () => setQuickStaffSuccess(''));
+  useAutoDismissSuccess(quickBookingSuccess, () => setQuickBookingSuccess(''));
+  useAutoDismissSuccess(quickRuleSuccess, () => setQuickRuleSuccess(''));
+  useAutoDismissSuccess(quickExceptionSuccess, () => setQuickExceptionSuccess(''));
+  useAutoDismissSuccess(quickWaitlistSuccess, () => setQuickWaitlistSuccess(''));
+  useAutoDismissSuccess(bookingActionSuccess, () => setBookingActionSuccess(''));
+  useAutoDismissSuccess(availabilityActionSuccess, () => setAvailabilityActionSuccess(''));
+  useAutoDismissSuccess(tenantSettingsSuccess, () => setTenantSettingsSuccess(''));
+
+  useEffect(() => {
+    if (quickServiceSuccess) {
+      setQuickServiceError('');
+    }
+  }, [quickServiceSuccess]);
+
+  useEffect(() => {
+    if (quickStaffSuccess) {
+      setQuickStaffError('');
+    }
+  }, [quickStaffSuccess]);
+
+  useEffect(() => {
+    if (quickBookingSuccess) {
+      setQuickBookingError('');
+    }
+  }, [quickBookingSuccess]);
+
+  useEffect(() => {
+    if (quickRuleSuccess) {
+      setQuickRuleError('');
+    }
+  }, [quickRuleSuccess]);
+
+  useEffect(() => {
+    if (quickExceptionSuccess) {
+      setQuickExceptionError('');
+    }
+  }, [quickExceptionSuccess]);
+
+  useEffect(() => {
+    if (quickWaitlistSuccess) {
+      setQuickWaitlistError('');
+    }
+  }, [quickWaitlistSuccess]);
+
+  useEffect(() => {
+    if (bookingActionSuccess) {
+      setBookingActionError('');
+    }
+  }, [bookingActionSuccess]);
+
+  useEffect(() => {
+    if (availabilityActionSuccess) {
+      setAvailabilityActionError('');
+      setAvailabilityError('');
+    }
+  }, [availabilityActionSuccess]);
+
+  useEffect(() => {
+    if (tenantSettingsSuccess) {
+      setTenantSettingsError('');
+    }
+  }, [tenantSettingsSuccess]);
 
   const summaryStatus = useMemo(() => {
     if (!data) return [] as Array<[string, number]>;
     return Object.entries(data.summary.byStatus);
   }, [data]);
+
+  const quickServiceDurationNumber = Number(quickServiceDuration);
+  const quickServicePriceNumber = Number(quickServicePrice);
+
+  const canSubmitQuickService =
+    !!token.trim() &&
+    !quickServiceLoading &&
+    !!quickServiceName.trim() &&
+    Number.isFinite(quickServiceDurationNumber) &&
+    Number.isInteger(quickServiceDurationNumber) &&
+    quickServiceDurationNumber >= 5 &&
+    Number.isFinite(quickServicePriceNumber) &&
+    quickServicePriceNumber >= 0;
+
+  const canSubmitQuickStaff =
+    !!token.trim() && !quickStaffLoading && !!quickStaffName.trim() && looksLikeEmail(quickStaffEmail);
+
+  const canSubmitQuickBooking =
+    !!token.trim() &&
+    !quickBookingLoading &&
+    !!quickBookingServiceId &&
+    !!quickBookingStaffId &&
+    !!quickBookingStartAt.trim() &&
+    !Number.isNaN(new Date(quickBookingStartAt).getTime()) &&
+    !!quickBookingCustomerName.trim() &&
+    looksLikeEmail(quickBookingCustomerEmail);
+
+  const canSubmitQuickRule =
+    !!token.trim() &&
+    !quickRuleLoading &&
+    !!quickRuleStaffId &&
+    /^\d{2}:\d{2}$/.test(quickRuleStartTime) &&
+    /^\d{2}:\d{2}$/.test(quickRuleEndTime) &&
+    quickRuleStartTime < quickRuleEndTime;
+
+  const canSubmitQuickException =
+    !!token.trim() &&
+    !quickExceptionLoading &&
+    !!quickExceptionStaffId &&
+    /^\d{4}-\d{2}-\d{2}$/.test(quickExceptionDate) &&
+    (quickExceptionFullDay ||
+      (/^\d{2}:\d{2}$/.test(quickExceptionStartTime) &&
+        /^\d{2}:\d{2}$/.test(quickExceptionEndTime) &&
+        quickExceptionStartTime < quickExceptionEndTime));
+
+  const canSubmitQuickWaitlist =
+    !!token.trim() &&
+    !quickWaitlistLoading &&
+    !!quickWaitlistServiceId &&
+    !!quickWaitlistStaffId &&
+    !!quickWaitlistPreferredStartAt.trim() &&
+    !Number.isNaN(new Date(quickWaitlistPreferredStartAt).getTime()) &&
+    !!quickWaitlistCustomerName.trim() &&
+    looksLikeEmail(quickWaitlistCustomerEmail);
+
+  const quickServiceDisabledReason = !token.trim()
+    ? 'Inicia sesión para crear servicios.'
+    : quickServiceLoading
+      ? ''
+      : !quickServiceName.trim()
+        ? 'Completa el nombre del servicio.'
+        : !Number.isFinite(quickServiceDurationNumber) || !Number.isInteger(quickServiceDurationNumber) || quickServiceDurationNumber < 5
+          ? 'Duración mínima: 5 minutos.'
+          : !Number.isFinite(quickServicePriceNumber) || quickServicePriceNumber < 0
+            ? 'Ingresa un precio válido.'
+            : '';
+
+  const quickStaffDisabledReason = !token.trim()
+    ? 'Inicia sesión para crear staff.'
+    : quickStaffLoading
+      ? ''
+      : !quickStaffName.trim()
+        ? 'Completa el nombre del staff.'
+        : !looksLikeEmail(quickStaffEmail)
+          ? 'Ingresa un email válido.'
+          : '';
+
+  const quickBookingDisabledReason = !token.trim()
+    ? 'Inicia sesión para crear reservas.'
+    : quickBookingLoading
+      ? ''
+      : !quickBookingServiceId
+        ? 'Selecciona un servicio.'
+        : !quickBookingStaffId
+          ? 'Selecciona un staff.'
+          : !quickBookingStartAt.trim() || Number.isNaN(new Date(quickBookingStartAt).getTime())
+            ? 'Ingresa una fecha/hora válida.'
+            : !quickBookingCustomerName.trim()
+              ? 'Completa el nombre del cliente.'
+              : !looksLikeEmail(quickBookingCustomerEmail)
+                ? 'Ingresa un email de cliente válido.'
+                : '';
+
+  const quickRuleDisabledReason = !token.trim()
+    ? 'Inicia sesión para crear reglas.'
+    : quickRuleLoading
+      ? ''
+      : !quickRuleStaffId
+        ? 'Selecciona un staff para la regla.'
+        : !/^\d{2}:\d{2}$/.test(quickRuleStartTime) || !/^\d{2}:\d{2}$/.test(quickRuleEndTime)
+          ? 'Completa horas válidas en formato HH:mm.'
+          : quickRuleStartTime >= quickRuleEndTime
+            ? 'La hora de inicio debe ser menor a la hora de fin.'
+            : '';
+
+  const quickExceptionDisabledReason = !token.trim()
+    ? 'Inicia sesión para crear excepciones.'
+    : quickExceptionLoading
+      ? ''
+      : !quickExceptionStaffId
+        ? 'Selecciona un staff para la excepción.'
+        : !/^\d{4}-\d{2}-\d{2}$/.test(quickExceptionDate)
+          ? 'Ingresa una fecha válida.'
+          : !quickExceptionFullDay &&
+              (!/^\d{2}:\d{2}$/.test(quickExceptionStartTime) ||
+                !/^\d{2}:\d{2}$/.test(quickExceptionEndTime) ||
+                quickExceptionStartTime >= quickExceptionEndTime)
+            ? 'Para excepción parcial, completa horas válidas (inicio < fin).'
+            : '';
+
+  const quickWaitlistDisabledReason = !token.trim()
+    ? 'Inicia sesión para gestionar waitlist.'
+    : quickWaitlistLoading
+      ? ''
+      : !quickWaitlistServiceId
+        ? 'Selecciona un servicio.'
+        : !quickWaitlistStaffId
+          ? 'Selecciona un staff.'
+          : !quickWaitlistPreferredStartAt.trim() || Number.isNaN(new Date(quickWaitlistPreferredStartAt).getTime())
+            ? 'Ingresa una fecha/hora preferida válida.'
+            : !quickWaitlistCustomerName.trim()
+              ? 'Completa el nombre del cliente.'
+              : !looksLikeEmail(quickWaitlistCustomerEmail)
+                ? 'Ingresa un email de cliente válido.'
+                : '';
 
   useEffect(() => {
     const storedToken = localStorage.getItem(TOKEN_KEY);
@@ -356,6 +704,18 @@ export default function DashboardPage() {
     };
   }, [apiUrl, token]);
 
+  useEffect(() => {
+    if (!token.trim()) {
+      setAvailabilityRules([]);
+      setAvailabilityExceptions([]);
+      setAvailabilityError('');
+      return;
+    }
+
+    void loadAvailabilityData();
+    void loadTenantSettings();
+  }, [apiUrl, token]);
+
   function onLogout() {
     localStorage.removeItem(TOKEN_KEY);
     setData(null);
@@ -425,6 +785,377 @@ export default function DashboardPage() {
       setAuditCursor(null);
     } finally {
       setAuditLoading(false);
+    }
+  }
+
+  async function loadAvailabilityData() {
+    setAvailabilityError('');
+
+    const parsed = availabilityListSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim()
+    });
+
+    if (!parsed.success) {
+      setAvailabilityError(parsed.error.issues[0]?.message ?? 'Datos inválidos para consultar disponibilidad.');
+      return;
+    }
+
+    setAvailabilityLoading(true);
+
+    try {
+      const [rulesResponse, exceptionsResponse] = await Promise.all([
+        fetch(new URL('/availability/rules', parsed.data.apiUrl).toString(), {
+          headers: {
+            Authorization: `Bearer ${parsed.data.token}`
+          }
+        }),
+        fetch(new URL('/availability/exceptions', parsed.data.apiUrl).toString(), {
+          headers: {
+            Authorization: `Bearer ${parsed.data.token}`
+          }
+        })
+      ]);
+
+      if (!rulesResponse.ok) {
+        const text = await rulesResponse.text();
+        throw new Error(text || `Error ${rulesResponse.status}`);
+      }
+
+      if (!exceptionsResponse.ok) {
+        const text = await exceptionsResponse.text();
+        throw new Error(text || `Error ${exceptionsResponse.status}`);
+      }
+
+      const rulesPayload = (await rulesResponse.json()) as AvailabilityRuleItem[];
+      const exceptionsPayload = (await exceptionsResponse.json()) as AvailabilityExceptionItem[];
+      setAvailabilityRules(rulesPayload ?? []);
+      setAvailabilityExceptions(exceptionsPayload ?? []);
+      setAvailabilityExceptionNoteDrafts(() => {
+        const next: Record<string, string> = {};
+        for (const entry of exceptionsPayload ?? []) {
+          next[entry.id] = entry.note ?? '';
+        }
+        return next;
+      });
+      setAvailabilityExceptionUnavailableDrafts(() => {
+        const next: Record<string, boolean> = {};
+        for (const entry of exceptionsPayload ?? []) {
+          next[entry.id] = entry.isUnavailable;
+        }
+        return next;
+      });
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo cargar disponibilidad';
+      setAvailabilityError(message);
+      setAvailabilityRules([]);
+      setAvailabilityExceptions([]);
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }
+
+  async function loadTenantSettings() {
+    setTenantSettingsError('');
+
+    const parsed = tenantSettingsSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim()
+    });
+
+    if (!parsed.success) {
+      setTenantSettingsError(parsed.error.issues[0]?.message ?? 'Datos inválidos para tenant settings.');
+      return;
+    }
+
+    setTenantSettingsLoading(true);
+
+    try {
+      const response = await fetch(new URL('/tenant/settings', parsed.data.apiUrl).toString(), {
+        headers: {
+          Authorization: `Bearer ${parsed.data.token}`
+        }
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      const payload = (await response.json()) as TenantSettingsResponse;
+      setTenantSettings(payload);
+      setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo cargar tenant settings';
+      setTenantSettingsError(message);
+      setTenantSettings(null);
+    } finally {
+      setTenantSettingsLoading(false);
+    }
+  }
+
+  async function onSaveBookingFormFields(event: FormEvent) {
+    event.preventDefault();
+    setTenantSettingsError('');
+    setTenantSettingsSuccess('');
+
+    const parsed = tenantSettingsSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim()
+    });
+
+    if (!parsed.success) {
+      setTenantSettingsError(parsed.error.issues[0]?.message ?? 'Sesión inválida para guardar tenant settings.');
+      return;
+    }
+
+    let fieldsPayload: Array<Record<string, unknown>>;
+    try {
+      const parsedJson = JSON.parse(bookingFormFieldsText || '[]') as unknown;
+      if (!Array.isArray(parsedJson) || parsedJson.some((entry) => typeof entry !== 'object' || entry === null)) {
+        throw new Error('bookingFormFields debe ser un array de objetos.');
+      }
+      fieldsPayload = parsedJson as Array<Record<string, unknown>>;
+    } catch (jsonError) {
+      const message = jsonError instanceof Error ? jsonError.message : 'JSON inválido para bookingFormFields.';
+      setTenantSettingsError(message);
+      return;
+    }
+
+    setTenantSettingsLoading(true);
+
+    try {
+      const response = await fetch(new URL('/tenant/settings', parsed.data.apiUrl).toString(), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({ bookingFormFields: fieldsPayload })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      const payload = (await response.json()) as TenantSettingsResponse;
+      setTenantSettings(payload);
+      setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
+      setTenantSettingsSuccess('Booking form fields actualizados correctamente.');
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudieron guardar bookingFormFields';
+      setTenantSettingsError(message);
+    } finally {
+      setTenantSettingsLoading(false);
+    }
+  }
+
+  function parseBookingFormFieldsDraft() {
+    const parsedJson = JSON.parse(bookingFormFieldsText || '[]') as unknown;
+    if (!Array.isArray(parsedJson) || parsedJson.some((entry) => typeof entry !== 'object' || entry === null)) {
+      throw new Error('bookingFormFields debe ser un array de objetos.');
+    }
+    return parsedJson as Array<Record<string, unknown>>;
+  }
+
+  function onApplyBookingFieldPreset(preset: Record<string, unknown>) {
+    setTenantSettingsError('');
+    setTenantSettingsSuccess('');
+
+    try {
+      const fields = parseBookingFormFieldsDraft();
+      const presetKey = String(preset.key ?? '').trim();
+      if (!presetKey) {
+        throw new Error('Preset inválido: falta key.');
+      }
+
+      const existingIndex = fields.findIndex((entry) => String(entry.key ?? '').trim() === presetKey);
+      if (existingIndex >= 0) {
+        fields[existingIndex] = {
+          ...fields[existingIndex],
+          ...preset
+        };
+      } else {
+        fields.push(preset);
+      }
+
+      setBookingFormFieldsText(JSON.stringify(fields, null, 2));
+      setTenantSettingsSuccess(`Preset aplicado: ${presetKey}`);
+    } catch (presetError) {
+      const message = presetError instanceof Error ? presetError.message : 'No se pudo aplicar preset.';
+      setTenantSettingsError(message);
+    }
+  }
+
+  async function onToggleAvailabilityRule(rule: AvailabilityRuleItem) {
+    setAvailabilityActionError('');
+    setAvailabilityActionSuccess('');
+
+    const parsed = availabilityListSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim()
+    });
+
+    if (!parsed.success) {
+      setAvailabilityActionError(parsed.error.issues[0]?.message ?? 'No se pudo actualizar regla.');
+      return;
+    }
+
+    setAvailabilityActionLoadingId(`rule-toggle-${rule.id}`);
+
+    try {
+      const response = await fetch(new URL(`/availability/rules/${rule.id}`, parsed.data.apiUrl).toString(), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({
+          isActive: !rule.isActive
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      setAvailabilityActionSuccess(`Regla ${rule.isActive ? 'desactivada' : 'activada'} correctamente.`);
+      await loadAvailabilityData();
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo actualizar regla';
+      setAvailabilityActionError(message);
+    } finally {
+      setAvailabilityActionLoadingId('');
+    }
+  }
+
+  async function onDeleteAvailabilityRule(ruleId: string) {
+    setAvailabilityActionError('');
+    setAvailabilityActionSuccess('');
+
+    const parsed = availabilityListSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim()
+    });
+
+    if (!parsed.success) {
+      setAvailabilityActionError(parsed.error.issues[0]?.message ?? 'No se pudo eliminar regla.');
+      return;
+    }
+
+    setAvailabilityActionLoadingId(`rule-delete-${ruleId}`);
+
+    try {
+      const response = await fetch(new URL(`/availability/rules/${ruleId}`, parsed.data.apiUrl).toString(), {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${parsed.data.token}`
+        }
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      setAvailabilityActionSuccess('Regla eliminada correctamente.');
+      await loadAvailabilityData();
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo eliminar regla';
+      setAvailabilityActionError(message);
+    } finally {
+      setAvailabilityActionLoadingId('');
+    }
+  }
+
+  async function onSaveAvailabilityException(exceptionId: string) {
+    setAvailabilityActionError('');
+    setAvailabilityActionSuccess('');
+
+    const parsed = availabilityListSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim()
+    });
+
+    if (!parsed.success) {
+      setAvailabilityActionError(parsed.error.issues[0]?.message ?? 'No se pudo actualizar excepción.');
+      return;
+    }
+
+    const exception = availabilityExceptions.find((entry) => entry.id === exceptionId);
+    if (!exception) {
+      setAvailabilityActionError('Excepción no encontrada en la lista actual.');
+      return;
+    }
+
+    setAvailabilityActionLoadingId(`exception-save-${exceptionId}`);
+
+    try {
+      const response = await fetch(new URL(`/availability/exceptions/${exceptionId}`, parsed.data.apiUrl).toString(), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({
+          note: availabilityExceptionNoteDrafts[exceptionId] ?? '',
+          isUnavailable: availabilityExceptionUnavailableDrafts[exceptionId] ?? exception.isUnavailable
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      setAvailabilityActionSuccess('Excepción actualizada correctamente.');
+      await loadAvailabilityData();
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo actualizar excepción';
+      setAvailabilityActionError(message);
+    } finally {
+      setAvailabilityActionLoadingId('');
+    }
+  }
+
+  async function onDeleteAvailabilityException(exceptionId: string) {
+    setAvailabilityActionError('');
+    setAvailabilityActionSuccess('');
+
+    const parsed = availabilityListSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim()
+    });
+
+    if (!parsed.success) {
+      setAvailabilityActionError(parsed.error.issues[0]?.message ?? 'No se pudo eliminar excepción.');
+      return;
+    }
+
+    setAvailabilityActionLoadingId(`exception-delete-${exceptionId}`);
+
+    try {
+      const response = await fetch(new URL(`/availability/exceptions/${exceptionId}`, parsed.data.apiUrl).toString(), {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${parsed.data.token}`
+        }
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      setAvailabilityActionSuccess('Excepción eliminada correctamente.');
+      await loadAvailabilityData();
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo eliminar excepción';
+      setAvailabilityActionError(message);
+    } finally {
+      setAvailabilityActionLoadingId('');
     }
   }
 
@@ -738,6 +1469,7 @@ export default function DashboardPage() {
       }
 
       setQuickRuleSuccess('Regla de disponibilidad creada correctamente.');
+      await loadAvailabilityData();
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo crear regla de disponibilidad';
       setQuickRuleError(message);
@@ -804,6 +1536,7 @@ export default function DashboardPage() {
 
       setQuickExceptionSuccess('Excepción de disponibilidad creada correctamente.');
       setQuickExceptionNote('');
+      await loadAvailabilityData();
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo crear excepción de disponibilidad';
       setQuickExceptionError(message);
@@ -1061,23 +1794,16 @@ export default function DashboardPage() {
             </select>
           </label>
         </div>
-        {staffError ? <div style={{ background: '#fff4e5', color: '#8a5300', padding: 10, borderRadius: 6 }}>{staffError}</div> : null}
-        {serviceError ? <div style={{ background: '#fff4e5', color: '#8a5300', padding: 10, borderRadius: 6 }}>{serviceError}</div> : null}
+        <Notice tone="warning" message={staffError} onClose={() => setStaffError('')} />
+        <Notice tone="warning" message={serviceError} onClose={() => setServiceError('')} />
         <button type="submit" disabled={loading || !token.trim()} style={{ width: 220, padding: '8px 12px' }}>
           {loading ? 'Consultando...' : 'Cargar calendario'}
         </button>
       </form>
 
-      {error ? (
-        <div style={{ background: '#fee', color: '#900', padding: 12, borderRadius: 6, marginBottom: 16 }}>{error}</div>
-      ) : null}
-
-      {bookingActionError ? (
-        <div style={{ background: '#fee', color: '#900', padding: 12, borderRadius: 6, marginBottom: 16 }}>{bookingActionError}</div>
-      ) : null}
-      {bookingActionSuccess ? (
-        <div style={{ background: '#ecfdf3', color: '#166534', padding: 12, borderRadius: 6, marginBottom: 16 }}>{bookingActionSuccess}</div>
-      ) : null}
+      <Notice tone="error" message={error} withMargin onClose={() => setError('')} />
+      <Notice tone="error" message={bookingActionError} withMargin onClose={() => setBookingActionError('')} />
+      <Notice tone="success" message={bookingActionSuccess} withMargin onClose={() => setBookingActionSuccess('')} />
 
       {data ? (
         <section>
@@ -1185,11 +1911,14 @@ export default function DashboardPage() {
               Precio
               <input type="number" min={0} step="0.01" value={quickServicePrice} onChange={(e) => setQuickServicePrice(e.target.value)} style={{ width: '100%' }} />
             </label>
-            <button type="submit" disabled={quickServiceLoading || !token.trim()} style={{ width: 180, padding: '8px 12px' }}>
+            <button type="submit" disabled={!canSubmitQuickService} style={{ width: 180, padding: '8px 12px' }}>
               {quickServiceLoading ? 'Creando...' : 'Crear servicio'}
             </button>
-            {quickServiceError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickServiceError}</div> : null}
-            {quickServiceSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickServiceSuccess}</div> : null}
+            {!canSubmitQuickService && quickServiceDisabledReason ? (
+              <div style={{ color: '#666', fontSize: 12 }}>{quickServiceDisabledReason}</div>
+            ) : null}
+            <Notice tone="error" message={quickServiceError} onClose={() => setQuickServiceError('')} />
+            <Notice tone="success" message={quickServiceSuccess} onClose={() => setQuickServiceSuccess('')} />
           </form>
 
           <form onSubmit={onCreateStaff} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
@@ -1202,11 +1931,14 @@ export default function DashboardPage() {
               Email
               <input type="email" value={quickStaffEmail} onChange={(e) => setQuickStaffEmail(e.target.value)} style={{ width: '100%' }} />
             </label>
-            <button type="submit" disabled={quickStaffLoading || !token.trim()} style={{ width: 180, padding: '8px 12px' }}>
+            <button type="submit" disabled={!canSubmitQuickStaff} style={{ width: 180, padding: '8px 12px' }}>
               {quickStaffLoading ? 'Creando...' : 'Crear staff'}
             </button>
-            {quickStaffError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickStaffError}</div> : null}
-            {quickStaffSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickStaffSuccess}</div> : null}
+            {!canSubmitQuickStaff && quickStaffDisabledReason ? (
+              <div style={{ color: '#666', fontSize: 12 }}>{quickStaffDisabledReason}</div>
+            ) : null}
+            <Notice tone="error" message={quickStaffError} onClose={() => setQuickStaffError('')} />
+            <Notice tone="success" message={quickStaffSuccess} onClose={() => setQuickStaffSuccess('')} />
           </form>
 
           <form onSubmit={onCreateBooking} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
@@ -1249,11 +1981,14 @@ export default function DashboardPage() {
               Notas (opcional)
               <input value={quickBookingNotes} onChange={(e) => setQuickBookingNotes(e.target.value)} style={{ width: '100%' }} />
             </label>
-            <button type="submit" disabled={quickBookingLoading || !token.trim()} style={{ width: 180, padding: '8px 12px' }}>
+            <button type="submit" disabled={!canSubmitQuickBooking} style={{ width: 180, padding: '8px 12px' }}>
               {quickBookingLoading ? 'Creando...' : 'Crear booking'}
             </button>
-            {quickBookingError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickBookingError}</div> : null}
-            {quickBookingSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickBookingSuccess}</div> : null}
+            {!canSubmitQuickBooking && quickBookingDisabledReason ? (
+              <div style={{ color: '#666', fontSize: 12 }}>{quickBookingDisabledReason}</div>
+            ) : null}
+            <Notice tone="error" message={quickBookingError} onClose={() => setQuickBookingError('')} />
+            <Notice tone="success" message={quickBookingSuccess} onClose={() => setQuickBookingSuccess('')} />
           </form>
 
           <form onSubmit={onCreateAvailabilityRule} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
@@ -1289,11 +2024,14 @@ export default function DashboardPage() {
                 ))}
               </select>
             </label>
-            <button type="submit" disabled={quickRuleLoading || !token.trim()} style={{ width: 220, padding: '8px 12px' }}>
+            <button type="submit" disabled={!canSubmitQuickRule} style={{ width: 220, padding: '8px 12px' }}>
               {quickRuleLoading ? 'Creando...' : 'Crear regla'}
             </button>
-            {quickRuleError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickRuleError}</div> : null}
-            {quickRuleSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickRuleSuccess}</div> : null}
+            {!canSubmitQuickRule && quickRuleDisabledReason ? (
+              <div style={{ color: '#666', fontSize: 12 }}>{quickRuleDisabledReason}</div>
+            ) : null}
+            <Notice tone="error" message={quickRuleError} onClose={() => setQuickRuleError('')} />
+            <Notice tone="success" message={quickRuleSuccess} onClose={() => setQuickRuleSuccess('')} />
           </form>
 
           <form onSubmit={onCreateAvailabilityException} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
@@ -1329,11 +2067,14 @@ export default function DashboardPage() {
               Nota (opcional)
               <input value={quickExceptionNote} onChange={(e) => setQuickExceptionNote(e.target.value)} style={{ width: '100%' }} />
             </label>
-            <button type="submit" disabled={quickExceptionLoading || !token.trim()} style={{ width: 240, padding: '8px 12px' }}>
+            <button type="submit" disabled={!canSubmitQuickException} style={{ width: 240, padding: '8px 12px' }}>
               {quickExceptionLoading ? 'Creando...' : 'Crear excepción'}
             </button>
-            {quickExceptionError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickExceptionError}</div> : null}
-            {quickExceptionSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickExceptionSuccess}</div> : null}
+            {!canSubmitQuickException && quickExceptionDisabledReason ? (
+              <div style={{ color: '#666', fontSize: 12 }}>{quickExceptionDisabledReason}</div>
+            ) : null}
+            <Notice tone="error" message={quickExceptionError} onClose={() => setQuickExceptionError('')} />
+            <Notice tone="success" message={quickExceptionSuccess} onClose={() => setQuickExceptionSuccess('')} />
           </form>
 
           <form onSubmit={onJoinWaitlist} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
@@ -1376,13 +2117,289 @@ export default function DashboardPage() {
               Notas (opcional)
               <input value={quickWaitlistNotes} onChange={(e) => setQuickWaitlistNotes(e.target.value)} style={{ width: '100%' }} />
             </label>
-            <button type="submit" disabled={quickWaitlistLoading || !token.trim()} style={{ width: 180, padding: '8px 12px' }}>
+            <button type="submit" disabled={!canSubmitQuickWaitlist} style={{ width: 180, padding: '8px 12px' }}>
               {quickWaitlistLoading ? 'Agregando...' : 'Agregar waitlist'}
             </button>
-            {quickWaitlistError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickWaitlistError}</div> : null}
-            {quickWaitlistSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickWaitlistSuccess}</div> : null}
+            {!canSubmitQuickWaitlist && quickWaitlistDisabledReason ? (
+              <div style={{ color: '#666', fontSize: 12 }}>{quickWaitlistDisabledReason}</div>
+            ) : null}
+            <Notice tone="error" message={quickWaitlistError} onClose={() => setQuickWaitlistError('')} />
+            <Notice tone="success" message={quickWaitlistSuccess} onClose={() => setQuickWaitlistSuccess('')} />
           </form>
         </div>
+      </section>
+
+      <section style={{ marginTop: 28 }}>
+        <h2 style={{ marginBottom: 8 }}>Disponibilidad configurada</h2>
+        <p style={{ marginTop: 0, color: '#555' }}>Lista de reglas y excepciones actuales del tenant autenticado.</p>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <button
+            type="button"
+            disabled={availabilityLoading || !token.trim()}
+            onClick={() => {
+              void loadAvailabilityData();
+            }}
+            style={{ width: 220, padding: '8px 12px' }}
+          >
+            {availabilityLoading ? 'Cargando...' : 'Refresh disponibilidad'}
+          </button>
+        </div>
+
+        <Notice tone="error" message={availabilityError} withMargin onClose={() => setAvailabilityError('')} />
+        <Notice tone="error" message={availabilityActionError} withMargin onClose={() => setAvailabilityActionError('')} />
+        <Notice tone="success" message={availabilityActionSuccess} withMargin onClose={() => setAvailabilityActionSuccess('')} />
+
+        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <strong>Rules</strong>
+            <div style={{ overflowX: 'auto', marginTop: 8 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Día</th>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Horario</th>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Staff</th>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Estado</th>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {availabilityRules.map((rule) => (
+                    <tr key={rule.id}>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{DAY_OF_WEEK_LABEL[rule.dayOfWeek] ?? String(rule.dayOfWeek)}</td>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{rule.startTime} - {rule.endTime}</td>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
+                        {staffOptions.find((entry) => entry.id === rule.staffId)?.fullName ?? rule.staffId ?? '-'}
+                      </td>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{rule.isActive ? 'Activa' : 'Inactiva'}</td>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void onToggleAvailabilityRule(rule);
+                            }}
+                            disabled={availabilityActionLoadingId === `rule-toggle-${rule.id}` || availabilityActionLoadingId === `rule-delete-${rule.id}`}
+                            style={{ padding: '4px 8px' }}
+                          >
+                            {availabilityActionLoadingId === `rule-toggle-${rule.id}`
+                              ? 'Guardando...'
+                              : rule.isActive
+                                ? 'Desactivar'
+                                : 'Activar'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void onDeleteAvailabilityRule(rule.id);
+                            }}
+                            disabled={availabilityActionLoadingId === `rule-delete-${rule.id}` || availabilityActionLoadingId === `rule-toggle-${rule.id}`}
+                            style={{ padding: '4px 8px' }}
+                          >
+                            {availabilityActionLoadingId === `rule-delete-${rule.id}` ? 'Eliminando...' : 'Eliminar'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {!availabilityRules.length ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: 8, color: '#666' }}>
+                        Sin reglas cargadas.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <strong>Exceptions</strong>
+            <div style={{ overflowX: 'auto', marginTop: 8 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Fecha</th>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Horario</th>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Staff</th>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Tipo</th>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {availabilityExceptions.map((exception) => (
+                    <tr key={exception.id}>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{new Date(exception.date).toLocaleDateString()}</td>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
+                        {exception.startTime && exception.endTime ? `${exception.startTime} - ${exception.endTime}` : 'Todo el día'}
+                      </td>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
+                        {staffOptions.find((entry) => entry.id === exception.staffId)?.fullName ?? exception.staffId ?? '-'}
+                      </td>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
+                        {(availabilityExceptionUnavailableDrafts[exception.id] ?? exception.isUnavailable) ? 'No disponible' : 'Disponible'}
+                      </td>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <input
+                              type="checkbox"
+                              checked={availabilityExceptionUnavailableDrafts[exception.id] ?? exception.isUnavailable}
+                              onChange={(e) =>
+                                setAvailabilityExceptionUnavailableDrafts((current) => ({
+                                  ...current,
+                                  [exception.id]: e.target.checked
+                                }))
+                              }
+                            />
+                            No disponible
+                          </label>
+                          <input
+                            value={availabilityExceptionNoteDrafts[exception.id] ?? exception.note ?? ''}
+                            onChange={(e) =>
+                              setAvailabilityExceptionNoteDrafts((current) => ({
+                                ...current,
+                                [exception.id]: e.target.value
+                              }))
+                            }
+                            placeholder="Nota"
+                            style={{ width: '100%' }}
+                          />
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void onSaveAvailabilityException(exception.id);
+                              }}
+                              disabled={
+                                availabilityActionLoadingId === `exception-save-${exception.id}` ||
+                                availabilityActionLoadingId === `exception-delete-${exception.id}`
+                              }
+                              style={{ padding: '4px 8px' }}
+                            >
+                              {availabilityActionLoadingId === `exception-save-${exception.id}` ? 'Guardando...' : 'Guardar'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void onDeleteAvailabilityException(exception.id);
+                              }}
+                              disabled={
+                                availabilityActionLoadingId === `exception-delete-${exception.id}` ||
+                                availabilityActionLoadingId === `exception-save-${exception.id}`
+                              }
+                              style={{ padding: '4px 8px' }}
+                            >
+                              {availabilityActionLoadingId === `exception-delete-${exception.id}` ? 'Eliminando...' : 'Eliminar'}
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {!availabilityExceptions.length ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: 8, color: '#666' }}>
+                        Sin excepciones cargadas.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section style={{ marginTop: 28 }}>
+        <h2 style={{ marginBottom: 8 }}>Tenant Settings (MVP)</h2>
+        <p style={{ marginTop: 0, color: '#555' }}>
+          Configura los campos del formulario público (`bookingFormFields`) para {tenantSettings?.name ?? 'tu negocio'}.
+        </p>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <button
+            type="button"
+            disabled={tenantSettingsLoading || !token.trim()}
+            onClick={() => {
+              void loadTenantSettings();
+            }}
+            style={{ width: 200, padding: '8px 12px' }}
+          >
+            {tenantSettingsLoading ? 'Cargando...' : 'Refresh settings'}
+          </button>
+        </div>
+
+        <Notice tone="error" message={tenantSettingsError} withMargin onClose={() => setTenantSettingsError('')} />
+        <Notice tone="success" message={tenantSettingsSuccess} withMargin onClose={() => setTenantSettingsSuccess('')} />
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() =>
+              onApplyBookingFieldPreset({
+                key: 'phone',
+                label: 'Teléfono',
+                type: 'tel',
+                required: false,
+                placeholder: 'Ej: +52 55 1234 5678'
+              })
+            }
+            style={{ padding: '6px 10px' }}
+          >
+            Agregar Phone
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onApplyBookingFieldPreset({
+                key: 'dni',
+                label: 'DNI/Documento',
+                type: 'text',
+                required: false,
+                placeholder: 'Ej: 12345678'
+              })
+            }
+            style={{ padding: '6px 10px' }}
+          >
+            Agregar DNI
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onApplyBookingFieldPreset({
+                key: 'notes',
+                label: 'Notas adicionales',
+                type: 'textarea',
+                required: false,
+                placeholder: 'Indica cualquier detalle importante para tu cita'
+              })
+            }
+            style={{ padding: '6px 10px' }}
+          >
+            Agregar Notes
+          </button>
+        </div>
+
+        <form onSubmit={onSaveBookingFormFields} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+          <label>
+            bookingFormFields (JSON array)
+            <textarea
+              value={bookingFormFieldsText}
+              onChange={(e) => setBookingFormFieldsText(e.target.value)}
+              style={{ width: '100%', minHeight: 180, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+              placeholder='[{ "key": "phone", "label": "Teléfono", "type": "tel", "required": false }]'
+            />
+          </label>
+          <div style={{ color: '#555', fontSize: 13 }}>
+            Sugerencia: usa objetos con `key`, `label`, `type` (`text|email|tel|textarea`) y `required`.
+          </div>
+          <button type="submit" disabled={tenantSettingsLoading || !token.trim()} style={{ width: 260, padding: '8px 12px' }}>
+            {tenantSettingsLoading ? 'Guardando...' : 'Guardar bookingFormFields'}
+          </button>
+        </form>
       </section>
 
       <section style={{ marginTop: 28 }}>
@@ -1437,9 +2454,7 @@ export default function DashboardPage() {
           </div>
         </form>
 
-        {auditError ? (
-          <div style={{ background: '#fee', color: '#900', padding: 12, borderRadius: 6, marginBottom: 12 }}>{auditError}</div>
-        ) : null}
+        <Notice tone="error" message={auditError} withMargin onClose={() => setAuditError('')} />
 
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>

@@ -4,6 +4,19 @@
 > Fecha: Febrero 2026  
 > Objetivo: iniciar implementación sin omitir requisitos funcionales, técnicos y de negocio.
 
+## Estado actual (actualizado 2026-02-17)
+
+Resumen ejecutivo:
+- MVP backend y frontend funcional en operación local.
+- Flujo público por slug implementado con formulario configurable (`bookingFormFields`).
+- Validación de campos requeridos aplicada tanto en frontend como en backend.
+- Notificaciones email implementadas con fallback SendGrid → Nodemailer.
+- Suite e2e crítica pasando (14/14).
+
+Pendiente inmediato para cierre de go-live MVP:
+- Prueba manual integrada dashboard → public/:slug → reserva (checklist abajo).
+- Validación real de proveedor SendGrid con credenciales reales (cuando se habiliten).
+
 ---
 
 ## 1) Objetivo de Implementación
@@ -56,34 +69,34 @@ Incluye:
 Usar estos IDs para historias, PRs y QA.
 
 ### 3.1 Agenda (AG)
-- [ ] **AG-01** Calendario con vista día/semana/mes
-- [ ] **AG-02** Disponibilidad configurable por negocio
-- [ ] **AG-03** Disponibilidad configurable por empleado
-- [ ] **AG-04** Bloqueo de festivos/vacaciones/no disponibilidad
-- [ ] **AG-05** Soporte multi-empleado por cuenta
-- [ ] **AG-06** Buffer entre citas configurable
-- [ ] **AG-07** Límite máximo de reservas por día/semana
+- [x] **AG-01** Calendario con vista día/semana/mes
+- [x] **AG-02** Disponibilidad configurable por negocio
+- [x] **AG-03** Disponibilidad configurable por empleado
+- [x] **AG-04** Bloqueo de festivos/vacaciones/no disponibilidad
+- [x] **AG-05** Soporte multi-empleado por cuenta
+- [x] **AG-06** Buffer entre citas configurable
+- [x] **AG-07** Límite máximo de reservas por día/semana
 
 ### 3.2 Reservas Online (RS)
-- [ ] **RS-01** Página pública por negocio (`/slug-negocio`)
-- [ ] **RS-02** Flujo de reserva: servicio → empleado → horario → datos
-- [ ] **RS-03** Formulario de cliente configurable
-- [ ] **RS-04** Reglas de cancelación y reprogramación configurables
-- [ ] **RS-05** Lista de espera automática por cupo lleno
-- [ ] **RS-06** Reasignación de cupo y notificación al siguiente en lista
+- [x] **RS-01** Página pública por negocio (`/slug-negocio`)
+- [x] **RS-02** Flujo de reserva: servicio → empleado → horario → datos
+- [x] **RS-03** Formulario de cliente configurable
+- [x] **RS-04** Reglas de cancelación y reprogramación configurables
+- [x] **RS-05** Lista de espera automática por cupo lleno
+- [x] **RS-06** Reasignación de cupo y notificación al siguiente en lista
 
 ### 3.3 Notificaciones (NT)
-- [ ] **NT-01** Confirmación inmediata por email
+- [x] **NT-01** Confirmación inmediata por email
 - [ ] **NT-02** Confirmación inmediata por SMS (Pro+)
 - [ ] **NT-03** Confirmación inmediata por WhatsApp (Pro+)
 - [ ] **NT-04** Recordatorios automáticos configurables (ej. 24h, 2h)
-- [ ] **NT-05** Notificación al negocio por nueva/modificada/cancelada
+- [x] **NT-05** Notificación al negocio por nueva/modificada/cancelada
 
 ### 3.4 Gestión de Negocio (GN)
-- [ ] **GN-01** Catálogo de servicios (nombre, duración, precio)
-- [ ] **GN-02** CRM básico (historial, notas, contacto)
-- [ ] **GN-03** Panel global de citas del día/semana
-- [ ] **GN-04** Política de cancelación (reembolso/crédito/sin devolución)
+- [x] **GN-01** Catálogo de servicios (nombre, duración, precio)
+- [x] **GN-02** CRM básico (historial, notas, contacto)
+- [x] **GN-03** Panel global de citas del día/semana
+- [x] **GN-04** Política de cancelación (reembolso/crédito/sin devolución)
 - [ ] **GN-05** Multi-sede (Business)
 
 ### 3.5 Pagos (PG)
@@ -133,18 +146,18 @@ Usar estos IDs para historias, PRs y QA.
 
 ### 4.1 Seguridad
 - [ ] **NFR-SEC-01** HTTPS obligatorio
-- [ ] **NFR-SEC-02** Rate limit en endpoints públicos
+- [x] **NFR-SEC-02** Rate limit en endpoints públicos
 - [ ] **NFR-SEC-03** Validación frontend + backend con Zod
-- [ ] **NFR-SEC-04** Aislamiento por tenant con `tenant_id`
+- [x] **NFR-SEC-04** Aislamiento por tenant con `tenant_id`
 - [ ] **NFR-SEC-05** Row-Level Security en PostgreSQL
 - [ ] **NFR-SEC-06** Secretos en variables de entorno seguras
-- [ ] **NFR-SEC-07** Auditoría de acciones sensibles
+- [x] **NFR-SEC-07** Auditoría de acciones sensibles
 - [ ] **NFR-SEC-08** Principios GDPR/privacidad
 
 ### 4.2 Escalabilidad y operación
 - [ ] **NFR-OPS-01** Cola de jobs para notificaciones y recordatorios
 - [ ] **NFR-OPS-02** Caché de disponibilidad
-- [ ] **NFR-OPS-03** Multi-tenant sin fuga de datos
+- [x] **NFR-OPS-03** Multi-tenant sin fuga de datos
 - [ ] **NFR-OPS-04** CI/CD con checks automáticos
 
 ---
@@ -218,42 +231,42 @@ Regla de implementación:
 ## 8) Backlog Técnico Priorizado para Empezar
 
 ## Sprint 0 (1 semana)
-- [ ] Monorepo/apps + convenciones
-- [ ] Setup NestJS + Next.js + Prisma + PostgreSQL
+- [x] Monorepo/apps + convenciones
+- [x] Setup NestJS + Next.js + Prisma + PostgreSQL
 - [ ] Pipeline CI básico (lint, typecheck, test)
-- [ ] Gestión de entornos (`.env` por ambiente)
-- [ ] Seed de tenant demo
+- [x] Gestión de entornos (`.env` por ambiente)
+- [x] Seed de tenant demo
 
 ## Sprint 1 (MVP Core)
-- [ ] Auth (registro/login/refresh/logout)
-- [ ] Multi-tenant (`tenant_id` obligatorio en dominio de datos)
-- [ ] CRUD servicios
-- [ ] CRUD empleados
-- [ ] Configuración disponibilidad
-- [ ] Reserva pública paso a paso
-- [ ] Confirmación email
+- [x] Auth (registro/login/refresh/logout)
+- [x] Multi-tenant (`tenant_id` obligatorio en dominio de datos)
+- [x] CRUD servicios
+- [x] CRUD empleados
+- [x] Configuración disponibilidad
+- [x] Reserva pública paso a paso
+- [x] Confirmación email
 
 ## Sprint 2 (MVP Operable)
-- [ ] Calendario día/semana/mes en dashboard
-- [ ] Reglas cancelación/reprogramación
-- [ ] Buffer y límites de reserva
-- [ ] Panel diario/semanal de citas
-- [ ] Lista de espera básica
-- [ ] Hardening seguridad (rate limit + auditoría)
+- [x] Calendario día/semana/mes en dashboard
+- [x] Reglas cancelación/reprogramación
+- [x] Buffer y límites de reserva
+- [x] Panel diario/semanal de citas
+- [x] Lista de espera básica
+- [x] Hardening seguridad (rate limit + auditoría)
 
 ---
 
 ## 9) Criterios de Aceptación de MVP (Go-Live)
 
 El MVP está listo solo si:
-- [ ] Un negocio puede registrarse y crear su configuración básica
-- [ ] Puede publicar su página de reservas por slug
-- [ ] Un cliente puede reservar de inicio a fin sin intervención humana
-- [ ] El negocio recibe notificación por nueva reserva
-- [ ] El cliente recibe confirmación por email
-- [ ] No hay acceso cruzado de datos entre tenants
-- [ ] Se respetan límites del plan Free (usuario y citas/mes)
-- [ ] Existe trazabilidad básica de auditoría
+- [x] Un negocio puede registrarse y crear su configuración básica
+- [x] Puede publicar su página de reservas por slug
+- [x] Un cliente puede reservar de inicio a fin sin intervención humana
+- [x] El negocio recibe notificación por nueva reserva
+- [x] El cliente recibe confirmación por email
+- [x] No hay acceso cruzado de datos entre tenants
+- [x] Se respetan límites del plan Free (usuario y citas/mes)
+- [x] Existe trazabilidad básica de auditoría
 
 ---
 
@@ -264,6 +277,87 @@ El MVP está listo solo si:
 - [ ] Integration tests en flujo de reserva (API)
 - [ ] E2E smoke test: registro negocio → crear servicio → reservar
 - [ ] Test multi-tenant: aislamiento estricto por `tenant_id`
+
+Estado real QA automático (2026-02-17):
+- [x] Unit tests en reglas de disponibilidad y colisión de horarios
+- [x] Unit tests en políticas de cancelación/reprogramación
+- [x] Integration/E2E en flujo de reserva (API)
+- [x] E2E smoke test: registro negocio → crear servicio → reservar
+- [x] Test multi-tenant: aislamiento estricto por `tenant_id`
+- [x] E2E flujo público configurable (`bookingFormFields`) y persistencia `customFields`
+- [x] E2E validación backend de campos requeridos (`required: true`)
+
+---
+
+## 10.1) Runbook de prueba manual integrada (pendiente de cierre operativo)
+
+Objetivo: validar de punta a punta que configuración desde dashboard impacta el formulario público y bloquea/permite reserva correctamente.
+
+Precondiciones:
+1. Infra local activa: `docker compose up -d postgres redis`
+2. API + Web levantadas: `npm run dev`
+3. Usuario de pruebas creado (o usar registro en UI).
+
+Pasos:
+1. Login en `/login`.
+2. En dashboard, crear/confirmar al menos 1 servicio y 1 staff.
+3. Configurar disponibilidad con una regla activa para un día cercano.
+4. En sección **Tenant Settings (MVP)**, guardar:
+   ```json
+   [
+     { "key": "phone", "label": "Teléfono", "type": "tel", "required": true },
+     { "key": "dni", "label": "DNI", "type": "text", "required": false }
+   ]
+   ```
+5. Abrir `/public/<slug-del-tenant>`.
+6. Verificar que aparecen campos dinámicos `Teléfono` y `DNI`.
+7. Intentar reservar sin `Teléfono` → debe fallar con mensaje de campo requerido.
+8. Reservar completando `Teléfono` → debe confirmar reserva o entrar a waitlist según ocupación.
+9. Confirmar en dashboard/listado que la reserva existe.
+10. Validar en API/DB (opcional) que `customFields` y `customer.phone` quedaron persistidos.
+
+Criterio de salida:
+- Si los pasos 6–10 son exitosos, RS-03 queda validado también en operación manual.
+
+---
+
+## 10.2) Gate final de Go-Live MVP
+
+Checklist previo a liberar:
+- [ ] Runbook manual integrada 10.1 ejecutado y evidenciado (capturas o notas).
+- [ ] Prueba real SendGrid ejecutada con credenciales válidas.
+- [ ] Variables de entorno productivas revisadas (sin secretos por defecto).
+- [x] Build local sin errores (`web` y `api`).
+- [x] Suite e2e crítica en verde.
+
+---
+
+## 10.3) Checklist preproducción por entorno
+
+### DEV (local)
+- [x] `docker compose up -d postgres redis` operativo.
+- [x] `npm run build` sin errores en `web` y `api`.
+- [x] `npm run test:e2e -w @apoint/api -- critical-rules.e2e-spec.ts` en verde.
+- [ ] `npm run dev` estable sin locks de `.next` ni procesos huérfanos.
+- [ ] Runbook manual integrada (sección 10.1) completado y evidenciado.
+
+### STAGING
+- [ ] Variables `DATABASE_URL`, `REDIS_URL`, `JWT_*`, `NEXT_PUBLIC_API_URL` configuradas.
+- [ ] Credenciales SendGrid/SMTP de staging cargadas.
+- [ ] Migraciones Prisma aplicadas (`prisma migrate deploy`).
+- [ ] Smoke de flujos críticos: auth, dashboard, reserva pública, cancelación, waitlist.
+- [ ] Verificación de auditoría en acciones sensibles (`BOOKING_*`, `TENANT_SETTINGS_UPDATED`).
+
+### PROD
+- [ ] Secretos productivos validados (sin defaults, rotación definida).
+- [ ] HTTPS + dominio(s) operativos y redirecciones correctas.
+- [ ] Monitoreo/logs y alertas mínimas habilitadas.
+- [ ] Backup/restore de base de datos validado.
+- [ ] Plan de rollback documentado (última versión estable + migraciones).
+
+### Criterio de promoción
+- DEV → STAGING: todos los checks de DEV completos.
+- STAGING → PROD: smoke + notificaciones + auditoría + migraciones en verde.
 
 ---
 
@@ -302,11 +396,11 @@ Regla operativa del equipo:
 
 ## 14) Próximo Paso Inmediato
 
-Iniciar **Sprint 0** y abrir épicas en el gestor de tareas con esta estructura:
-- Épica 1: Fundaciones técnicas
-- Épica 2: Reserva pública MVP
-- Épica 3: Operación de agenda y notificaciones
-- Épica 4: Seguridad multi-tenant y compliance base
+Cerrar gate de Go-Live MVP en este orden:
+1. Ejecutar y evidenciar runbook manual integrada (10.1).
+2. Ejecutar prueba real SendGrid con credenciales válidas.
+3. Completar checklist DEV/STAGING/PROD (10.3).
+4. Publicar release MVP con rollback definido.
 
 ---
 

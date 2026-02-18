@@ -8,7 +8,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev -w @apoint/web\" \"npm run start:dev -w @apoint/api\"",
+    "dev": "npm run dev:prep && concurrently \"npm run dev -w @apoint/web\" \"npm run start:dev -w @apoint/api\"",
+    "dev:prep": "node scripts/dev-prep.js",
+    "dev:reset:win": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force\"",
     "dev:web": "npm run dev -w @apoint/web",
     "dev:api": "npm run start:dev -w @apoint/api",
     "build": "npm run build -w @apoint/web && npm run build -w @apoint/api",

@@ -13,6 +13,13 @@ import { AuditService } from '../audit/audit.service';
 
 const SLOT_STEP_MINUTES = 15;
 
+type TenantBookingFormField = {
+  key?: unknown;
+  name?: unknown;
+  label?: unknown;
+  required?: unknown;
+};
+
 @Injectable()
 export class BookingsService {
   constructor(
@@ -47,6 +54,8 @@ export class BookingsService {
     if (!staff) {
       throw new BadRequestException('Empleado no disponible para este tenant.');
     }
+
+    this.validateRequiredBookingFormFields(payload.customFields, tenantSettings.bookingFormFields);
 
     const endAt = new Date(startAt.getTime() + service.durationMinutes * 60_000);
     await this.enforceBookingLimits(tenantId, startAt, tenantSettings.maxBookingsPerDay, tenantSettings.maxBookingsPerWeek);
@@ -525,7 +534,8 @@ export class BookingsService {
         maxBookingsPerDay: true,
         maxBookingsPerWeek: true,
         cancellationNoticeHours: true,
-        rescheduleNoticeHours: true
+        rescheduleNoticeHours: true,
+        bookingFormFields: true
       }
     });
 
@@ -534,6 +544,48 @@ export class BookingsService {
     }
 
     return tenant;
+  }
+
+  private validateRequiredBookingFormFields(
+    customFields: Record<string, unknown> | undefined,
+    configuredFields: Prisma.JsonValue | null
+  ) {
+    if (!Array.isArray(configuredFields) || configuredFields.length === 0) {
+      return;
+    }
+
+    const requiredFields = configuredFields
+      .map((field, index) => {
+        const candidate = field as TenantBookingFormField;
+        const rawKey = typeof candidate.key === 'string' ? candidate.key : typeof candidate.name === 'string' ? candidate.name : '';
+        const key = rawKey.trim();
+        if (!key || !candidate.required) {
+          return null;
+        }
+
+        const rawLabel = typeof candidate.label === 'string' ? candidate.label.trim() : '';
+        return {
+          key,
+          label: rawLabel || key || `campo_${index + 1}`
+        };
+      })
+      .filter((field): field is { key: string; label: string } => !!field);
+
+    if (requiredFields.length === 0) {
+      return;
+    }
+
+    const missing = requiredFields.find((field) => {
+      const value = customFields?.[field.key];
+      if (typeof value === 'string') {
+        return value.trim().length === 0;
+      }
+      return value === undefined || value === null;
+    });
+
+    if (missing) {
+      throw new BadRequestException(`Completa el campo requerido: ${missing.label}.`);
+    }
   }
 
   private isOccupiedSlotError(error: unknown) {

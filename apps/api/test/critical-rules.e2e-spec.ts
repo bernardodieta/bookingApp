@@ -256,6 +256,71 @@ describe('Critical MVP rules (e2e)', () => {
 
     expect(String(blockedResponse.body.message)).toContain('máximo mensual');
   });
+
+  it('permite actualizar y eliminar reglas y excepciones de disponibilidad del tenant autenticado', async () => {
+    const seed = await registerAndSeed(app, 'availabilitycrud');
+
+    const rulesResponse = await request(app.getHttpServer())
+      .get('/availability/rules')
+      .set('Authorization', authHeader(seed.auth.token))
+      .expect(200);
+
+    expect(Array.isArray(rulesResponse.body)).toBe(true);
+    expect(rulesResponse.body.length).toBeGreaterThanOrEqual(1);
+    const ruleId = rulesResponse.body[0].id as string;
+
+    const updatedRule = await request(app.getHttpServer())
+      .patch(`/availability/rules/${ruleId}`)
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({ isActive: false })
+      .expect(200);
+
+    expect(updatedRule.body.isActive).toBe(false);
+
+    await request(app.getHttpServer())
+      .delete(`/availability/rules/${ruleId}`)
+      .set('Authorization', authHeader(seed.auth.token))
+      .expect(200);
+
+    const createdException = await request(app.getHttpServer())
+      .post('/availability/exceptions')
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({
+        date: seed.startAt.toISOString(),
+        startTime: '11:00',
+        endTime: '12:00',
+        staffId: seed.staff.id,
+        isUnavailable: true,
+        note: 'Bloqueo inicial'
+      })
+      .expect(201);
+
+    const exceptionId = createdException.body.id as string;
+
+    const updatedException = await request(app.getHttpServer())
+      .patch(`/availability/exceptions/${exceptionId}`)
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({
+        isUnavailable: false,
+        note: 'Bloqueo removido'
+      })
+      .expect(200);
+
+    expect(updatedException.body.isUnavailable).toBe(false);
+    expect(updatedException.body.note).toBe('Bloqueo removido');
+
+    await request(app.getHttpServer())
+      .delete(`/availability/exceptions/${exceptionId}`)
+      .set('Authorization', authHeader(seed.auth.token))
+      .expect(200);
+
+    const finalExceptions = await request(app.getHttpServer())
+      .get('/availability/exceptions')
+      .set('Authorization', authHeader(seed.auth.token))
+      .expect(200);
+
+    expect(finalExceptions.body).toHaveLength(0);
+  });
 });
 
 describe('Public/Auth rate limiting (e2e)', () => {
@@ -391,6 +456,132 @@ describe('Public booking flow (e2e)', () => {
     const updatedWaitlist = await prisma.waitlistEntry.findUnique({ where: { id: waitlistResponse.body.id } });
     expect(updatedWaitlist?.status).toBe('notified');
     expect(updatedWaitlist?.notifiedAt).toBeTruthy();
+  });
+
+  it('expone fields configurados en formulario público y persiste customFields al reservar', async () => {
+    const seed = await registerAndSeed(app, 'publicform');
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: seed.auth.tenantId },
+      select: { slug: true }
+    });
+
+    expect(tenant).toBeTruthy();
+
+    const configuredFields = [
+      {
+        key: 'phone',
+        label: 'Teléfono',
+        type: 'text',
+        required: true
+      },
+      {
+        key: 'dni',
+        label: 'DNI',
+        type: 'text',
+        required: false
+      }
+    ];
+
+    await request(app.getHttpServer())
+      .patch('/tenant/settings')
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({ bookingFormFields: configuredFields })
+      .expect(200);
+
+    const publicFormResponse = await request(app.getHttpServer())
+      .get(`/public/${tenant?.slug}/form`)
+      .expect(200);
+
+    expect(publicFormResponse.body.fields).toEqual(configuredFields);
+
+    const customFields = {
+      phone: '+52 555 123 4567',
+      dni: 'ABC123456'
+    };
+
+    const bookingResponse = await request(app.getHttpServer())
+      .post(`/public/${tenant?.slug}/bookings`)
+      .send({
+        serviceId: seed.service.id,
+        staffId: seed.staff.id,
+        startAt: seed.startAt.toISOString(),
+        customerName: 'Cliente Formulario Público',
+        customerEmail: 'cliente.form.publico@example.com',
+        customFields
+      })
+      .expect(201);
+
+    expect(bookingResponse.body.waitlisted).not.toBe(true);
+
+    const persistedBooking = await prisma.booking.findUnique({
+      where: { id: bookingResponse.body.id },
+      select: {
+        customFields: true,
+        customerEmail: true,
+        tenantId: true
+      }
+    });
+
+    expect(persistedBooking).toBeTruthy();
+    expect(persistedBooking?.customFields).toEqual(customFields);
+
+    const persistedCustomer = await prisma.customer.findUnique({
+      where: {
+        tenantId_email: {
+          tenantId: seed.auth.tenantId,
+          email: 'cliente.form.publico@example.com'
+        }
+      },
+      select: {
+        phone: true,
+        metadata: true
+      }
+    });
+
+    expect(persistedCustomer).toBeTruthy();
+    expect(persistedCustomer?.phone).toBe(customFields.phone);
+    expect(persistedCustomer?.metadata).toEqual(customFields);
+  });
+
+  it('rechaza reserva pública si falta un customField requerido por tenant settings', async () => {
+    const seed = await registerAndSeed(app, 'publicrequired');
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: seed.auth.tenantId },
+      select: { slug: true }
+    });
+
+    expect(tenant).toBeTruthy();
+
+    await request(app.getHttpServer())
+      .patch('/tenant/settings')
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({
+        bookingFormFields: [
+          {
+            key: 'phone',
+            label: 'Teléfono',
+            type: 'text',
+            required: true
+          }
+        ]
+      })
+      .expect(200);
+
+    const missingRequiredResponse = await request(app.getHttpServer())
+      .post(`/public/${tenant?.slug}/bookings`)
+      .send({
+        serviceId: seed.service.id,
+        staffId: seed.staff.id,
+        startAt: seed.startAt.toISOString(),
+        customerName: 'Cliente Sin Teléfono',
+        customerEmail: 'cliente.sin.telefono@example.com',
+        customFields: {}
+      })
+      .expect(400);
+
+    expect(missingRequiredResponse.body.message).toBe('Completa el campo requerido: Teléfono.');
   });
 });
 
