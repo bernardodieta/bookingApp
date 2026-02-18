@@ -4,7 +4,10 @@
 > Fecha: Febrero 2026  
 > Objetivo: iniciar implementación sin omitir requisitos funcionales, técnicos y de negocio.
 
-## Estado actual (actualizado 2026-02-17)
+Resumen ejecutivo para cliente/equipo no técnico:
+- `saas-citas-resumen-ejecutivo.md`
+
+## Estado actual (actualizado 2026-02-18)
 
 Resumen ejecutivo:
 - MVP backend y frontend funcional en operación local.
@@ -16,11 +19,17 @@ Resumen ejecutivo:
 - Política de reembolso configurable por tenant aplicada en cancelaciones (`none|credit|full`).
 - Stripe integrado en pagos (`checkout-session` + confirmación de sesión pagada).
 - Dashboard reorganizado por menús de sección (overview/pagos/operación/settings/auditoría).
+- Branding por tenant implementado (`logoUrl`, `primaryColor`) y aplicado en pública/dashboard.
+- Zona horaria por tenant implementada end-to-end (slots, reportes, recordatorios).
+- Idioma base por tenant (ES/EN) aplicado en flujo público principal.
+- Dominio custom y widget embebible implementados (incluye `widget-config` y `widget.js`).
+- Release ops endurecido: smoke widget, gate widget, one-click release y release doctor.
 - Suite e2e crítica pasando (17/17).
 
 Pendiente inmediato para cierre de go-live MVP:
-- Prueba manual integrada dashboard → public/:slug → reserva (checklist abajo).
+- Validación real de entorno staging/prod con variables no-placeholder.
 - Validación real de proveedor SendGrid con credenciales reales (cuando se habiliten).
+- Verificación final de DNS/TLS en dominio custom de negocio real.
 
 ---
 
@@ -122,12 +131,12 @@ Usar estos IDs para historias, PRs y QA.
 - [ ] **RP-07** Exportación Excel/PDF (Business)
 
 ### 3.7 Personalización (PZ)
-- [ ] **PZ-01** Logo + colores en página pública
+- [x] **PZ-01** Logo + colores en página pública
 - [ ] **PZ-02** Mensajes personalizados en emails/confirmaciones
-- [ ] **PZ-03** Idioma configurable
-- [ ] **PZ-04** Zona horaria configurable
-- [ ] **PZ-05** Dominio personalizado (Business)
-- [ ] **PZ-06** Widget embebible
+- [x] **PZ-03** Idioma configurable
+- [x] **PZ-04** Zona horaria configurable
+- [x] **PZ-05** Dominio personalizado (Business)
+- [x] **PZ-06** Widget embebible
 
 ### 3.8 Integraciones (IN)
 - [ ] **IN-01** Google Calendar bidireccional
@@ -138,12 +147,139 @@ Usar estos IDs para historias, PRs y QA.
 - [ ] **IN-06** Reserva desde Instagram/Facebook
 - [ ] **IN-07** Zapier
 
+### 3.8.1 Plan técnico de implementación (IN-01 e IN-02)
+
+Objetivo:
+- Sincronizar citas de Apoint con Google Calendar y Outlook en doble vía (crear, editar, cancelar) con idempotencia y resolución de conflictos.
+
+Alcance inicial recomendado:
+- Conexión de calendario por staff (prioridad), con opción futura por tenant global.
+- Fuente de verdad inicial: booking en Apoint.
+- Bidireccional real vía webhooks + sync incremental (delta/cursor).
+
+Fase A — Conexión de cuenta (OAuth + almacenamiento seguro)
+- Google:
+  - OAuth2 con scopes de calendario.
+  - Guardar access token, refresh token, expiración y calendarId principal.
+- Microsoft (Outlook):
+  - OAuth2 (Microsoft Graph) con permisos de calendario.
+  - Guardar tokens, expiración y calendarId.
+- Persistencia mínima (Prisma):
+  - calendar_accounts: id, tenantId, staffId, provider (google|microsoft), externalAccountId, calendarId, accessTokenEncrypted, refreshTokenEncrypted, tokenExpiresAt, status, lastSyncAt, createdAt, updatedAt.
+
+Fase B — Sincronización saliente (Apoint -> Calendar)
+- Trigger en eventos de booking:
+  - BOOKING_CREATED -> create event externo.
+  - BOOKING_RESCHEDULED -> update event externo.
+  - BOOKING_CANCELLED -> cancel/delete event externo.
+- Persistencia de vínculo:
+  - calendar_event_links: id, tenantId, bookingId, accountId, provider, externalEventId, externalICalUID, lastExternalVersion, syncStatus, lastSyncedAt.
+- Cola de jobs obligatoria:
+  - calendar.sync.outbound con reintentos y dead-letter.
+
+Fase C — Sincronización entrante (Calendar -> Apoint)
+- Webhooks:
+  - Google channels para cambios de eventos.
+  - Microsoft Graph subscriptions para eventos.
+- Consumo incremental:
+  - Google sync token.
+  - Microsoft delta query.
+- Resolución de cambio externo:
+  - Si existe link bookingId<->externalEventId: actualizar o cancelar booking según reglas.
+  - Si no existe link: crear evento interno provisional o registrar como conflicto manual (según política del negocio).
+
+Fase D — Reglas de conflicto y consistencia
+- Idempotencia por provider + externalEventId + version/etag.
+- Política por defecto:
+  - Cambios en Apoint tienen prioridad en colisiones duras.
+  - Cambios externos fuera de colisión se aceptan.
+- Auditoría obligatoria:
+  - CAL_SYNC_CONNECTED, CAL_SYNC_OUTBOUND_OK, CAL_SYNC_INBOUND_OK, CAL_SYNC_CONFLICT, CAL_SYNC_ERROR.
+
+Fase E — UX Dashboard
+- Nueva sección Integraciones:
+  - Conectar Google / Conectar Outlook.
+  - Estado de conexión, última sincronización, errores recientes.
+  - Botón de reconectar y desconectar.
+  - Botón de re-sync manual por staff.
+
+API/Backend mínimo sugerido
+- POST /integrations/calendar/google/connect
+- POST /integrations/calendar/microsoft/connect
+- GET /integrations/calendar/accounts
+- POST /integrations/calendar/accounts/:id/resync
+- DELETE /integrations/calendar/accounts/:id
+- POST /integrations/calendar/webhooks/google
+- POST /integrations/calendar/webhooks/microsoft
+
+Seguridad y operación
+- Encriptar tokens en reposo.
+- Rotar refresh tokens y manejar revocaciones.
+- Validar firma/origen de webhooks.
+- Rate limiting en endpoints webhook.
+- Métricas: lag de sync, fallos por provider, conflictos por tenant.
+
+Criterios de aceptación IN-01 / IN-02
+- Crear cita en Apoint crea evento en calendario externo conectado.
+- Reprogramar/cancelar cita en Apoint actualiza evento externo.
+- Cambios externos (hora/cancelación) se reflejan en Apoint dentro de ventana definida.
+- Reintentos automáticos en fallos transitorios, sin duplicados.
+- Evidencia en auditoría para operaciones de sincronización y conflictos.
+
 ### 3.9 Diferenciadores (DF)
 - [x] **DF-01** Lista de espera automática
 - [ ] **DF-02** Reserva por WhatsApp
-- [ ] **DF-03** Widget embebible con 1 línea
+- [x] **DF-03** Widget embebible con 1 línea
 - [ ] **DF-04** Multi-empleado real (agenda y servicios por empleado)
 - [ ] **DF-05** Reseñas post-cita
+
+### 3.10 Portal Cliente y Fidelización (CL)
+- [x] **CL-01** Registro opcional de cliente final (sin bloquear reserva rápida)
+- [x] **CL-02** Login cliente por email/contraseña
+- [x] **CL-03** Vista “Mis citas” (historial + próximas)
+- [x] **CL-04** Vinculación automática de historial por email (claim)
+- [x] **CL-05** Google SSO para cliente final
+
+### 3.10.1 Plan técnico de implementación (CL-01 a CL-05)
+
+Objetivo:
+- Permitir que el cliente final cree cuenta opcional para gestionar y consultar sus citas, preservando conversión del flujo público y preparando fidelización.
+
+Fase A — Cuenta cliente opcional (MVP inicial)
+- Modelo `CustomerAccount` por tenant, vinculado opcionalmente a `Customer`.
+- Endpoints de registro/login separados del auth de negocio.
+- Token propio para cliente (`scope=customer`).
+
+Fase B — Portal “Mis citas” (MVP funcional)
+- Endpoint autenticado para listar citas del cliente por `customerId` o `customerEmail`.
+- UI pública para login y consulta de próximas/históricas.
+
+Fase C — Claim de historial
+- Si el cliente creó cuenta después de reservar como invitado, enlazar historial existente por email normalizado.
+- Política de seguridad mínima: validación de ownership por tenant y sesión cliente.
+
+Fase D — Google SSO
+- Inicio con `id_token` de Google en frontend.
+- Verificación backend de token + audience + email verificado.
+- Upsert de cuenta cliente (`googleSub`) y emisión de token de portal.
+
+Fase E — Endurecimiento y métricas
+- Auditoría (`CUSTOMER_PORTAL_*`) para registro/login/fallo.
+- Rate limit reforzado en endpoints de auth cliente.
+- Métricas básicas: tasa de registro, login, conversión guest→account.
+
+API mínima sugerida (MVP):
+- `POST /public/:slugOrDomain/customer-portal/register`
+- `POST /public/:slugOrDomain/customer-portal/login`
+- `POST /public/:slugOrDomain/customer-portal/google`
+- `GET /public/:slugOrDomain/customer-portal/me`
+- `GET /public/:slugOrDomain/customer-portal/bookings`
+
+Criterios de aceptación (MVP):
+- Cliente puede crear cuenta sin afectar flujo de reserva sin cuenta.
+- Cliente autenticado puede consultar sus citas pasadas y futuras.
+- Citas existentes por email se reflejan en portal tras registro.
+- Login Google operativo para tenant con configuración habilitada.
 
 ---
 
@@ -380,11 +516,18 @@ Evidencia DEV (última ejecución automática):
 - [ ] Verificación de auditoría en acciones sensibles (`BOOKING_*`, `TENANT_SETTINGS_UPDATED`).
 - [ ] `npm run qa:staging:gate:strict` en verde (sin warnings).
 - [x] Simulación local strict sin migraciones: `node scripts/mvp-env-gate.js --env=staging --strict --skip-migrate --smoke-api-url=http://localhost:3001`.
+- [x] Smoke widget local: `npm run qa:smoke:widget`.
+- [x] Gate widget local: `npm run qa:staging:gate:widget:quick`.
+- [x] Release one-click widget local: `npm run qa:release:staging:widget:quick`.
+- [x] Release doctor local widget: `npm run qa:release:doctor:staging:widget:local`.
 
 Evidencia STAGING local (última ejecución):
-- Fecha: 2026-02-17
+- Fecha: 2026-02-18
 - `npm run qa:staging:gate:local`: ✅ completado
 - `npm run qa:staging:gate:strict:local`: ✅ completado
+- `npm run qa:staging:gate:widget:quick`: ✅ completado
+- `npm run qa:release:staging:widget:quick`: ✅ completado
+- `npm run qa:release:doctor:staging:widget:local`: ✅ completado
 - Estado de preflight staging:
   - `qa:preflight:staging`: ✅ pasa con warnings si `DATABASE_URL`/`REDIS_URL` están en placeholder.
   - `qa:preflight:staging:strict`: ❌ bloquea hasta reemplazar placeholders por valores reales.
@@ -401,6 +544,147 @@ Evidencia STAGING local (última ejecución):
 - [ ] Monitoreo/logs y alertas mínimas habilitadas.
 - [ ] Backup/restore de base de datos validado.
 - [ ] Plan de rollback documentado (última versión estable + migraciones).
+
+---
+
+## 10.4) Comandos operativos consolidados (release)
+
+Selector de comando por escenario:
+- `npm run qa:release:help`
+
+Comandos one-click:
+- `npm run qa:release:staging` (strict full)
+- `npm run qa:release:staging:widget` (strict widget)
+- `npm run qa:release:staging:widget:quick` (strict widget local)
+- `npm run qa:release:prod` (strict full)
+- `npm run qa:release:prod:widget` (strict widget)
+- `npm run qa:release:prod:widget:dry` (dry-run widget)
+
+Doctor prerequisitos:
+- `npm run qa:release:doctor`
+- `npm run qa:release:doctor:staging:widget:local`
+- `npm run qa:release:doctor -- --env=staging --mode=widget --scope=local --api-url=http://localhost:3001 --tenant-slug=<slug>`
+- `npm run qa:release:doctor -- --env=staging --mode=widget --scope=local --api-url=http://localhost:3001 --tenant-slug=<slug> --failfast`
+
+Runbook operativo detallado:
+- `docs/runbooks/domain-widget-release.md`
+
+## 10.5) Plan de ejecución en 7 días (cierre STAGING → preparación PROD)
+
+### Día 1 — Higiene de entorno y secretos
+Objetivo:
+- Eliminar placeholders de `.env.staging` y validar secretos mínimos.
+
+Tareas:
+- Configurar `NEXT_PUBLIC_API_URL`, `STAGING_API_URL`, `DATABASE_URL`, `REDIS_URL` reales.
+- Verificar `JWT_ACCESS_SECRET` y `JWT_REFRESH_SECRET` no débiles.
+- Confirmar variables de email (SendGrid/SMTP staging).
+
+Comandos:
+- `npm run qa:preflight:staging`
+- `npm run qa:preflight:staging:strict`
+
+Criterio de salida:
+- `qa:preflight:staging:strict` en verde sin warnings bloqueantes.
+
+### Día 2 — Base técnica staging estable
+Objetivo:
+- Dejar base y migraciones alineadas en staging.
+
+Tareas:
+- Aplicar `prisma migrate deploy` en staging.
+- Verificar `health` y conectividad DB/Redis.
+- Validar que build de `web` y `api` estén limpios en CI/staging.
+
+Comandos:
+- `npm run qa:staging:gate -- --skip-smoke`
+
+Criterio de salida:
+- Migraciones aplicadas y API saludable.
+
+### Día 3 — Smoke funcional completo
+Objetivo:
+- Validar flujo funcional end-to-end en staging real.
+
+Tareas:
+- Ejecutar smoke full (auth + servicios + staff + reserva).
+- Confirmar creación de cita y consistencia de datos multi-tenant.
+
+Comandos:
+- `npm run qa:smoke:staging`
+- `npm run qa:staging:gate`
+
+Criterio de salida:
+- Smoke y gate staging en verde.
+
+### Día 4 — Dominio custom + widget (staging)
+Objetivo:
+- Cerrar el release de dominio/widget en entorno remoto.
+
+Tareas:
+- Configurar tenant real con `customDomain` y `widgetEnabled=true`.
+- Validar DNS y TLS del dominio staging.
+- Probar snippets (`iframe`, `script src`) en sitio de prueba.
+
+Comandos:
+- `npm run qa:release:staging:widget`
+- `npm run qa:release:doctor -- --env=staging --mode=widget --scope=remote --tenant-slug=<slug-real> --failfast`
+
+Criterio de salida:
+- `widget-config` y `widget.js` respondiendo OK en staging real.
+
+### Día 5 — Notificaciones y observabilidad
+Objetivo:
+- Verificar comunicaciones reales y señales operativas.
+
+Tareas:
+- Ejecutar reserva real y confirmar emails cliente/negocio.
+- Validar logs de auditoría para `BOOKING_*` y `TENANT_SETTINGS_UPDATED`.
+- Confirmar monitoreo y alertas mínimas activas.
+
+Comandos:
+- `npm run qa:staging:gate:strict`
+
+Criterio de salida:
+- Notificaciones reales verificadas + auditoría consistente.
+
+### Día 6 — Dry run de producción
+Objetivo:
+- Preparar release de prod sin ejecutar smoke productivo todavía.
+
+Tareas:
+- Revisar secretos y rotación.
+- Validar preflight estricto prod.
+- Ejecutar gate dry y doctor para escenario widget.
+
+Comandos:
+- `npm run qa:prod:gate:dry`
+- `npm run qa:release:prod:widget:dry`
+- `npm run qa:release:doctor -- --env=prod --mode=widget --scope=dry`
+
+Criterio de salida:
+- Todo dry-run productivo en verde.
+
+### Día 7 — Go/No-Go y release controlado
+Objetivo:
+- Ejecutar decisión final y liberar con plan de rollback listo.
+
+Tareas:
+- Revisión final de checklist y riesgos abiertos.
+- Ejecutar release productivo full o widget según ventana.
+- Registrar evidencia del release (logs, comandos, timestamps, resultado).
+
+Comandos:
+- `npm run qa:release:prod` o `npm run qa:release:prod:widget`
+
+Criterio de salida:
+- Release en verde + rollback documentado + evidencia archivada.
+
+### Entregables esperados al final de la semana
+- STAGING estricto en verde.
+- Dominio/widget validado en remoto.
+- PROD dry-run en verde.
+- Decisión de Go/No-Go sustentada con evidencia.
 
 ### Criterio de promoción
 - DEV → STAGING: todos los checks de DEV completos.

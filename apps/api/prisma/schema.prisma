@@ -96,6 +96,8 @@ model Tenant {
   bookings               Booking[]
   waitlistEntries        WaitlistEntry[]
   customers              Customer[]
+  customerAccounts       CustomerAccount[]
+  customerPortalClaimCodes CustomerPortalClaimCode[]
   auditLogs              AuditLog[]
   payments               Payment[]
   createdAt              DateTime                @default(now())
@@ -226,11 +228,47 @@ model Customer {
   tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   bookings      Booking[]
   payments      Payment[]
+  account       CustomerAccount?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   @@index([tenantId])
   @@unique([tenantId, email])
+}
+
+model CustomerAccount {
+  id           String    @id @default(cuid())
+  tenantId     String
+  customerId   String?   @unique
+  email        String
+  passwordHash String?
+  googleSub    String?
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  claimCodes   CustomerPortalClaimCode[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@unique([tenantId, email])
+  @@unique([tenantId, googleSub])
+}
+
+model CustomerPortalClaimCode {
+  id        String          @id @default(cuid())
+  tenantId  String
+  accountId String
+  codeHash  String
+  expiresAt DateTime
+  consumedAt DateTime?
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account   CustomerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+
+  @@index([tenantId, accountId, createdAt])
+  @@index([tenantId, expiresAt])
 }
 
 model AuditLog {

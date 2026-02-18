@@ -61,6 +61,10 @@ npm run qa:release:prod
 npm run qa:release:prod:widget
 npm run qa:release:prod:widget:dry
 npm run qa:release:help
+npm run qa:release:doctor
+npm run qa:release:doctor:staging:widget:local
+npm run qa:release:doctor:failfast
+npm run qa:release:doctor:failfast:staging:widget:local
 npm run test:e2e -w @apoint/api
 ```
 
@@ -169,6 +173,11 @@ One-click release commands:
 - `npm run qa:release:prod:widget` (strict widget)
 - `npm run qa:release:prod:widget:dry` (dry-run widget)
 - `npm run qa:release:help` (muestra comando recomendado por escenario)
+- `npm run qa:release:doctor` (verifica prerequisitos)
+- `npm run qa:release:doctor:staging:widget:local` (doctor local para flujo widget)
+- validación tenant opcional: `npm run qa:release:doctor -- --env=staging --mode=widget --scope=local --api-url=http://localhost:3001 --tenant-slug=mi-slug`
+- `npm run qa:release:doctor:failfast` (termina en el primer error bloqueante)
+- `npm run qa:release:doctor:failfast:staging:widget:local` (failfast local para widget)
 
 VS Code Tasks disponibles en `.vscode/tasks.json`:
 - `Release Staging Widget Quick`

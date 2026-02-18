@@ -151,6 +151,27 @@ export class NotificationsService {
     });
   }
 
+  async sendCustomerPortalClaimCodeEmail(input: {
+    tenantName: string;
+    customerEmail: string;
+    code: string;
+    expiresInMinutes: number;
+  }) {
+    const subject = `Código de verificación - ${input.tenantName}`;
+    const text = [
+      `Tu código de verificación para vincular historial es: ${input.code}`,
+      `Expira en ${input.expiresInMinutes} minutos.`
+    ].join('\n');
+    const html = `<p>Tu código de verificación para vincular historial es:</p><p><strong style="font-size:20px;letter-spacing:2px;">${input.code}</strong></p><p>Expira en ${input.expiresInMinutes} minutos.</p>`;
+
+    await this.sendWithFallback({
+      to: input.customerEmail,
+      subject,
+      text,
+      html
+    });
+  }
+
   private async sendWithFallback(payload: EmailPayload) {
     if (!payload.to.trim()) {
       this.logger.warn('[EMAIL][SKIP] destinatario vacío');

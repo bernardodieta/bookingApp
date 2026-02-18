@@ -504,6 +504,9 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
         <div>
           <h1 className="page-title">{tenant?.name ? `Reservas · ${tenant.name}` : t.titleFallback}</h1>
           <p className="page-subtitle">{t.subtitle}</p>
+          <a href={`/public/${params.slug}/mis-citas`} style={{ fontSize: 14 }}>
+            Ver mis citas
+          </a>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {tenant?.logoUrl ? (

@@ -30,6 +30,15 @@ Puedes pedir recomendación por escenario con:
 - `npm run qa:release:help -- --env=staging --mode=widget --scope=local`
 - `npm run qa:release:help -- --env=prod --mode=widget --scope=dry`
 
+### Doctor de prerequisitos
+
+- `npm run qa:release:doctor`
+- `npm run qa:release:doctor:staging:widget:local`
+- `npm run qa:release:doctor -- --env=staging --mode=widget --scope=local --api-url=http://localhost:3001 --tenant-slug=mi-slug`
+- `npm run qa:release:doctor:failfast`
+
+El doctor valida Node.js, archivos de entorno, servicios Docker (en scope local), salud de API, comando recomendado por escenario y (opcionalmente) que el tenant tenga `widgetEnabled=true`, `customDomain` configurado y endpoints `widget-config` + `widget.js` operativos.
+
 ### Staging
 
 - Gate completo: `npm run qa:staging:gate`
