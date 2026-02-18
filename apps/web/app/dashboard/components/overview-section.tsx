@@ -1,5 +1,15 @@
 import { Notice } from './notice';
 
+function toDateTimeLocalInput(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const pad = (input: number) => String(input).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 type OverviewSectionProps = {
   onSubmit: (event: React.FormEvent) => Promise<void>;
   apiUrl: string;
@@ -33,7 +43,7 @@ type OverviewSectionProps = {
 
   data: {
     period: { start: string; end: string };
-    summary: { totalAppointments: number; totalScheduledMinutes: number };
+    summary: { totalAppointments: number; totalScheduledMinutes: number; byStatus: Record<string, number> };
     bookings: Array<{
       id: string;
       customerName: string;
@@ -44,14 +54,12 @@ type OverviewSectionProps = {
       staff: { fullName: string };
     }>;
   } | null;
-  summaryStatus: Array<[string, number]>;
 
   onCancelBooking: (bookingId: string) => Promise<void>;
   onRescheduleBooking: (bookingId: string) => Promise<void>;
   bookingActionLoadingId: string;
   rescheduleDrafts: Record<string, string>;
   setRescheduleDrafts: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  toDateTimeLocalInput: (value: string) => string;
 
   reports: {
     totals: {
@@ -78,6 +86,8 @@ type OverviewSectionProps = {
 };
 
 export function OverviewSection(props: OverviewSectionProps) {
+  const summaryStatus = props.data ? Object.entries(props.data.summary.byStatus) : [];
+
   return (
     <>
       <form onSubmit={props.onSubmit} style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
@@ -152,7 +162,7 @@ export function OverviewSection(props: OverviewSectionProps) {
 
           <div style={{ marginBottom: 16 }}>
             <strong>Estados:</strong>{' '}
-            {props.summaryStatus.length ? props.summaryStatus.map(([key, value]) => `${key}: ${value}`).join(' | ') : 'Sin datos'}
+            {summaryStatus.length ? summaryStatus.map(([key, value]) => `${key}: ${value}`).join(' | ') : 'Sin datos'}
           </div>
 
           <div style={{ overflowX: 'auto' }}>
@@ -191,7 +201,7 @@ export function OverviewSection(props: OverviewSectionProps) {
                         </button>
                         <input
                           type="datetime-local"
-                          value={props.rescheduleDrafts[booking.id] ?? props.toDateTimeLocalInput(booking.startAt)}
+                          value={props.rescheduleDrafts[booking.id] ?? toDateTimeLocalInput(booking.startAt)}
                           onChange={(e) =>
                             props.setRescheduleDrafts((current) => ({
                               ...current,

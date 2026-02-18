@@ -1,13 +1,33 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { z } from 'zod';
 import { OverviewSection } from './components/overview-section';
 import { PaymentsSection } from './components/payments-section';
 import { OperationsSection } from './components/operations-section';
 import { SettingsSection } from './components/settings-section';
 import { AuditSection } from './components/audit-section';
+import {
+  STATUS_OPTIONS,
+  PAYMENT_METHOD_OPTIONS,
+  DAY_OF_WEEK_LABEL,
+  dashboardFilterSchema,
+  auditFilterSchema,
+  tenantSettingsSchema,
+  quickCreateServiceSchema,
+  quickCreateStaffSchema,
+  quickCreateBookingSchema,
+  quickCreateAvailabilityRuleSchema,
+  quickCreateAvailabilityExceptionSchema,
+  quickCancelBookingSchema,
+  quickRescheduleBookingSchema,
+  quickJoinWaitlistSchema,
+  quickCreatePaymentSchema,
+  quickCreateStripeCheckoutSchema,
+  quickConfirmStripeSchema,
+  paymentsQuerySchema,
+  availabilityListSchema
+} from './dashboard-schemas';
 
 type StaffMember = {
   id: string;
@@ -172,228 +192,6 @@ type SaleNoteResponse = {
 const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
 const today = new Date().toISOString().slice(0, 10);
-const STATUS_OPTIONS = ['pending', 'confirmed', 'cancelled', 'rescheduled', 'no_show', 'completed'] as const;
-const PAYMENT_METHOD_OPTIONS = ['cash', 'card', 'transfer', 'link', 'stripe'] as const;
-
-const dashboardFilterSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  range: z.enum(['day', 'week', 'month']),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida. Usa formato YYYY-MM-DD.'),
-  staffId: z.string().optional(),
-  status: z.union([z.literal(''), z.enum(STATUS_OPTIONS)]),
-  token: z.string().min(1, 'Token de sesión inválido.')
-});
-
-const auditFilterSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.'),
-  action: z.string().optional(),
-  actorUserId: z.string().optional(),
-  from: z.string().optional(),
-  to: z.string().optional(),
-  limit: z.number().int().min(1).max(200)
-});
-
-const tenantSettingsSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.')
-});
-
-const quickCreateServiceSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.'),
-  name: z.string().trim().min(1, 'Nombre de servicio requerido.'),
-  durationMinutes: z.coerce.number().int().min(5, 'Duración mínima: 5 minutos.'),
-  price: z.coerce.number().min(0, 'Precio inválido.')
-});
-
-const quickCreateStaffSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.'),
-  fullName: z.string().trim().min(1, 'Nombre de staff requerido.'),
-  email: z.string().trim().email('Email de staff inválido.')
-});
-
-const quickCreateBookingSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.'),
-  serviceId: z.string().trim().min(1, 'Selecciona un servicio.'),
-  staffId: z.string().trim().min(1, 'Selecciona un staff.'),
-  startAt: z.string().trim().min(1, 'Fecha/hora requerida.'),
-  customerName: z.string().trim().min(1, 'Nombre de cliente requerido.'),
-  customerEmail: z.string().trim().email('Email de cliente inválido.'),
-  notes: z.string().optional()
-});
-
-const quickCreateAvailabilityRuleSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.'),
-  dayOfWeek: z.coerce.number().int().min(0).max(6),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Hora inicio inválida. Usa HH:mm.'),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, 'Hora fin inválida. Usa HH:mm.'),
-  staffId: z.string().trim().min(1, 'Selecciona staff para la regla.')
-});
-
-const quickCreateAvailabilityExceptionSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.'),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida. Usa YYYY-MM-DD.'),
-  fullDay: z.boolean(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  staffId: z.string().trim().min(1, 'Selecciona staff para la excepción.'),
-  note: z.string().optional()
-});
-
-const quickCancelBookingSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.'),
-  bookingId: z.string().trim().min(1, 'Booking inválido.')
-});
-
-const quickRescheduleBookingSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.'),
-  bookingId: z.string().trim().min(1, 'Booking inválido.'),
-  startAt: z.string().trim().min(1, 'Fecha/hora requerida para reprogramar.')
-});
-
-const quickJoinWaitlistSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.'),
-  serviceId: z.string().trim().min(1, 'Selecciona un servicio.'),
-  staffId: z.string().trim().min(1, 'Selecciona un staff.'),
-  preferredStartAt: z.string().trim().min(1, 'Fecha/hora preferida requerida.'),
-  customerName: z.string().trim().min(1, 'Nombre de cliente requerido.'),
-  customerEmail: z.string().trim().email('Email de cliente inválido.'),
-  notes: z.string().optional()
-});
-
-const quickCreatePaymentSchema = z
-  .object({
-    apiUrl: z.string().url('API URL inválida.'),
-    token: z.string().min(1, 'Token de sesión inválido.'),
-    bookingId: z.string().trim().min(1, 'Selecciona una reserva para registrar el pago.'),
-    mode: z.enum(['full', 'deposit']),
-    amount: z.coerce.number().positive('Monto inválido para depósito.').optional(),
-    method: z.enum(PAYMENT_METHOD_OPTIONS),
-    notes: z.string().optional()
-  })
-  .superRefine((value, context) => {
-    if (value.mode === 'deposit' && (typeof value.amount !== 'number' || Number.isNaN(value.amount))) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Para depósito debes indicar un monto válido.',
-        path: ['amount']
-      });
-    }
-  });
-
-const quickCreateStripeCheckoutSchema = z
-  .object({
-    apiUrl: z.string().url('API URL inválida.'),
-    token: z.string().min(1, 'Token de sesión inválido.'),
-    bookingId: z.string().trim().min(1, 'Selecciona una reserva para Stripe.'),
-    mode: z.enum(['full', 'deposit']),
-    amount: z.coerce.number().positive('Monto inválido para depósito Stripe.').optional()
-  })
-  .superRefine((value, context) => {
-    if (value.mode === 'deposit' && (typeof value.amount !== 'number' || Number.isNaN(value.amount))) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Para depósito Stripe debes indicar un monto válido.',
-        path: ['amount']
-      });
-    }
-  });
-
-const quickConfirmStripeSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.'),
-  sessionId: z.string().trim().min(1, 'Ingresa un Stripe sessionId válido.')
-});
-
-const paymentsQuerySchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.')
-});
-
-const availabilityListSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  token: z.string().min(1, 'Token de sesión inválido.')
-});
-
-const DAY_OF_WEEK_LABEL: Record<number, string> = {
-  0: 'Domingo',
-  1: 'Lunes',
-  2: 'Martes',
-  3: 'Miércoles',
-  4: 'Jueves',
-  5: 'Viernes',
-  6: 'Sábado'
-};
-
-type NoticeTone = 'error' | 'success' | 'warning';
-
-function Notice({
-  tone,
-  message,
-  withMargin = false,
-  onClose
-}: {
-  tone: NoticeTone;
-  message: string;
-  withMargin?: boolean;
-  onClose?: () => void;
-}) {
-  if (!message) {
-    return null;
-  }
-
-  const palette: Record<NoticeTone, { background: string; color: string }> = {
-    error: { background: '#fee', color: '#900' },
-    success: { background: '#ecfdf3', color: '#166534' },
-    warning: { background: '#fff4e5', color: '#8a5300' }
-  };
-
-  return (
-    <div
-      style={{
-        background: palette[tone].background,
-        color: palette[tone].color,
-        padding: 10,
-        borderRadius: 6,
-        marginBottom: withMargin ? 12 : 0,
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        gap: 8
-      }}
-      role="status"
-      aria-live="polite"
-    >
-      <span style={{ flex: 1 }}>{message}</span>
-      {onClose ? (
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Cerrar mensaje"
-          style={{
-            border: 'none',
-            background: 'transparent',
-            color: 'inherit',
-            cursor: 'pointer',
-            fontSize: 16,
-            lineHeight: 1,
-            padding: 0
-          }}
-        >
-          ×
-        </button>
-      ) : null}
-    </div>
-  );
-}
 
 function useAutoDismissSuccess(message: string, clear: () => void, delayMs = 5000) {
   useEffect(() => {
@@ -619,11 +417,6 @@ export default function DashboardPage() {
     }
   }, [tenantSettingsSuccess]);
 
-  const summaryStatus = useMemo(() => {
-    if (!data) return [] as Array<[string, number]>;
-    return Object.entries(data.summary.byStatus);
-  }, [data]);
-
   const quickServiceDurationNumber = Number(quickServiceDuration);
   const quickServicePriceNumber = Number(quickServicePrice);
 
@@ -792,9 +585,12 @@ export default function DashboardPage() {
   }, [router]);
 
   useEffect(() => {
-    const parsedApiUrl = z.string().url().safeParse(apiUrl.trim());
-    if (parsedApiUrl.success) {
-      localStorage.setItem(API_URL_KEY, parsedApiUrl.data);
+    const normalizedApiUrl = apiUrl.trim();
+    try {
+      new URL(normalizedApiUrl);
+      localStorage.setItem(API_URL_KEY, normalizedApiUrl);
+    } catch {
+      return;
     }
   }, [apiUrl]);
 
@@ -812,20 +608,22 @@ export default function DashboardPage() {
       setServiceError('');
 
       try {
-        const parsedApiUrl = z.string().url().safeParse(apiUrl.trim());
-        if (!parsedApiUrl.success) {
+        const normalizedApiUrl = apiUrl.trim();
+        try {
+          new URL(normalizedApiUrl);
+        } catch {
           setStaffError('API URL inválida.');
           setServiceError('API URL inválida.');
           return;
         }
 
         const [staffResponse, servicesResponse] = await Promise.all([
-          fetch(new URL('/staff', parsedApiUrl.data).toString(), {
+          fetch(new URL('/staff', normalizedApiUrl).toString(), {
             headers: {
               Authorization: `Bearer ${token}`
             }
           }),
-          fetch(new URL('/services', parsedApiUrl.data).toString(), {
+          fetch(new URL('/services', normalizedApiUrl).toString(), {
             headers: {
               Authorization: `Bearer ${token}`
             }
@@ -2296,13 +2094,11 @@ export default function DashboardPage() {
           bookingActionSuccess={bookingActionSuccess}
           setBookingActionSuccess={setBookingActionSuccess}
           data={data}
-          summaryStatus={summaryStatus}
           onCancelBooking={onCancelBooking}
           onRescheduleBooking={onRescheduleBooking}
           bookingActionLoadingId={bookingActionLoadingId}
           rescheduleDrafts={rescheduleDrafts}
           setRescheduleDrafts={setRescheduleDrafts}
-          toDateTimeLocalInput={toDateTimeLocalInput}
           reports={reports}
         />
       ) : null}
