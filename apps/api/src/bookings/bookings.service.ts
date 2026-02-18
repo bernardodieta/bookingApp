@@ -155,7 +155,7 @@ export class BookingsService {
     });
 
     try {
-      await this.integrationsService.syncGoogleOutboundForBooking({
+      await this.integrationsService.enqueueGoogleOutboundSyncJob({
         tenantId,
         bookingId: booking.id,
         action: 'BOOKING_CREATED',
@@ -562,7 +562,7 @@ export class BookingsService {
     await this.notifyNextWaitlistOnCancellation(cancelled);
 
     try {
-      await this.integrationsService.syncGoogleOutboundForBooking({
+      await this.integrationsService.enqueueGoogleOutboundSyncJob({
         tenantId: user.tenantId,
         bookingId: booking.id,
         action: 'BOOKING_CANCELLED',
@@ -757,7 +757,7 @@ export class BookingsService {
     });
 
     try {
-      await this.integrationsService.syncGoogleOutboundForBooking({
+      await this.integrationsService.enqueueGoogleOutboundSyncJob({
         tenantId: user.tenantId,
         bookingId: booking.id,
         action: 'BOOKING_RESCHEDULED',

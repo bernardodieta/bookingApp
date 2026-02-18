@@ -160,12 +160,48 @@ Estado de avance real (2026-02-18):
   - `BOOKING_RESCHEDULED` actualiza evento vinculado.
   - `BOOKING_CANCELLED` elimina evento vinculado (si existe).
   - Persistencia de vínculo en `CalendarEventLink` + auditoría `CAL_SYNC_OUTBOUND_OK`/`CAL_SYNC_ERROR`.
+- ✅ OAuth backend (Google + Microsoft) implementado en flujo authorize/callback:
+  - Endpoints authorize generan URL OAuth con `state` firmado y expiración corta.
+  - Callback público valida `state`, intercambia `code` por tokens y persiste conexión por staff.
+  - Selección automática de `calendarId` principal/default por provider.
+- ✅ Refresh automático de tokens OAuth implementado (Google + Microsoft):
+  - Refresh en runtime cuando `tokenExpiresAt` está vencido o por vencer (con ventana de seguridad).
+  - Refresh forzado en `resync` para validar conectividad operativa por provider.
+  - Rotación/persistencia de nuevos tokens cifrados + auditoría `CAL_SYNC_TOKEN_REFRESHED`.
+  - Fallos de refresh marcan cuenta en `error` y registran `CAL_SYNC_ERROR`.
+- ✅ Persistencia y renovación operativa de suscripciones webhook implementada:
+  - `CalendarAccount` ahora persiste `webhookSubscriptionId`, `webhookResourceId` y `webhookExpiresAt`.
+  - `resync` renueva canal/suscripción (Google/Microsoft) cuando está ausente o por expirar, si `*_WEBHOOK_URL` está configurado.
+  - Webhook Microsoft puede resolver cuenta por `subscriptionId`; Google puede resolver por `channel token` namespaced.
+  - Auditoría de renovación: `CAL_SYNC_SUBSCRIPTION_RENEWED`.
+- ✅ Cola `calendar.sync.outbound` implementada con reintentos/backoff + dead-letter:
+  - Persistencia de jobs en `CalendarSyncJob` (`pending|processing|succeeded|dead_letter`).
+  - Triggers de booking (`CREATED/RESCHEDULED/CANCELLED`) encolan job outbound (Google actual).
+  - Scheduler backend procesa lote configurable, con backoff exponencial y límite de intentos.
+  - Auditoría de cola: `CAL_SYNC_OUTBOUND_ENQUEUED`, `CAL_SYNC_RETRY_SCHEDULED`, `CAL_SYNC_DEAD_LETTER`.
+- ✅ Sync inbound incremental (MVP) implementado para Google y Microsoft:
+  - Webhook dispara pull incremental por provider (`syncToken` Google / `deltaLink` Microsoft).
+  - Persistencia de cursor en `CalendarAccount.syncCursor` y recuperación de cursor inválido en Google.
+  - Aplicación de cambios externos sobre bookings vinculados por `CalendarEventLink` (cancelación/reprogramación).
+  - Auditoría `CAL_SYNC_INBOUND_OK` y manejo de error `CAL_SYNC_ERROR` por cuenta.
+- ✅ Idempotencia y conflicto avanzados (slice backend) implementados:
+  - Idempotencia inbound por versión externa (`etag`/`lastModifiedDateTime`) contra `lastExternalVersion`.
+  - Actualización de `CalendarEventLink` tras procesamiento inbound (`synced|conflict`, `lastSyncedAt`, `lastExternalVersion`).
+  - Registro de `CAL_SYNC_CONFLICT` para eventos externos sin vínculo y para colisiones con estado local cancelado.
+- ✅ Política configurable para eventos externos sin vínculo implementada:
+  - `CALENDAR_INBOUND_UNLINKED_POLICY=conflict` (default): registra conflicto y no crea booking.
+  - `CALENDAR_INBOUND_UNLINKED_POLICY=auto_create`: crea booking provisional, cliente sintético y `CalendarEventLink` automáticamente.
+  - En `auto_create`, si hay solape operativo con la agenda local, se registra conflicto y no se crea.
+- ✅ Backend de revisión manual de conflictos implementado:
+  - `GET /integrations/calendar/conflicts` lista conflictos inbound y su estado de resolución.
+  - `POST /integrations/calendar/conflicts/:id/resolve` permite `dismiss` o `retry_sync` (cuando el conflicto está asociado a cuenta).
+  - Resoluciones trazadas en auditoría (`CAL_SYNC_CONFLICT_RESOLVED`).
+- ✅ Backend de métricas de integraciones implementado:
+  - `GET /integrations/calendar/metrics?windowDays=...` expone salud por provider (cuentas conectadas/error/stale).
+  - Incluye métricas de cola outbound (`pending/processing/succeeded/dead_letter`).
+  - Incluye incidencias (`CAL_SYNC_ERROR`, `CAL_SYNC_CONFLICT`, `CAL_SYNC_DEAD_LETTER`, reintentos) y lag promedio/máximo.
 - ⏳ Pendiente para marcar IN-01/IN-02 como completos:
-  - OAuth completo (authorize + callback + refresh) por provider.
-  - Cola `calendar.sync.outbound` con reintentos/backoff y dead-letter.
-  - Sync inbound real (provider -> Apoint) con delta/sync cursor.
-  - Resolución de conflictos + idempotencia por versión/etag.
-  - UI dashboard de Integraciones.
+  - UI dashboard de Integraciones (incluyendo operación de conflictos y resolución manual).
 
 ### 3.8.1 Plan técnico de implementación (IN-01 e IN-02)
 

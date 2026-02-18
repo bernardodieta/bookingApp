@@ -87,6 +87,13 @@ enum CalendarSyncStatus {
   failed
 }
 
+enum CalendarSyncJobStatus {
+  pending
+  processing
+  succeeded
+  dead_letter
+}
+
 model Tenant {
   id                     String                  @id @default(cuid())
   name                   String
@@ -120,6 +127,7 @@ model Tenant {
   payments               Payment[]
   calendarAccounts       CalendarAccount[]
   calendarEventLinks     CalendarEventLink[]
+  calendarSyncJobs       CalendarSyncJob[]
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
 }
@@ -230,6 +238,7 @@ model Booking {
   staff         Staff         @relation(fields: [staffId], references: [id], onDelete: Cascade)
   payments      Payment[]
   calendarEventLinks CalendarEventLink[]
+  calendarSyncJobs CalendarSyncJob[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -256,6 +265,29 @@ model Customer {
 
   @@index([tenantId])
   @@unique([tenantId, email])
+}
+
+model CalendarSyncJob {
+  id           String                @id @default(cuid())
+  tenantId     String
+  bookingId    String
+  provider     CalendarProvider
+  action       String
+  status       CalendarSyncJobStatus @default(pending)
+  attemptCount Int                   @default(0)
+  maxAttempts  Int                   @default(5)
+  nextRunAt    DateTime              @default(now())
+  processedAt  DateTime?
+  lastError    String?
+  payload      Json?
+  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  booking      Booking               @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([status, nextRunAt])
+  @@index([tenantId, status, nextRunAt])
+  @@index([bookingId])
 }
 
 model CustomerAccount {
@@ -370,6 +402,9 @@ model CalendarAccount {
   accessTokenEncrypted String
   refreshTokenEncrypted String?
   tokenExpiresAt       DateTime?
+  webhookSubscriptionId String?
+  webhookResourceId    String?
+  webhookExpiresAt     DateTime?
   status               CalendarAccountStatus @default(connected)
   syncCursor           String?
   lastSyncAt           DateTime?
@@ -383,6 +418,7 @@ model CalendarAccount {
   @@index([tenantId])
   @@index([staffId])
   @@index([provider, status])
+  @@index([provider, webhookExpiresAt])
   @@unique([tenantId, provider, staffId, calendarId])
 }
 

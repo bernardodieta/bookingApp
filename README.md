@@ -299,8 +299,23 @@ Variables para Stripe:
 
 Variables para integraciones de calendario (IN-01 / IN-02 scaffold):
 - `CALENDAR_TOKENS_ENCRYPTION_KEY` (obligatoria para cifrar tokens OAuth en reposo)
+- `CALENDAR_OAUTH_STATE_SECRET` (recomendada para firmar/verificar `state` de OAuth)
+- `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, `GOOGLE_CALENDAR_REDIRECT_URI`
+- `GOOGLE_CALENDAR_SCOPES` (opcional; default `openid email profile https://www.googleapis.com/auth/calendar`)
+- `GOOGLE_CALENDAR_WEBHOOK_URL` (opcional pero recomendado para crear/renovar channel de notificaciones)
+- `GOOGLE_CALENDAR_WEBHOOK_TTL_SECONDS` (opcional; default `604800`)
+- `MICROSOFT_CALENDAR_CLIENT_ID`, `MICROSOFT_CALENDAR_CLIENT_SECRET`, `MICROSOFT_CALENDAR_REDIRECT_URI`
+- `MICROSOFT_CALENDAR_SCOPES` (opcional; default `openid email profile offline_access https://graph.microsoft.com/Calendars.ReadWrite`)
+- `MICROSOFT_CALENDAR_WEBHOOK_URL` (opcional pero recomendado para crear/renovar suscripción Graph)
+- `MICROSOFT_CALENDAR_WEBHOOK_EXPIRATION_HOURS` (opcional; default `48`, máx operativo aplicado: `70`)
 - `GOOGLE_CALENDAR_WEBHOOK_TOKEN` (opcional pero recomendado para validar webhook Google)
 - `MICROSOFT_CALENDAR_WEBHOOK_CLIENT_STATE` (opcional pero recomendado para validar webhook Microsoft)
+- `CALENDAR_SYNC_OUTBOUND_AUTO_ENABLED` (opcional; default `true`)
+- `CALENDAR_SYNC_OUTBOUND_INTERVAL_MS` (opcional; default `30000`)
+- `CALENDAR_SYNC_OUTBOUND_BATCH_SIZE` (opcional; default `10`)
+- `CALENDAR_SYNC_OUTBOUND_MAX_ATTEMPTS` (opcional; default `5`)
+- `CALENDAR_SYNC_OUTBOUND_RETRY_BASE_MS` / `CALENDAR_SYNC_OUTBOUND_RETRY_MAX_MS` (opcional; backoff exponencial)
+- `CALENDAR_INBOUND_UNLINKED_POLICY` (opcional; `conflict` default, `auto_create` para crear booking provisional cuando llega evento externo sin vínculo)
 
 Nota de roadmap de pagos:
 - MercadoPago queda diferido para una fase posterior (PG-03), no activo en MVP actual.
@@ -313,8 +328,15 @@ Nota de roadmap de pagos:
 
 ### Integraciones Calendar (protegido con Bearer salvo webhooks)
 - `POST /integrations/calendar/google/connect`
+- `POST /integrations/calendar/google/authorize` (genera URL OAuth para staff)
+- `GET /integrations/calendar/google/callback` (público, intercambia `code` y persiste cuenta)
 - `POST /integrations/calendar/microsoft/connect`
+- `POST /integrations/calendar/microsoft/authorize` (genera URL OAuth para staff)
+- `GET /integrations/calendar/microsoft/callback` (público, intercambia `code` y persiste cuenta)
 - `GET /integrations/calendar/accounts`
+- `GET /integrations/calendar/metrics?windowDays=7` (salud operativa por provider: cuentas, cola, incidencias y lag)
+- `GET /integrations/calendar/conflicts` (lista conflictos inbound con estado de resolución)
+- `POST /integrations/calendar/conflicts/:id/resolve` (acciones: `dismiss` o `retry_sync`)
 - `POST /integrations/calendar/accounts/:id/resync`
 - `DELETE /integrations/calendar/accounts/:id`
 - `POST /integrations/calendar/webhooks/google` (público, validación por `x-goog-channel-token`)
@@ -322,8 +344,19 @@ Nota de roadmap de pagos:
 
 Estado actual del scaffold IN-01/IN-02:
 - Fase A implementada: persistencia de cuentas conectadas por staff + cifrado de tokens + endpoints base + auditoría.
-- Fase B parcial implementada para Google: `BOOKING_CREATED`, `BOOKING_RESCHEDULED` y `BOOKING_CANCELLED` disparan sync outbound best-effort con `CalendarEventLink` y auditoría (`CAL_SYNC_OUTBOUND_OK` / `CAL_SYNC_ERROR`).
-- Fases B/C pendientes: cola dedicada con reintentos/DLQ, sync inbound real por delta/cursor y resolución de conflictos completa.
+- OAuth authorize/callback implementado en backend para Google y Microsoft (state firmado, token exchange y conexión automática).
+- Refresh automático de tokens implementado en runtime + refresh forzado en `resync`.
+- Renovación de suscripciones webhook implementada en `resync` (si `*_WEBHOOK_URL` está configurado), persistiendo `subscription/channel id` y expiración en `CalendarAccount`.
+- Cola `calendar.sync.outbound` implementada con persistencia en DB (`CalendarSyncJob`), retries con backoff y estado dead-letter.
+- `BOOKING_CREATED`, `BOOKING_RESCHEDULED` y `BOOKING_CANCELLED` ahora encolan jobs outbound para procesamiento asíncrono.
+- Sync inbound incremental implementado por webhook para Google/Microsoft (pull por `syncToken`/`deltaLink` y persistencia de `syncCursor`).
+- Aplicación inbound actual: actualiza/cancela bookings vinculados vía `CalendarEventLink` (MVP de doble vía).
+- Idempotencia inbound aplicada por versión externa (`etag`/`lastModifiedDateTime`) usando `lastExternalVersion` en `CalendarEventLink`.
+- Conflictos registrados explícitamente (`CAL_SYNC_CONFLICT`) para eventos externos sin vínculo y para colisiones con booking cancelado localmente.
+- Política configurable para eventos externos sin vínculo: `conflict` (auditar conflicto) o `auto_create` (crear booking provisional + `CalendarEventLink`).
+- Backend de revisión manual disponible: listado de conflictos y resolución (`dismiss`/`retry_sync`) con auditoría `CAL_SYNC_CONFLICT_RESOLVED`.
+- Backend de métricas disponible para UI: `metrics` agrega estados por provider, tamaño de cola, incidencias y latencia de sync por ventana.
+- Pendiente: UI dashboard para operar esa revisión manual.
 
 ### Auditoría (protegido con Bearer)
 - `GET /audit/logs?action=...&actorUserId=...&from=...&to=...&limit=...&cursor=...`
