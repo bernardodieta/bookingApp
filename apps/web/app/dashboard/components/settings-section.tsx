@@ -96,6 +96,7 @@ function stringifyBookingFields(fields: BookingFieldDraft[]) {
 export function SettingsSection(props: SettingsSectionProps) {
   const [showAdvancedJson, setShowAdvancedJson] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null);
 
   const parsedFieldsState = useMemo(() => parseBookingFields(props.bookingFormFieldsText), [props.bookingFormFieldsText]);
   const customFields = parsedFieldsState.fields;
@@ -147,6 +148,7 @@ export function SettingsSection(props: SettingsSectionProps) {
   }
 
   function removeField(index: number) {
+    setConfirmDeleteIndex(null);
     updateFields(customFields.filter((_, fieldIndex) => fieldIndex !== index));
   }
 
@@ -158,6 +160,7 @@ export function SettingsSection(props: SettingsSectionProps) {
     const nextFields = [...customFields];
     const [moved] = nextFields.splice(fromIndex, 1);
     nextFields.splice(toIndex, 0, moved);
+    setConfirmDeleteIndex(null);
     updateFields(nextFields);
   }
 
@@ -287,7 +290,10 @@ export function SettingsSection(props: SettingsSectionProps) {
                     key={`${field.key}-${index}`}
                     className={`settings-field-item ${dragIndex === index ? 'dragging' : ''}`}
                     draggable
-                    onDragStart={() => setDragIndex(index)}
+                    onDragStart={() => {
+                      setConfirmDeleteIndex(null);
+                      setDragIndex(index);
+                    }}
                     onDragEnd={() => setDragIndex(null)}
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={() => {
@@ -344,9 +350,20 @@ export function SettingsSection(props: SettingsSectionProps) {
                         >
                           Bajar
                         </button>
-                        <button type="button" className="btn btn-ghost" onClick={() => removeField(index)}>
-                          Eliminar
-                        </button>
+                        {confirmDeleteIndex === index ? (
+                          <>
+                            <button type="button" className="btn btn-primary" onClick={() => removeField(index)}>
+                              Confirmar
+                            </button>
+                            <button type="button" className="btn btn-ghost" onClick={() => setConfirmDeleteIndex(null)}>
+                              Cancelar
+                            </button>
+                          </>
+                        ) : (
+                          <button type="button" className="btn btn-ghost" onClick={() => setConfirmDeleteIndex(index)}>
+                            Eliminar
+                          </button>
+                        )}
                       </div>
                     </div>
                   </article>
