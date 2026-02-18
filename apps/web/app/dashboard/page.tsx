@@ -102,6 +102,26 @@ const quickCreateBookingSchema = z.object({
   notes: z.string().optional()
 });
 
+const quickCreateAvailabilityRuleSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.'),
+  dayOfWeek: z.coerce.number().int().min(0).max(6),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Hora inicio inválida. Usa HH:mm.'),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/, 'Hora fin inválida. Usa HH:mm.'),
+  staffId: z.string().trim().min(1, 'Selecciona staff para la regla.')
+});
+
+const quickCreateAvailabilityExceptionSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.'),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida. Usa YYYY-MM-DD.'),
+  fullDay: z.boolean(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  staffId: z.string().trim().min(1, 'Selecciona staff para la excepción.'),
+  note: z.string().optional()
+});
+
 export default function DashboardPage() {
   const router = useRouter();
   const [apiUrl, setApiUrl] = useState('http://localhost:3001');
@@ -148,6 +168,22 @@ export default function DashboardPage() {
   const [quickBookingLoading, setQuickBookingLoading] = useState(false);
   const [quickBookingError, setQuickBookingError] = useState('');
   const [quickBookingSuccess, setQuickBookingSuccess] = useState('');
+  const [quickRuleDayOfWeek, setQuickRuleDayOfWeek] = useState('1');
+  const [quickRuleStartTime, setQuickRuleStartTime] = useState('09:00');
+  const [quickRuleEndTime, setQuickRuleEndTime] = useState('18:00');
+  const [quickRuleStaffId, setQuickRuleStaffId] = useState('');
+  const [quickRuleLoading, setQuickRuleLoading] = useState(false);
+  const [quickRuleError, setQuickRuleError] = useState('');
+  const [quickRuleSuccess, setQuickRuleSuccess] = useState('');
+  const [quickExceptionDate, setQuickExceptionDate] = useState(today);
+  const [quickExceptionFullDay, setQuickExceptionFullDay] = useState(true);
+  const [quickExceptionStartTime, setQuickExceptionStartTime] = useState('09:00');
+  const [quickExceptionEndTime, setQuickExceptionEndTime] = useState('18:00');
+  const [quickExceptionStaffId, setQuickExceptionStaffId] = useState('');
+  const [quickExceptionNote, setQuickExceptionNote] = useState('');
+  const [quickExceptionLoading, setQuickExceptionLoading] = useState(false);
+  const [quickExceptionError, setQuickExceptionError] = useState('');
+  const [quickExceptionSuccess, setQuickExceptionSuccess] = useState('');
 
   const summaryStatus = useMemo(() => {
     if (!data) return [] as Array<[string, number]>;
@@ -234,6 +270,12 @@ export default function DashboardPage() {
         }
         if (staffPayload.length && !staffPayload.some((entry) => entry.id === quickBookingStaffId)) {
           setQuickBookingStaffId(staffPayload[0]?.id ?? '');
+        }
+        if (staffPayload.length && !staffPayload.some((entry) => entry.id === quickRuleStaffId)) {
+          setQuickRuleStaffId(staffPayload[0]?.id ?? '');
+        }
+        if (staffPayload.length && !staffPayload.some((entry) => entry.id === quickExceptionStaffId)) {
+          setQuickExceptionStaffId(staffPayload[0]?.id ?? '');
         }
 
         if (servicesPayload.length && !servicesPayload.some((entry) => entry.id === quickBookingServiceId)) {
@@ -502,6 +544,12 @@ export default function DashboardPage() {
       if (!quickBookingStaffId && payload?.id) {
         setQuickBookingStaffId(payload.id);
       }
+      if (!quickRuleStaffId && payload?.id) {
+        setQuickRuleStaffId(payload.id);
+      }
+      if (!quickExceptionStaffId && payload?.id) {
+        setQuickExceptionStaffId(payload.id);
+      }
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo crear staff';
       setQuickStaffError(message);
@@ -571,6 +619,128 @@ export default function DashboardPage() {
       setQuickBookingError(message);
     } finally {
       setQuickBookingLoading(false);
+    }
+  }
+
+  async function onCreateAvailabilityRule(event: FormEvent) {
+    event.preventDefault();
+    setQuickRuleError('');
+    setQuickRuleSuccess('');
+
+    const parsed = quickCreateAvailabilityRuleSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim(),
+      dayOfWeek: quickRuleDayOfWeek,
+      startTime: quickRuleStartTime,
+      endTime: quickRuleEndTime,
+      staffId: quickRuleStaffId
+    });
+
+    if (!parsed.success) {
+      setQuickRuleError(parsed.error.issues[0]?.message ?? 'Datos de regla inválidos.');
+      return;
+    }
+
+    if (parsed.data.startTime >= parsed.data.endTime) {
+      setQuickRuleError('La hora de inicio debe ser menor a la hora de fin.');
+      return;
+    }
+
+    setQuickRuleLoading(true);
+
+    try {
+      const response = await fetch(new URL('/availability/rules', parsed.data.apiUrl).toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({
+          dayOfWeek: parsed.data.dayOfWeek,
+          startTime: parsed.data.startTime,
+          endTime: parsed.data.endTime,
+          staffId: parsed.data.staffId,
+          isActive: true
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      setQuickRuleSuccess('Regla de disponibilidad creada correctamente.');
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo crear regla de disponibilidad';
+      setQuickRuleError(message);
+    } finally {
+      setQuickRuleLoading(false);
+    }
+  }
+
+  async function onCreateAvailabilityException(event: FormEvent) {
+    event.preventDefault();
+    setQuickExceptionError('');
+    setQuickExceptionSuccess('');
+
+    const parsed = quickCreateAvailabilityExceptionSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim(),
+      date: quickExceptionDate,
+      fullDay: quickExceptionFullDay,
+      startTime: quickExceptionStartTime,
+      endTime: quickExceptionEndTime,
+      staffId: quickExceptionStaffId,
+      note: quickExceptionNote.trim() || undefined
+    });
+
+    if (!parsed.success) {
+      setQuickExceptionError(parsed.error.issues[0]?.message ?? 'Datos de excepción inválidos.');
+      return;
+    }
+
+    if (!parsed.data.fullDay) {
+      if (!parsed.data.startTime || !parsed.data.endTime) {
+        setQuickExceptionError('Debes enviar hora inicio y fin para excepción parcial.');
+        return;
+      }
+      if (parsed.data.startTime >= parsed.data.endTime) {
+        setQuickExceptionError('La hora de inicio debe ser menor a la hora de fin.');
+        return;
+      }
+    }
+
+    setQuickExceptionLoading(true);
+
+    try {
+      const response = await fetch(new URL('/availability/exceptions', parsed.data.apiUrl).toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({
+          date: `${parsed.data.date}T00:00:00.000Z`,
+          startTime: parsed.data.fullDay ? undefined : parsed.data.startTime,
+          endTime: parsed.data.fullDay ? undefined : parsed.data.endTime,
+          staffId: parsed.data.staffId,
+          isUnavailable: true,
+          note: parsed.data.note
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      setQuickExceptionSuccess('Excepción de disponibilidad creada correctamente.');
+      setQuickExceptionNote('');
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo crear excepción de disponibilidad';
+      setQuickExceptionError(message);
+    } finally {
+      setQuickExceptionLoading(false);
     }
   }
 
@@ -690,9 +860,9 @@ export default function DashboardPage() {
 
       <section style={{ marginTop: 28 }}>
         <h2 style={{ marginBottom: 8 }}>Acciones rápidas (MVP)</h2>
-        <p style={{ marginTop: 0, color: '#555' }}>Alta rápida de servicios, staff y reservas sin salir del dashboard.</p>
+        <p style={{ marginTop: 0, color: '#555' }}>Alta rápida de servicios, staff, reservas, reglas y excepciones de disponibilidad.</p>
 
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', marginBottom: 8 }}>
+        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', marginBottom: 8 }}>
           <form onSubmit={onCreateService} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
             <strong>Crear servicio</strong>
             <label>
@@ -776,6 +946,86 @@ export default function DashboardPage() {
             </button>
             {quickBookingError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickBookingError}</div> : null}
             {quickBookingSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickBookingSuccess}</div> : null}
+          </form>
+
+          <form onSubmit={onCreateAvailabilityRule} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <strong>Crear regla disponibilidad</strong>
+            <label>
+              Día semana
+              <select value={quickRuleDayOfWeek} onChange={(e) => setQuickRuleDayOfWeek(e.target.value)} style={{ width: '100%' }}>
+                <option value="1">Lunes</option>
+                <option value="2">Martes</option>
+                <option value="3">Miércoles</option>
+                <option value="4">Jueves</option>
+                <option value="5">Viernes</option>
+                <option value="6">Sábado</option>
+                <option value="0">Domingo</option>
+              </select>
+            </label>
+            <label>
+              Hora inicio
+              <input type="time" value={quickRuleStartTime} onChange={(e) => setQuickRuleStartTime(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Hora fin
+              <input type="time" value={quickRuleEndTime} onChange={(e) => setQuickRuleEndTime(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Staff
+              <select value={quickRuleStaffId} onChange={(e) => setQuickRuleStaffId(e.target.value)} style={{ width: '100%' }} disabled={staffLoading}>
+                <option value="">Seleccionar</option>
+                {staffOptions.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.fullName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="submit" disabled={quickRuleLoading || !token.trim()} style={{ width: 220, padding: '8px 12px' }}>
+              {quickRuleLoading ? 'Creando...' : 'Crear regla'}
+            </button>
+            {quickRuleError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickRuleError}</div> : null}
+            {quickRuleSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickRuleSuccess}</div> : null}
+          </form>
+
+          <form onSubmit={onCreateAvailabilityException} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <strong>Crear excepción disponibilidad</strong>
+            <label>
+              Fecha
+              <input type="date" value={quickExceptionDate} onChange={(e) => setQuickExceptionDate(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={quickExceptionFullDay} onChange={(e) => setQuickExceptionFullDay(e.target.checked)} />
+              Bloqueo todo el día
+            </label>
+            <label>
+              Hora inicio
+              <input type="time" value={quickExceptionStartTime} onChange={(e) => setQuickExceptionStartTime(e.target.value)} style={{ width: '100%' }} disabled={quickExceptionFullDay} />
+            </label>
+            <label>
+              Hora fin
+              <input type="time" value={quickExceptionEndTime} onChange={(e) => setQuickExceptionEndTime(e.target.value)} style={{ width: '100%' }} disabled={quickExceptionFullDay} />
+            </label>
+            <label>
+              Staff
+              <select value={quickExceptionStaffId} onChange={(e) => setQuickExceptionStaffId(e.target.value)} style={{ width: '100%' }} disabled={staffLoading}>
+                <option value="">Seleccionar</option>
+                {staffOptions.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.fullName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Nota (opcional)
+              <input value={quickExceptionNote} onChange={(e) => setQuickExceptionNote(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <button type="submit" disabled={quickExceptionLoading || !token.trim()} style={{ width: 240, padding: '8px 12px' }}>
+              {quickExceptionLoading ? 'Creando...' : 'Crear excepción'}
+            </button>
+            {quickExceptionError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickExceptionError}</div> : null}
+            {quickExceptionSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickExceptionSuccess}</div> : null}
           </form>
         </div>
       </section>

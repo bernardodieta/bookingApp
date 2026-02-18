@@ -147,7 +147,7 @@ Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
 - Filtro de estado por dropdown (`pending`, `confirmed`, `cancelled`, `rescheduled`, `no_show`, `completed`)
 - Consumir en vivo `GET /dashboard/appointments`
 - Consultar auditoría con filtros (`action`, `actorUserId`, fechas, `limit`) y paginación por `nextCursor`
-- Acciones rápidas para crear `service`, `staff` y `booking` desde la misma vista
+- Acciones rápidas para crear `service`, `staff`, `booking`, `availability rule` y `availability exception` desde la misma vista
 
 ### CRM Clientes (protegido con Bearer)
 - `GET /customers?search=...`
