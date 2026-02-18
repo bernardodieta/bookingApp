@@ -119,6 +119,7 @@ Notificaciones email (MVP):
 - Proveedor principal: `SendGrid` (`SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`)
 - Fallback automático: `Nodemailer SMTP` si SendGrid falla (`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL`)
 - Destinatario opcional para alertas al negocio: `NOTIFICATIONS_BUSINESS_EMAIL`
+- Login Google customer portal: rate limit dedicado con `PUBLIC_GOOGLE_LOGIN_RATE_LIMIT_MAX` y `PUBLIC_GOOGLE_LOGIN_RATE_LIMIT_WINDOW_MS` (por defecto `10` solicitudes por `60000ms` para `POST /public/:slugOrDomain/customer-portal/google`)
 
 Preflight de configuración MVP:
 - `npm run qa:secrets:local` genera/rota secretos JWT locales en `.env` (sin exponer valores)
@@ -195,6 +196,7 @@ VS Code Tasks disponibles en `.vscode/tasks.json`:
 ## Seguridad MVP aplicada
 
 - Rate limiting en rutas públicas (`/public/*`) y auth (`/auth/login`, `/auth/register`)
+- Rate limiting específico para login Google del portal cliente (`POST /public/:slugOrDomain/customer-portal/google`)
 - Auditoría (`AuditLog`) para acciones sensibles:
 	- `TENANT_SETTINGS_UPDATED`
 	- `BOOKING_CREATED`, `BOOKING_CANCELLED`, `BOOKING_RESCHEDULED`
