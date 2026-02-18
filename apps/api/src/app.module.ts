@@ -15,6 +15,7 @@ import { AuditModule } from './audit/audit.module';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { PaymentsModule } from './payments/payments.module';
 import { CustomerPortalModule } from './customer-portal/customer-portal.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 
 @Module({
   imports: [
@@ -31,7 +32,8 @@ import { CustomerPortalModule } from './customer-portal/customer-portal.module';
     CustomersModule,
     AuditModule,
     PaymentsModule,
-    CustomerPortalModule
+    CustomerPortalModule,
+    IntegrationsModule
   ],
   controllers: [HealthController],
   providers: []
@@ -43,7 +45,9 @@ export class AppModule implements NestModule {
       .forRoutes(
         { path: 'public/:path*', method: RequestMethod.ALL },
         { path: 'auth/login', method: RequestMethod.POST },
-        { path: 'auth/register', method: RequestMethod.POST }
+        { path: 'auth/register', method: RequestMethod.POST },
+        { path: 'auth/google', method: RequestMethod.POST },
+        { path: 'integrations/calendar/webhooks/:path*', method: RequestMethod.POST }
       );
   }
 }

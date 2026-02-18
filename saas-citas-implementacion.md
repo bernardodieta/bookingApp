@@ -25,6 +25,8 @@ Resumen ejecutivo:
 - Dominio custom y widget embebible implementados (incluye `widget-config` y `widget.js`).
 - Release ops endurecido: smoke widget, gate widget, one-click release y release doctor.
 - Suite e2e crítica pasando (17/17).
+- Integraciones calendario (IN-01/IN-02) en scaffold técnico inicial: persistencia, endpoints base, webhook handlers y auditoría inicial.
+- Integraciones calendario: sincronización saliente inicial activa para Google en `BOOKING_CREATED/RESCHEDULED/CANCELLED` (best-effort con `CalendarEventLink` y auditoría de éxito/error).
 
 Pendiente inmediato para cierre de go-live MVP:
 - Validación real de entorno staging/prod con variables no-placeholder.
@@ -146,6 +148,24 @@ Usar estos IDs para historias, PRs y QA.
 - [ ] **IN-05** WhatsApp Business
 - [ ] **IN-06** Reserva desde Instagram/Facebook
 - [ ] **IN-07** Zapier
+
+Estado de avance real (2026-02-18):
+- ✅ Fase A (base técnica) iniciada para IN-01/IN-02:
+  - Modelo de datos: `CalendarAccount` y `CalendarEventLink`.
+  - Endpoints backend creados: connect/list/resync/disconnect + webhooks Google/Microsoft.
+  - Cifrado de tokens OAuth en reposo (`CALENDAR_TOKENS_ENCRYPTION_KEY`).
+  - Auditoría base: conexión, resync, desconexión, inbound webhook.
+- ✅ Fase B parcial (Google outbound, sin cola dedicada aún):
+  - `BOOKING_CREATED` crea/actualiza evento en Google Calendar por cuentas conectadas del staff.
+  - `BOOKING_RESCHEDULED` actualiza evento vinculado.
+  - `BOOKING_CANCELLED` elimina evento vinculado (si existe).
+  - Persistencia de vínculo en `CalendarEventLink` + auditoría `CAL_SYNC_OUTBOUND_OK`/`CAL_SYNC_ERROR`.
+- ⏳ Pendiente para marcar IN-01/IN-02 como completos:
+  - OAuth completo (authorize + callback + refresh) por provider.
+  - Cola `calendar.sync.outbound` con reintentos/backoff y dead-letter.
+  - Sync inbound real (provider -> Apoint) con delta/sync cursor.
+  - Resolución de conflictos + idempotencia por versión/etag.
+  - UI dashboard de Integraciones.
 
 ### 3.8.1 Plan técnico de implementación (IN-01 e IN-02)
 

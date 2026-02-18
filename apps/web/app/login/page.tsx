@@ -1,5 +1,6 @@
 'use client';
 
+import Script from 'next/script';
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
@@ -7,6 +8,32 @@ import { Building2, LogIn, UserPlus } from 'lucide-react';
 
 const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
+
+declare global {
+  interface Window {
+    google?: {
+      accounts?: {
+        id?: {
+          initialize: (options: {
+            client_id: string;
+            callback: (response: { credential?: string }) => void;
+          }) => void;
+          renderButton: (
+            parent: HTMLElement,
+            options: {
+              theme?: 'outline' | 'filled_blue' | 'filled_black';
+              size?: 'large' | 'medium' | 'small';
+              text?: 'signin_with' | 'signup_with' | 'continue_with' | 'signin';
+              shape?: 'rectangular' | 'pill' | 'circle' | 'square';
+              width?: number;
+            }
+          ) => void;
+        };
+      };
+    };
+  }
+}
 
 const loginSchema = z.object({
   apiUrl: z.string().url('API URL inválida.'),
@@ -30,6 +57,11 @@ export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleInitKey, setGoogleInitKey] = useState(0);
+  const [googleButtonNode, setGoogleButtonNode] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const storedToken = localStorage.getItem(TOKEN_KEY);
@@ -120,8 +152,106 @@ export default function LoginPage() {
     }
   }
 
+  async function handleGoogleToken(idToken: string) {
+    if (!idToken) {
+      setError('Google no entregó token de sesión.');
+      return;
+    }
+
+    const normalizedApiUrl = apiUrl.trim();
+    const parsedApiUrl = z.string().url('API URL inválida.').safeParse(normalizedApiUrl);
+    if (!parsedApiUrl.success) {
+      setError(parsedApiUrl.error.issues[0]?.message ?? 'API URL inválida.');
+      return;
+    }
+
+    setError('');
+    setGoogleLoading(true);
+
+    try {
+      const response = await fetch(new URL('/auth/google', normalizedApiUrl).toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ idToken })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      const payload = (await response.json()) as { accessToken: string };
+      if (!payload.accessToken) {
+        throw new Error('No se recibió accessToken.');
+      }
+
+      localStorage.setItem(TOKEN_KEY, payload.accessToken);
+      localStorage.setItem(API_URL_KEY, normalizedApiUrl);
+      router.replace('/dashboard');
+    } catch (googleError) {
+      setError(googleError instanceof Error ? googleError.message : 'No se pudo iniciar con Google');
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !googleScriptLoaded || mode !== 'login' || !googleButtonNode) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const renderButton = () => {
+      const googleId = window.google?.accounts?.id;
+      if (!googleId || !googleButtonNode || cancelled) {
+        return false;
+      }
+
+      googleId.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response) => {
+          void handleGoogleToken(response.credential ?? '');
+        }
+      });
+
+      googleButtonNode.innerHTML = '';
+      googleId.renderButton(googleButtonNode, {
+        theme: 'outline',
+        size: 'large',
+        text: 'continue_with',
+        shape: 'pill',
+        width: 260
+      });
+
+      setGoogleReady(true);
+      return true;
+    };
+
+    if (renderButton()) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const interval = window.setInterval(() => {
+      if (renderButton()) {
+        window.clearInterval(interval);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [googleScriptLoaded, googleButtonNode, mode, googleInitKey]);
+
   return (
-    <main className="app-shell" style={{ maxWidth: 640 }}>
+    <>
+      {GOOGLE_CLIENT_ID ? <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={() => setGoogleScriptLoaded(true)} /> : null}
+      <main className="app-shell" style={{ maxWidth: 640 }}>
       <section className="surface" style={{ padding: 22 }}>
         <header className="page-header" style={{ marginBottom: 12 }}>
           <div>
@@ -147,6 +277,8 @@ export default function LoginPage() {
           onClick={() => {
             setMode('login');
             setError('');
+            setGoogleReady(false);
+            setGoogleInitKey((value) => value + 1);
           }}
           disabled={loading || mode === 'login'}
           className={`btn ${mode === 'login' ? 'btn-primary' : 'btn-ghost'}`}
@@ -159,6 +291,7 @@ export default function LoginPage() {
           onClick={() => {
             setMode('register');
             setError('');
+            setGoogleReady(false);
           }}
           disabled={loading || mode === 'register'}
           className={`btn ${mode === 'register' ? 'btn-primary' : 'btn-ghost'}`}
@@ -193,8 +326,21 @@ export default function LoginPage() {
         </button>
       </form>
 
+      {mode === 'login' ? (
+        <div className="panel" style={{ marginTop: 14, display: 'grid', gap: 8 }}>
+          <strong>Google SSO (partners)</strong>
+          {!GOOGLE_CLIENT_ID ? <span style={{ color: '#666', fontSize: 13 }}>Configura `NEXT_PUBLIC_GOOGLE_CLIENT_ID` para habilitar Google SSO.</span> : null}
+          {googleLoading ? <span style={{ color: '#666', fontSize: 13 }}>Validando sesión de Google...</span> : null}
+          {GOOGLE_CLIENT_ID ? <div ref={setGoogleButtonNode} /> : null}
+          {GOOGLE_CLIENT_ID && googleScriptLoaded && !googleReady ? (
+            <span style={{ color: '#666', fontSize: 13 }}>Cargando botón de Google...</span>
+          ) : null}
+        </div>
+      ) : null}
+
       {error ? <div className="status-error" style={{ marginTop: 14 }}>{error}</div> : null}
       </section>
     </main>
+    </>
   );
 }

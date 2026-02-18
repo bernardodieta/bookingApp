@@ -37,6 +37,9 @@ npm run qa:smoke:prod
 npm run qa:smoke:stripe
 npm run qa:smoke:stripe:staging
 npm run qa:smoke:stripe:prod
+npm run qa:smoke:partner-google
+npm run qa:smoke:partner-google:staging
+npm run qa:smoke:partner-google:prod
 npm run qa:smoke:widget
 npm run qa:smoke:widget:staging
 npm run qa:smoke:widget:prod
@@ -139,10 +142,13 @@ Bootstrap de entorno remoto:
 Smoke multi-entorno:
 - `npm run qa:smoke:mvp` usa `API_URL` o `http://localhost:3001`
 - `npm run qa:smoke:stripe` valida checkout + webhook firmado + idempotencia (`STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET` requeridas)
+- `npm run qa:smoke:partner-google` valida login SSO de partners/dashboard (`/auth/google`) con `idToken` real (`--id-token=...` o `GOOGLE_ID_TOKEN`)
 - `npm run qa:smoke:staging` usa `STAGING_API_URL`
 - `npm run qa:smoke:prod` usa `PROD_API_URL`
 - `npm run qa:smoke:stripe:staging` usa `STAGING_API_URL` para smoke Stripe
 - `npm run qa:smoke:stripe:prod` usa `PROD_API_URL` para smoke Stripe
+- `npm run qa:smoke:partner-google:staging` usa `STAGING_API_URL` para smoke partner Google
+- `npm run qa:smoke:partner-google:prod` usa `PROD_API_URL` para smoke partner Google
 - `npm run qa:smoke:widget` valida específicamente dominio custom + `widget-config` + `widget.js`
 - `npm run qa:smoke:widget:staging` usa `STAGING_API_URL` en modo widget-only
 - `npm run qa:smoke:widget:prod` usa `PROD_API_URL` en modo widget-only
@@ -234,6 +240,9 @@ Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
 	- body: `{ "tenantName": "Demo", "email": "owner@demo.com", "password": "Password123" }`
 - `POST /auth/login`
 	- body: `{ "email": "owner@demo.com", "password": "Password123" }`
+- `POST /auth/google`
+	- body: `{ "idToken": "google_id_token" }`
+	- usa `GOOGLE_CLIENT_ID` para validar audiencia del token
 - `GET /auth/me` (Bearer token)
 
 ### Services (protegido con Bearer)
@@ -288,6 +297,11 @@ Variables para Stripe:
 - `STRIPE_WEBHOOK_SECRET` (obligatoria para validar firma del webhook)
 - `NEXT_PUBLIC_APP_URL` o `WEB_BASE_URL` (opcional, para construir URLs de success/cancel)
 
+Variables para integraciones de calendario (IN-01 / IN-02 scaffold):
+- `CALENDAR_TOKENS_ENCRYPTION_KEY` (obligatoria para cifrar tokens OAuth en reposo)
+- `GOOGLE_CALENDAR_WEBHOOK_TOKEN` (opcional pero recomendado para validar webhook Google)
+- `MICROSOFT_CALENDAR_WEBHOOK_CLIENT_STATE` (opcional pero recomendado para validar webhook Microsoft)
+
 Nota de roadmap de pagos:
 - MercadoPago queda diferido para una fase posterior (PG-03), no activo en MVP actual.
 
@@ -296,6 +310,20 @@ Nota de roadmap de pagos:
 	- Devuelve citas del período + resumen (`totalAppointments`, `totalScheduledMinutes`, `byStatus`, `byStaff`)
 - `GET /dashboard/reports?range=day|week|month&date=YYYY-MM-DD`
 	- Devuelve KPIs comerciales: ingresos netos, cancelaciones, clientes frecuentes, servicios más demandados y horas pico
+
+### Integraciones Calendar (protegido con Bearer salvo webhooks)
+- `POST /integrations/calendar/google/connect`
+- `POST /integrations/calendar/microsoft/connect`
+- `GET /integrations/calendar/accounts`
+- `POST /integrations/calendar/accounts/:id/resync`
+- `DELETE /integrations/calendar/accounts/:id`
+- `POST /integrations/calendar/webhooks/google` (público, validación por `x-goog-channel-token`)
+- `POST /integrations/calendar/webhooks/microsoft` (público, handshake `validationToken` + validación `clientState`)
+
+Estado actual del scaffold IN-01/IN-02:
+- Fase A implementada: persistencia de cuentas conectadas por staff + cifrado de tokens + endpoints base + auditoría.
+- Fase B parcial implementada para Google: `BOOKING_CREATED`, `BOOKING_RESCHEDULED` y `BOOKING_CANCELLED` disparan sync outbound best-effort con `CalendarEventLink` y auditoría (`CAL_SYNC_OUTBOUND_OK` / `CAL_SYNC_ERROR`).
+- Fases B/C pendientes: cola dedicada con reintentos/DLQ, sync inbound real por delta/cursor y resolución de conflictos completa.
 
 ### Auditoría (protegido con Bearer)
 - `GET /audit/logs?action=...&actorUserId=...&from=...&to=...&limit=...&cursor=...`

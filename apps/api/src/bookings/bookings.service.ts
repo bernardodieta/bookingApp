@@ -11,6 +11,7 @@ import { PublicSlotsQueryDto } from '../public/dto/public-slots-query.dto';
 import { JoinWaitlistDto } from './dto/join-waitlist.dto';
 import { AuditService } from '../audit/audit.service';
 import { DateTime } from 'luxon';
+import { IntegrationsService } from '../integrations/integrations.service';
 
 const SLOT_STEP_MINUTES = 15;
 
@@ -26,7 +27,8 @@ export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    private readonly integrationsService: IntegrationsService
   ) {}
 
   async create(user: AuthUser, payload: CreateBookingDto) {
@@ -151,6 +153,16 @@ export class BookingsService {
         endAt: booking.endAt.toISOString()
       } as Prisma.InputJsonValue
     });
+
+    try {
+      await this.integrationsService.syncGoogleOutboundForBooking({
+        tenantId,
+        bookingId: booking.id,
+        action: 'BOOKING_CREATED',
+        actorUserId
+      });
+    } catch {
+    }
 
     try {
       await this.notificationsService.sendBookingCreatedEmails({
@@ -548,6 +560,17 @@ export class BookingsService {
     });
 
     await this.notifyNextWaitlistOnCancellation(cancelled);
+
+    try {
+      await this.integrationsService.syncGoogleOutboundForBooking({
+        tenantId: user.tenantId,
+        bookingId: booking.id,
+        action: 'BOOKING_CANCELLED',
+        actorUserId: user.sub
+      });
+    } catch {
+    }
+
     return {
       ...cancelled,
       refundResolution
@@ -732,6 +755,16 @@ export class BookingsService {
         newStartAt: startAt.toISOString()
       } as Prisma.InputJsonValue
     });
+
+    try {
+      await this.integrationsService.syncGoogleOutboundForBooking({
+        tenantId: user.tenantId,
+        bookingId: booking.id,
+        action: 'BOOKING_RESCHEDULED',
+        actorUserId: user.sub
+      });
+    } catch {
+    }
 
     return updated;
   }
