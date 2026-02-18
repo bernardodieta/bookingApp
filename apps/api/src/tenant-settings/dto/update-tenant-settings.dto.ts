@@ -1,5 +1,5 @@
 import { RefundPolicy } from '@prisma/client';
-import { IsArray, IsEnum, IsHexColor, IsInt, IsObject, IsOptional, IsString, IsUrl, Min } from 'class-validator';
+import { IsArray, IsEnum, IsHexColor, IsIn, IsInt, IsObject, IsOptional, IsString, IsUrl, Min } from 'class-validator';
 
 export class UpdateTenantSettingsDto {
   @IsOptional()
@@ -10,6 +10,14 @@ export class UpdateTenantSettingsDto {
   @IsOptional()
   @IsHexColor({ message: 'primaryColor debe ser un color HEX válido (ej. #2563eb).' })
   primaryColor?: string;
+
+  @IsOptional()
+  @IsString()
+  timeZone?: string;
+
+  @IsOptional()
+  @IsIn(['es', 'en'])
+  locale?: 'es' | 'en';
 
   @IsOptional()
   @IsInt()

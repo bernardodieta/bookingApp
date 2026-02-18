@@ -29,6 +29,7 @@ export type AvailabilityExceptionItem = {
 
 export type DashboardResponse = {
   range: 'day' | 'week' | 'month';
+  timeZone?: string;
   period: {
     start: string;
     end: string;
@@ -53,6 +54,7 @@ export type DashboardResponse = {
 
 export type DashboardReportsResponse = {
   range: 'day' | 'week' | 'month';
+  timeZone?: string;
   period: {
     start: string;
     end: string;
@@ -100,6 +102,8 @@ export type TenantSettingsResponse = {
   plan: string;
   logoUrl: string | null;
   primaryColor: string | null;
+  timeZone: string;
+  locale: 'es' | 'en';
   bookingBufferMinutes: number;
   maxBookingsPerDay: number | null;
   maxBookingsPerWeek: number | null;

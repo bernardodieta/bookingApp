@@ -53,6 +53,7 @@ type OverviewSectionProps = {
   setRescheduleDrafts: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 
   reports: {
+    timeZone?: string;
     totals: {
       netRevenue: number;
       cancelledAppointments: number;
@@ -275,7 +276,7 @@ export function OverviewSection(props: OverviewSectionProps) {
             </article>
 
             <article className="panel">
-              <strong>Horas pico (UTC)</strong>
+              <strong>Horas pico ({props.reports.timeZone ?? 'UTC'})</strong>
               <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
                 {props.reports.peakHours.length ? (
                   props.reports.peakHours.map((entry) => (

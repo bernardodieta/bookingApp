@@ -17,6 +17,8 @@ type TenantProfile = {
   plan: string;
   logoUrl: string | null;
   primaryColor: string | null;
+  timeZone: string;
+  locale: 'es' | 'en';
 };
 
 type ServiceItem = {
@@ -62,6 +64,75 @@ type BookingResponse = {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const today = new Date().toISOString().slice(0, 10);
 
+const COPY = {
+  es: {
+    titleFallback: 'Reservas online',
+    subtitle: 'Selecciona servicio, profesional y horario para agendar tu cita.',
+    loadingProfile: 'Cargando perfil público...',
+    service: 'Servicio',
+    professional: 'Profesional',
+    date: 'Fecha',
+    select: 'Seleccionar',
+    availableSlots: 'Horarios disponibles',
+    loadingSlots: 'Cargando horarios...',
+    noSlots: 'Sin horarios para los filtros actuales.',
+    bookingData: 'Datos de la reserva',
+    fullName: 'Nombre completo',
+    email: 'Email',
+    notesOptional: 'Notas (opcional)',
+    selectedSlot: 'Horario seleccionado',
+    none: 'Ninguno',
+    bookingSubmitting: 'Reservando...',
+    bookingSubmit: 'Confirmar reserva',
+    waitlist: 'Lista de espera',
+    preferredDateTime: 'Fecha/hora preferida',
+    waitlistSubmitting: 'Procesando...',
+    waitlistSubmit: 'Unirme a lista de espera',
+    requiredField: 'Completa el campo requerido',
+    bookingCreated: 'Reserva confirmada. Revisa tu correo para la confirmación.',
+    bookingWaitlisted: 'Ese horario se ocupó recientemente. Te agregamos a lista de espera.',
+    bookingCreateError: 'No se pudo crear la reserva',
+    waitlistCreated: 'Te agregamos a lista de espera correctamente.',
+    waitlistCreateError: 'No se pudo registrar en lista de espera',
+    invalidWaitlistDate: 'Fecha/hora preferida inválida.',
+    invalidBookingData: 'Datos inválidos para reservar.',
+    invalidWaitlistData: 'Datos inválidos para lista de espera.'
+  },
+  en: {
+    titleFallback: 'Online booking',
+    subtitle: 'Select service, professional and time slot to book your appointment.',
+    loadingProfile: 'Loading public profile...',
+    service: 'Service',
+    professional: 'Professional',
+    date: 'Date',
+    select: 'Select',
+    availableSlots: 'Available slots',
+    loadingSlots: 'Loading slots...',
+    noSlots: 'No slots available for current filters.',
+    bookingData: 'Booking details',
+    fullName: 'Full name',
+    email: 'Email',
+    notesOptional: 'Notes (optional)',
+    selectedSlot: 'Selected slot',
+    none: 'None',
+    bookingSubmitting: 'Booking...',
+    bookingSubmit: 'Confirm booking',
+    waitlist: 'Waitlist',
+    preferredDateTime: 'Preferred date/time',
+    waitlistSubmitting: 'Processing...',
+    waitlistSubmit: 'Join waitlist',
+    requiredField: 'Please complete required field',
+    bookingCreated: 'Booking confirmed. Check your email for confirmation.',
+    bookingWaitlisted: 'That slot was just taken. We added you to the waitlist.',
+    bookingCreateError: 'Could not create booking',
+    waitlistCreated: 'You were added to the waitlist successfully.',
+    waitlistCreateError: 'Could not join waitlist',
+    invalidWaitlistDate: 'Invalid preferred date/time.',
+    invalidBookingData: 'Invalid booking data.',
+    invalidWaitlistData: 'Invalid waitlist data.'
+  }
+} as const;
+
 const bookingSchema = z.object({
   apiBase: z.string().url(),
   slug: z.string().min(1),
@@ -84,12 +155,12 @@ const waitlistSchema = z.object({
   notes: z.string().optional()
 });
 
-function formatDateTime(value: string) {
+function formatDateTime(value: string, timeZone?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return date.toLocaleString();
+  return date.toLocaleString('es-MX', timeZone ? { timeZone } : undefined);
 }
 
 function toLocalDateTimeInput(value: string) {
@@ -128,6 +199,9 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
   const [waitlistError, setWaitlistError] = useState('');
   const [waitlistSuccess, setWaitlistSuccess] = useState('');
   const [preferredStartAt, setPreferredStartAt] = useState('');
+
+  const locale = tenant?.locale === 'en' ? 'en' : 'es';
+  const t = COPY[locale];
 
   const brandPrimary = useMemo(() => {
     const candidate = tenant?.primaryColor?.trim() ?? '';
@@ -303,7 +377,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
     });
 
     if (!parsed.success) {
-      setSubmitError(parsed.error.issues[0]?.message ?? 'Datos inválidos para reservar.');
+      setSubmitError(parsed.error.issues[0]?.message ?? t.invalidBookingData);
       return;
     }
 
@@ -311,7 +385,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
       (field) => field.required && !(customFieldsValues[field.key] ?? '').trim()
     );
     if (requiredMissing) {
-      setSubmitError(`Completa el campo requerido: ${requiredMissing.label}.`);
+      setSubmitError(`${t.requiredField}: ${requiredMissing.label}.`);
       return;
     }
 
@@ -349,15 +423,15 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
 
       const payload = (await response.json()) as BookingResponse;
       if (payload.waitlisted) {
-        setSubmitSuccess('Ese horario se ocupó recientemente. Te agregamos a lista de espera.');
+        setSubmitSuccess(t.bookingWaitlisted);
       } else {
-        setSubmitSuccess('Reserva confirmada. Revisa tu correo para la confirmación.');
+        setSubmitSuccess(t.bookingCreated);
       }
 
       setSelectedSlot('');
       setNotes('');
     } catch (submitRequestError) {
-      const message = submitRequestError instanceof Error ? submitRequestError.message : 'No se pudo crear la reserva';
+      const message = submitRequestError instanceof Error ? submitRequestError.message : t.bookingCreateError;
       setSubmitError(message);
     } finally {
       setSubmitLoading(false);
@@ -382,13 +456,13 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
     });
 
     if (!parsed.success) {
-      setWaitlistError(parsed.error.issues[0]?.message ?? 'Datos inválidos para lista de espera.');
+      setWaitlistError(parsed.error.issues[0]?.message ?? t.invalidWaitlistData);
       return;
     }
 
     const preferredDate = new Date(parsed.data.preferredStartAt);
     if (Number.isNaN(preferredDate.getTime())) {
-      setWaitlistError('Fecha/hora preferida inválida.');
+      setWaitlistError(t.invalidWaitlistDate);
       return;
     }
 
@@ -415,9 +489,9 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
         throw new Error(text || `Error ${response.status}`);
       }
 
-      setWaitlistSuccess('Te agregamos a lista de espera correctamente.');
+      setWaitlistSuccess(t.waitlistCreated);
     } catch (waitlistRequestError) {
-      const message = waitlistRequestError instanceof Error ? waitlistRequestError.message : 'No se pudo registrar en lista de espera';
+      const message = waitlistRequestError instanceof Error ? waitlistRequestError.message : t.waitlistCreateError;
       setWaitlistError(message);
     } finally {
       setWaitlistLoading(false);
@@ -428,8 +502,8 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
     <main className="app-shell" style={{ maxWidth: 980 }}>
       <header className="page-header">
         <div>
-          <h1 className="page-title">{tenant?.name ? `Reservas · ${tenant.name}` : 'Reservas online'}</h1>
-          <p className="page-subtitle">Selecciona servicio, profesional y horario para agendar tu cita.</p>
+          <h1 className="page-title">{tenant?.name ? `Reservas · ${tenant.name}` : t.titleFallback}</h1>
+          <p className="page-subtitle">{t.subtitle}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {tenant?.logoUrl ? (
@@ -454,16 +528,16 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
         </label>
       </form>
 
-      {loading ? <div>Cargando perfil público...</div> : null}
+      {loading ? <div>{t.loadingProfile}</div> : null}
       {error ? <div className="status-error">{error}</div> : null}
 
       {!loading && !error ? (
         <section style={{ display: 'grid', gap: 12 }}>
           <div className="panel" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
             <label>
-              Servicio
+              {t.service}
               <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} style={{ width: '100%' }}>
-                <option value="">Seleccionar</option>
+                <option value="">{t.select}</option>
                 {services.map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     {entry.name} ({entry.durationMinutes} min)
@@ -472,9 +546,9 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
               </select>
             </label>
             <label>
-              Profesional
+              {t.professional}
               <select value={staffId} onChange={(e) => setStaffId(e.target.value)} style={{ width: '100%' }}>
-                <option value="">Seleccionar</option>
+                <option value="">{t.select}</option>
                 {staff.map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     {entry.fullName}
@@ -483,16 +557,16 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
               </select>
             </label>
             <label>
-              Fecha
+              {t.date}
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '100%' }} />
             </label>
           </div>
 
           <div className="panel">
             <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <Clock3 size={16} /> Horarios disponibles
+              <Clock3 size={16} /> {t.availableSlots}
             </strong>
-            {slotsLoading ? <div style={{ marginTop: 8 }}>Cargando horarios...</div> : null}
+            {slotsLoading ? <div style={{ marginTop: 8 }}>{t.loadingSlots}</div> : null}
             {slotsError ? <div style={{ marginTop: 8, color: '#900' }}>{slotsError}</div> : null}
             {!slotsLoading && !slotsError ? (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
@@ -508,24 +582,24 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
                       background: selectedSlot === slot.startAt ? brandTint : '#fff'
                     }}
                   >
-                    {formatDateTime(slot.startAt)}
+                    {formatDateTime(slot.startAt, tenant?.timeZone)}
                   </button>
                 ))}
-                {!slots.length ? <span style={{ color: '#666' }}>Sin horarios para los filtros actuales.</span> : null}
+                {!slots.length ? <span style={{ color: '#666' }}>{t.noSlots}</span> : null}
               </div>
             ) : null}
           </div>
 
           <form onSubmit={onSubmitBooking} className="panel" style={{ display: 'grid', gap: 10 }}>
             <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <UserRound size={16} /> Datos de la reserva
+              <UserRound size={16} /> {t.bookingData}
             </strong>
             <label>
-              Nombre completo
+              {t.fullName}
               <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} style={{ width: '100%' }} />
             </label>
             <label>
-              Email
+              {t.email}
               <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} style={{ width: '100%' }} />
             </label>
 
@@ -563,13 +637,13 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
             ))}
 
             <label>
-              Notas (opcional)
+              {t.notesOptional}
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} style={{ width: '100%', minHeight: 80 }} />
             </label>
 
             <div style={{ color: '#555' }}>
-              Horario seleccionado:{' '}
-              <strong>{selectedSlot ? formatDateTime(selectedSlot) : 'Ninguno'}</strong>
+              {t.selectedSlot}:{' '}
+              <strong>{selectedSlot ? formatDateTime(selectedSlot, tenant?.timeZone) : t.none}</strong>
             </div>
 
             <button
@@ -579,7 +653,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
               style={{ width: 220, borderColor: brandPrimary, background: brandPrimary, color: '#fff' }}
             >
               <Send size={16} />
-              {submitLoading ? 'Reservando...' : 'Confirmar reserva'}
+              {submitLoading ? t.bookingSubmitting : t.bookingSubmit}
             </button>
 
             {submitError ? <div className="status-error">{submitError}</div> : null}
@@ -587,9 +661,9 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
           </form>
 
           <form onSubmit={onJoinWaitlist} className="panel" style={{ display: 'grid', gap: 10 }}>
-            <strong>Lista de espera</strong>
+            <strong>{t.waitlist}</strong>
             <label>
-              Fecha/hora preferida
+              {t.preferredDateTime}
               <input
                 type="datetime-local"
                 value={preferredStartAt}
@@ -599,7 +673,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
             </label>
 
             <button type="submit" disabled={waitlistLoading} className="btn btn-ghost" style={{ width: 240 }}>
-              {waitlistLoading ? 'Procesando...' : 'Unirme a lista de espera'}
+              {waitlistLoading ? t.waitlistSubmitting : t.waitlistSubmit}
             </button>
 
             {waitlistError ? <div className="status-error">{waitlistError}</div> : null}

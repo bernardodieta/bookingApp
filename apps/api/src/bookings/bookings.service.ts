@@ -10,6 +10,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PublicSlotsQueryDto } from '../public/dto/public-slots-query.dto';
 import { JoinWaitlistDto } from './dto/join-waitlist.dto';
 import { AuditService } from '../audit/audit.service';
+import { DateTime } from 'luxon';
 
 const SLOT_STEP_MINUTES = 15;
 
@@ -58,8 +59,8 @@ export class BookingsService {
     this.validateRequiredBookingFormFields(payload.customFields, tenantSettings.bookingFormFields);
 
     const endAt = new Date(startAt.getTime() + service.durationMinutes * 60_000);
-    await this.enforceBookingLimits(tenantId, startAt, tenantSettings.maxBookingsPerDay, tenantSettings.maxBookingsPerWeek);
-    await this.enforceMonthlyPlanBookingLimit(tenantId, startAt, tenantSettings.plan);
+    await this.enforceBookingLimits(tenantId, startAt, tenantSettings.maxBookingsPerDay, tenantSettings.maxBookingsPerWeek, tenantSettings.timeZone);
+    await this.enforceMonthlyPlanBookingLimit(tenantId, startAt, tenantSettings.plan, tenantSettings.timeZone);
 
     const normalizedEmail = payload.customerEmail.toLowerCase();
     const customer = await this.prisma.customer.upsert({
@@ -96,6 +97,7 @@ export class BookingsService {
         startAt,
         endAt,
         tenantSettings.bookingBufferMinutes,
+        tenantSettings.timeZone,
         undefined
       );
     } catch (error) {
@@ -157,7 +159,8 @@ export class BookingsService {
         serviceName: service.name,
         staffName: staff.fullName,
         startAt: booking.startAt,
-        endAt: booking.endAt
+        endAt: booking.endAt,
+        timeZone: tenantSettings.timeZone
       });
     } catch {
       return booking;
@@ -188,6 +191,7 @@ export class BookingsService {
     if (reminderHoursBefore <= 0) {
       return {
         reminderHoursBefore,
+        timeZone: tenantSettings.timeZone,
         processed: 0,
         sent: 0,
         skippedAlreadySent: 0,
@@ -223,6 +227,7 @@ export class BookingsService {
     if (!dueBookings.length) {
       return {
         reminderHoursBefore,
+        timeZone: tenantSettings.timeZone,
         processed: 0,
         sent: 0,
         skippedAlreadySent: 0,
@@ -264,7 +269,8 @@ export class BookingsService {
         staffName: booking.staff.fullName,
         startAt: booking.startAt,
         endAt: booking.endAt,
-        reminderHoursBefore
+        reminderHoursBefore,
+        timeZone: tenantSettings.timeZone
       });
 
       await this.auditService.log({
@@ -284,6 +290,7 @@ export class BookingsService {
 
     return {
       reminderHoursBefore,
+      timeZone: tenantSettings.timeZone,
       processed: dueBookings.length,
       sent,
       skippedAlreadySent,
@@ -340,14 +347,14 @@ export class BookingsService {
   }
 
   async getPublicSlots(tenantId: string, query: PublicSlotsQueryDto) {
-    const dayStart = this.dayStartFromIsoDate(query.date);
-    const dayEnd = this.endOfDayUtc(dayStart);
-    const dayOfWeek = dayStart.getUTCDay();
+    const tenantSettings = await this.getTenantSettings(tenantId);
+    const dayStart = this.dayStartFromIsoDate(query.date, tenantSettings.timeZone);
+    const dayEnd = this.endOfDayInTimeZone(dayStart, tenantSettings.timeZone);
+    const dayOfWeek = this.dayOfWeekInTimeZone(dayStart, tenantSettings.timeZone);
 
-    const [service, staff, tenantSettings] = await Promise.all([
+    const [service, staff] = await Promise.all([
       this.prisma.service.findFirst({ where: { id: query.serviceId, tenantId, active: true } }),
-      this.prisma.staff.findFirst({ where: { id: query.staffId, tenantId, active: true } }),
-      this.getTenantSettings(tenantId)
+      this.prisma.staff.findFirst({ where: { id: query.staffId, tenantId, active: true } })
     ]);
 
     if (!service) {
@@ -362,12 +369,13 @@ export class BookingsService {
       dayStart,
       tenantSettings.plan,
       tenantSettings.maxBookingsPerDay,
-      tenantSettings.maxBookingsPerWeek
+      tenantSettings.maxBookingsPerWeek,
+      tenantSettings.timeZone
     );
 
     if (!canBook) {
       return {
-        date: dayStart.toISOString().slice(0, 10),
+        date: query.date,
         serviceId: service.id,
         staffId: staff.id,
         slots: []
@@ -444,7 +452,7 @@ export class BookingsService {
     }
 
     return {
-      date: dayStart.toISOString().slice(0, 10),
+      date: query.date,
       serviceId: service.id,
       staffId: staff.id,
       slots: [...unique.values()].sort((a, b) => a.startAt.localeCompare(b.startAt))
@@ -645,15 +653,17 @@ export class BookingsService {
       startAt,
       tenantSettings.maxBookingsPerDay,
       tenantSettings.maxBookingsPerWeek,
+      tenantSettings.timeZone,
       booking.id
     );
-    await this.enforceMonthlyPlanBookingLimit(user.tenantId, startAt, tenantSettings.plan, booking.id);
+    await this.enforceMonthlyPlanBookingLimit(user.tenantId, startAt, tenantSettings.plan, tenantSettings.timeZone, booking.id);
     await this.ensureSlotAvailability(
       user.tenantId,
       booking.staffId,
       startAt,
       endAt,
       tenantSettings.bookingBufferMinutes,
+      tenantSettings.timeZone,
       booking.id
     );
 
@@ -687,9 +697,10 @@ export class BookingsService {
     startAt: Date,
     endAt: Date,
     bufferMinutes: number,
+    timeZone: string,
     excludeBookingId?: string
   ) {
-    const weekDay = startAt.getUTCDay();
+    const weekDay = this.dayOfWeekInTimeZone(startAt, timeZone);
     const startMinutes = minutesFromDate(startAt);
     const endMinutes = minutesFromDate(endAt);
     const bufferMs = bufferMinutes * 60_000;
@@ -710,8 +721,8 @@ export class BookingsService {
           tenantId,
           OR: [{ staffId }, { staffId: null }],
           date: {
-            gte: this.startOfDayUtc(startAt),
-            lt: this.endOfDayUtc(startAt)
+            gte: this.startOfDayInTimeZone(startAt, timeZone),
+            lt: this.endOfDayInTimeZone(startAt, timeZone)
           },
           isUnavailable: true
         }
@@ -771,6 +782,7 @@ export class BookingsService {
         cancellationNoticeHours: true,
         rescheduleNoticeHours: true,
         reminderHoursBefore: true,
+        timeZone: true,
         refundPolicy: true,
         bookingFormFields: true
       }
@@ -858,7 +870,8 @@ export class BookingsService {
         staff: true,
         tenant: {
           select: {
-            slug: true
+            slug: true,
+            timeZone: true
           }
         }
       }
@@ -882,7 +895,8 @@ export class BookingsService {
       customerEmail: next.customerEmail,
       serviceName: next.service.name,
       staffName: next.staff.fullName,
-      preferredStartAt: next.preferredStartAt
+      preferredStartAt: next.preferredStartAt,
+      timeZone: next.tenant.timeZone
     });
   }
 
@@ -891,13 +905,13 @@ export class BookingsService {
     startAt: Date,
     maxPerDay: number | null,
     maxPerWeek: number | null,
+    timeZone: string,
     excludeBookingId?: string
   ) {
-    const dayStart = this.startOfDayUtc(startAt);
-    const dayEnd = this.endOfDayUtc(startAt);
-    const weekStart = this.startOfWeekUtc(startAt);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+    const dayStart = this.startOfDayInTimeZone(startAt, timeZone);
+    const dayEnd = this.endOfDayInTimeZone(startAt, timeZone);
+    const weekStart = this.startOfWeekInTimeZone(startAt, timeZone);
+    const weekEnd = this.endOfWeekInTimeZone(weekStart, timeZone);
 
     const activeStatuses = [BookingStatus.pending, BookingStatus.confirmed, BookingStatus.rescheduled];
 
@@ -935,19 +949,19 @@ export class BookingsService {
     startAt: Date,
     plan: Plan,
     maxPerDay: number | null,
-    maxPerWeek: number | null
+    maxPerWeek: number | null,
+    timeZone: string
   ) {
-    const dayStart = this.startOfDayUtc(startAt);
-    const dayEnd = this.endOfDayUtc(startAt);
-    const weekStart = this.startOfWeekUtc(startAt);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+    const dayStart = this.startOfDayInTimeZone(startAt, timeZone);
+    const dayEnd = this.endOfDayInTimeZone(startAt, timeZone);
+    const weekStart = this.startOfWeekInTimeZone(startAt, timeZone);
+    const weekEnd = this.endOfWeekInTimeZone(weekStart, timeZone);
     const activeStatuses = [BookingStatus.pending, BookingStatus.confirmed, BookingStatus.rescheduled];
 
     const monthlyLimit = this.getMonthlyBookingLimitByPlan(plan);
     if (monthlyLimit !== null) {
-      const monthStart = this.startOfMonthUtc(startAt);
-      const monthEnd = this.endOfMonthUtc(monthStart);
+      const monthStart = this.startOfMonthInTimeZone(startAt, timeZone);
+      const monthEnd = this.endOfMonthInTimeZone(monthStart, timeZone);
       const monthCount = await this.prisma.booking.count({
         where: {
           tenantId,
@@ -993,6 +1007,7 @@ export class BookingsService {
     tenantId: string,
     startAt: Date,
     plan: Plan,
+    timeZone: string,
     excludeBookingId?: string
   ) {
     const monthlyLimit = this.getMonthlyBookingLimitByPlan(plan);
@@ -1000,8 +1015,8 @@ export class BookingsService {
       return;
     }
 
-    const monthStart = this.startOfMonthUtc(startAt);
-    const monthEnd = this.endOfMonthUtc(monthStart);
+    const monthStart = this.startOfMonthInTimeZone(startAt, timeZone);
+    const monthEnd = this.endOfMonthInTimeZone(monthStart, timeZone);
     const activeStatuses = [BookingStatus.pending, BookingStatus.confirmed, BookingStatus.rescheduled];
 
     const monthCount = await this.prisma.booking.count({
@@ -1048,44 +1063,57 @@ export class BookingsService {
     }
   }
 
-  private startOfWeekUtc(value: Date) {
-    const date = this.startOfDayUtc(value);
-    const day = date.getUTCDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    date.setUTCDate(date.getUTCDate() + diff);
-    return date;
+  private normalizeTimeZone(timeZone: string) {
+    try {
+      Intl.DateTimeFormat('en-US', { timeZone }).format(new Date());
+      return timeZone;
+    } catch {
+      return 'UTC';
+    }
   }
 
-  private dayStartFromIsoDate(value: string) {
-    const parsed = new Date(`${value}T00:00:00.000Z`);
-    if (Number.isNaN(parsed.getTime())) {
+  private dayStartFromIsoDate(value: string, timeZone: string) {
+    const zone = this.normalizeTimeZone(timeZone);
+    const parsed = DateTime.fromISO(value, { zone }).startOf('day');
+    if (!parsed.isValid) {
       throw new BadRequestException('date inválida, usa formato YYYY-MM-DD.');
     }
-    parsed.setUTCHours(0, 0, 0, 0);
-    return parsed;
+    return parsed.toUTC().toJSDate();
   }
 
-  private startOfMonthUtc(value: Date) {
-    const date = this.startOfDayUtc(value);
-    date.setUTCDate(1);
-    return date;
+  private dayOfWeekInTimeZone(value: Date, timeZone: string) {
+    const zone = this.normalizeTimeZone(timeZone);
+    const weekday = DateTime.fromJSDate(value, { zone: 'utc' }).setZone(zone).weekday;
+    return weekday % 7;
   }
 
-  private endOfMonthUtc(monthStart: Date) {
-    const end = new Date(monthStart);
-    end.setUTCMonth(end.getUTCMonth() + 1);
-    return end;
+  private startOfDayInTimeZone(value: Date, timeZone: string) {
+    const zone = this.normalizeTimeZone(timeZone);
+    return DateTime.fromJSDate(value, { zone: 'utc' }).setZone(zone).startOf('day').toUTC().toJSDate();
   }
 
-  private startOfDayUtc(value: Date) {
-    const date = new Date(value);
-    date.setUTCHours(0, 0, 0, 0);
-    return date;
+  private endOfDayInTimeZone(value: Date, timeZone: string) {
+    const zone = this.normalizeTimeZone(timeZone);
+    return DateTime.fromJSDate(value, { zone: 'utc' }).setZone(zone).startOf('day').plus({ days: 1 }).toUTC().toJSDate();
   }
 
-  private endOfDayUtc(value: Date) {
-    const date = new Date(value);
-    date.setUTCHours(24, 0, 0, 0);
-    return date;
+  private startOfWeekInTimeZone(value: Date, timeZone: string) {
+    const zone = this.normalizeTimeZone(timeZone);
+    return DateTime.fromJSDate(value, { zone: 'utc' }).setZone(zone).startOf('week').toUTC().toJSDate();
+  }
+
+  private endOfWeekInTimeZone(weekStart: Date, timeZone: string) {
+    const zone = this.normalizeTimeZone(timeZone);
+    return DateTime.fromJSDate(weekStart, { zone: 'utc' }).setZone(zone).plus({ days: 7 }).toUTC().toJSDate();
+  }
+
+  private startOfMonthInTimeZone(value: Date, timeZone: string) {
+    const zone = this.normalizeTimeZone(timeZone);
+    return DateTime.fromJSDate(value, { zone: 'utc' }).setZone(zone).startOf('month').toUTC().toJSDate();
+  }
+
+  private endOfMonthInTimeZone(monthStart: Date, timeZone: string) {
+    const zone = this.normalizeTimeZone(timeZone);
+    return DateTime.fromJSDate(monthStart, { zone: 'utc' }).setZone(zone).plus({ months: 1 }).toUTC().toJSDate();
   }
 }

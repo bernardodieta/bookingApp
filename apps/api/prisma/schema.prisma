@@ -76,6 +76,8 @@ model Tenant {
   plan                   Plan                    @default(free)
   logoUrl                String?
   primaryColor           String?
+  timeZone               String                  @default("UTC")
+  locale                 String                  @default("es")
   bookingBufferMinutes   Int                     @default(0)
   maxBookingsPerDay      Int?
   maxBookingsPerWeek     Int?

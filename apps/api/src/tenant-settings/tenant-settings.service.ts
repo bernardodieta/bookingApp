@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuthUser } from '../common/types/auth-user.type';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,6 +22,8 @@ export class TenantSettingsService {
         plan: true,
         logoUrl: true,
         primaryColor: true,
+        timeZone: true,
+        locale: true,
         bookingBufferMinutes: true,
         maxBookingsPerDay: true,
         maxBookingsPerWeek: true,
@@ -43,9 +45,15 @@ export class TenantSettingsService {
   async update(user: AuthUser, payload: UpdateTenantSettingsDto) {
     await this.ensureTenant(user.tenantId);
 
+    if (payload.timeZone) {
+      this.ensureValidTimeZone(payload.timeZone);
+    }
+
     const data: Prisma.TenantUpdateInput = {
       logoUrl: payload.logoUrl,
       primaryColor: payload.primaryColor,
+      timeZone: payload.timeZone,
+      locale: payload.locale,
       bookingBufferMinutes: payload.bookingBufferMinutes,
       maxBookingsPerDay: payload.maxBookingsPerDay,
       maxBookingsPerWeek: payload.maxBookingsPerWeek,
@@ -66,6 +74,8 @@ export class TenantSettingsService {
         plan: true,
         logoUrl: true,
         primaryColor: true,
+        timeZone: true,
+        locale: true,
         bookingBufferMinutes: true,
         maxBookingsPerDay: true,
         maxBookingsPerWeek: true,
@@ -93,6 +103,14 @@ export class TenantSettingsService {
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true } });
     if (!tenant) {
       throw new NotFoundException('Tenant no encontrado.');
+    }
+  }
+
+  private ensureValidTimeZone(timeZone: string) {
+    try {
+      Intl.DateTimeFormat('en-US', { timeZone }).format(new Date());
+    } catch {
+      throw new BadRequestException('timeZone inválida. Usa formato IANA, por ejemplo America/Mexico_City.');
     }
   }
 }

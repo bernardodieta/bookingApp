@@ -22,7 +22,9 @@ export class PublicBookingsController {
         slug: true,
         plan: true,
         logoUrl: true,
-        primaryColor: true
+        primaryColor: true,
+        timeZone: true,
+        locale: true
       }
     });
 

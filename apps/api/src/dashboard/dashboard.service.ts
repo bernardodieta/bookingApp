@@ -3,15 +3,22 @@ import { BookingStatus } from '@prisma/client';
 import { AuthUser } from '../common/types/auth-user.type';
 import { PrismaService } from '../prisma/prisma.service';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
+import { DateTime } from 'luxon';
 
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getAppointments(user: AuthUser, query: DashboardQueryDto) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+      select: { timeZone: true }
+    });
+    const timeZone = this.normalizeTimeZone(tenant?.timeZone ?? 'UTC');
+
     const range = query.range ?? 'day';
     const baseDate = query.date ? new Date(query.date) : new Date();
-    const { start, end } = this.resolvePeriod(baseDate, range);
+    const { start, end } = this.resolvePeriod(baseDate, range, timeZone);
 
     const where = {
       tenantId: user.tenantId,
@@ -33,6 +40,7 @@ export class DashboardService {
 
     return {
       range,
+      timeZone,
       period: {
         start: start.toISOString(),
         end: end.toISOString()
@@ -47,9 +55,15 @@ export class DashboardService {
   }
 
   async getReports(user: AuthUser, query: DashboardQueryDto) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+      select: { timeZone: true }
+    });
+    const timeZone = this.normalizeTimeZone(tenant?.timeZone ?? 'UTC');
+
     const range = query.range ?? 'day';
     const baseDate = query.date ? new Date(query.date) : new Date();
-    const { start, end } = this.resolvePeriod(baseDate, range);
+    const { start, end } = this.resolvePeriod(baseDate, range, timeZone);
 
     const bookings = await this.prisma.booking.findMany({
       where: {
@@ -138,7 +152,7 @@ export class DashboardService {
 
     const peakHoursMap = new Map<number, number>();
     for (const booking of bookings) {
-      const hour = booking.startAt.getUTCHours();
+      const hour = DateTime.fromJSDate(booking.startAt, { zone: 'utc' }).setZone(timeZone).hour;
       peakHoursMap.set(hour, (peakHoursMap.get(hour) ?? 0) + 1);
     }
 
@@ -149,6 +163,7 @@ export class DashboardService {
 
     return {
       range,
+      timeZone,
       period: {
         start: start.toISOString(),
         end: end.toISOString()
@@ -191,57 +206,51 @@ export class DashboardService {
     };
   }
 
-  private startOfDayUtc(value: Date) {
-    const date = new Date(value);
-    date.setUTCHours(0, 0, 0, 0);
-    return date;
+  private normalizeTimeZone(timeZone: string) {
+    try {
+      Intl.DateTimeFormat('en-US', { timeZone }).format(new Date());
+      return timeZone;
+    } catch {
+      return 'UTC';
+    }
   }
 
-  private endOfDayUtc(value: Date) {
-    const date = new Date(value);
-    date.setUTCHours(24, 0, 0, 0);
-    return date;
+  private startOfDayInTimeZone(value: Date, timeZone: string) {
+    return DateTime.fromJSDate(value, { zone: 'utc' }).setZone(timeZone).startOf('day').toUTC().toJSDate();
   }
 
-  private endOfWeekUtc(dayStart: Date) {
-    const monday = this.startOfWeekUtc(dayStart);
-    const end = new Date(monday);
-    end.setUTCDate(end.getUTCDate() + 7);
-    return end;
+  private endOfDayInTimeZone(value: Date, timeZone: string) {
+    return DateTime.fromJSDate(value, { zone: 'utc' }).setZone(timeZone).startOf('day').plus({ days: 1 }).toUTC().toJSDate();
   }
 
-  private startOfMonthUtc(value: Date) {
-    const date = this.startOfDayUtc(value);
-    date.setUTCDate(1);
-    return date;
+  private startOfWeekInTimeZone(value: Date, timeZone: string) {
+    return DateTime.fromJSDate(value, { zone: 'utc' }).setZone(timeZone).startOf('week').toUTC().toJSDate();
   }
 
-  private endOfMonthUtc(monthStart: Date) {
-    const end = new Date(monthStart);
-    end.setUTCMonth(end.getUTCMonth() + 1);
-    return end;
+  private endOfWeekInTimeZone(weekStart: Date, timeZone: string) {
+    return DateTime.fromJSDate(weekStart, { zone: 'utc' }).setZone(timeZone).plus({ days: 7 }).toUTC().toJSDate();
   }
 
-  private startOfWeekUtc(value: Date) {
-    const date = this.startOfDayUtc(value);
-    const day = date.getUTCDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    date.setUTCDate(date.getUTCDate() + diff);
-    return date;
+  private startOfMonthInTimeZone(value: Date, timeZone: string) {
+    return DateTime.fromJSDate(value, { zone: 'utc' }).setZone(timeZone).startOf('month').toUTC().toJSDate();
   }
 
-  private resolvePeriod(baseDate: Date, range: 'day' | 'week' | 'month') {
+  private endOfMonthInTimeZone(monthStart: Date, timeZone: string) {
+    return DateTime.fromJSDate(monthStart, { zone: 'utc' }).setZone(timeZone).plus({ months: 1 }).toUTC().toJSDate();
+  }
+
+  private resolvePeriod(baseDate: Date, range: 'day' | 'week' | 'month', timeZone: string) {
     if (range === 'week') {
-      const start = this.startOfWeekUtc(baseDate);
-      return { start, end: this.endOfWeekUtc(start) };
+      const start = this.startOfWeekInTimeZone(baseDate, timeZone);
+      return { start, end: this.endOfWeekInTimeZone(start, timeZone) };
     }
 
     if (range === 'month') {
-      const start = this.startOfMonthUtc(baseDate);
-      return { start, end: this.endOfMonthUtc(start) };
+      const start = this.startOfMonthInTimeZone(baseDate, timeZone);
+      return { start, end: this.endOfMonthInTimeZone(start, timeZone) };
     }
 
-    const start = this.startOfDayUtc(baseDate);
-    return { start, end: this.endOfDayUtc(start) };
+    const start = this.startOfDayInTimeZone(baseDate, timeZone);
+    return { start, end: this.endOfDayInTimeZone(start, timeZone) };
   }
 }

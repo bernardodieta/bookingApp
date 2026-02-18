@@ -1,0 +1,2 @@
+ALTER TABLE "Tenant"
+ADD COLUMN "locale" TEXT NOT NULL DEFAULT 'es';

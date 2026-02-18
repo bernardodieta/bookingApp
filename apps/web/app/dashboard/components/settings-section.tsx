@@ -25,6 +25,10 @@ type SettingsSectionProps = {
   setLogoUrl: (value: string) => void;
   primaryColor: string;
   setPrimaryColor: (value: string) => void;
+  timeZone: string;
+  setTimeZone: (value: string) => void;
+  locale: 'es' | 'en';
+  setLocale: (value: 'es' | 'en') => void;
   refundPolicy: 'full' | 'credit' | 'none';
   setRefundPolicy: (value: 'full' | 'credit' | 'none') => void;
   reminderHoursBeforeText: string;
@@ -239,6 +243,42 @@ export function SettingsSection(props: SettingsSectionProps) {
               />
             </div>
           </label>
+
+          <label>
+            Zona horaria (IANA)
+            <input
+              value={props.timeZone}
+              onChange={(e) => props.setTimeZone(e.target.value)}
+              placeholder="Ej: America/Mexico_City"
+              className="w-full"
+            />
+          </label>
+
+          <label>
+            Idioma
+            <select value={props.locale} onChange={(e) => props.setLocale(e.target.value as 'es' | 'en')}>
+              <option value="es">Español</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+
+          <div className="section-actions">
+            <button type="button" className="btn btn-ghost" onClick={() => props.setTimeZone('America/Mexico_City')}>
+              MX
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => props.setTimeZone('America/Bogota')}>
+              CO
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => props.setTimeZone('America/Lima')}>
+              PE
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => props.setTimeZone('Europe/Madrid')}>
+              ES
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => props.setTimeZone('UTC')}>
+              UTC
+            </button>
+          </div>
         </div>
 
         <div className="panel section-form" style={{ gap: 8 }}>

@@ -39,7 +39,11 @@ export class NotificationsService {
     staffName: string;
     startAt: Date;
     endAt: Date;
+    timeZone: string;
   }) {
+    const startAtLabel = this.formatDateInTimeZone(input.startAt, input.timeZone);
+    const endAtLabel = this.formatDateInTimeZone(input.endAt, input.timeZone);
+
     const clientSubject = `Reserva confirmada - ${input.tenantName}`;
     const clientText = [
       `Hola ${input.customerName},`,
@@ -47,12 +51,12 @@ export class NotificationsService {
       `Tu reserva fue confirmada en ${input.tenantName}.`,
       `Servicio: ${input.serviceName}`,
       `Profesional: ${input.staffName}`,
-      `Inicio: ${input.startAt.toISOString()}`,
-      `Fin: ${input.endAt.toISOString()}`,
+      `Inicio: ${startAtLabel}`,
+      `Fin: ${endAtLabel}`,
       '',
       `Gracias por reservar en ${input.tenantName}.`
     ].join('\n');
-    const clientHtml = `<p>Hola ${input.customerName},</p><p>Tu reserva fue confirmada en <strong>${input.tenantName}</strong>.</p><ul><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Inicio:</strong> ${input.startAt.toISOString()}</li><li><strong>Fin:</strong> ${input.endAt.toISOString()}</li></ul><p>Gracias por reservar en ${input.tenantName}.</p>`;
+    const clientHtml = `<p>Hola ${input.customerName},</p><p>Tu reserva fue confirmada en <strong>${input.tenantName}</strong>.</p><ul><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Inicio:</strong> ${startAtLabel}</li><li><strong>Fin:</strong> ${endAtLabel}</li></ul><p>Gracias por reservar en ${input.tenantName}.</p>`;
 
     await this.sendWithFallback({
       to: input.customerEmail,
@@ -70,10 +74,10 @@ export class NotificationsService {
         `Email cliente: ${input.customerEmail}`,
         `Servicio: ${input.serviceName}`,
         `Profesional: ${input.staffName}`,
-        `Inicio: ${input.startAt.toISOString()}`,
-        `Fin: ${input.endAt.toISOString()}`
+        `Inicio: ${startAtLabel}`,
+        `Fin: ${endAtLabel}`
       ].join('\n');
-      const businessHtml = `<p>Se registró una nueva reserva en <strong>${input.tenantName}</strong>.</p><ul><li><strong>Cliente:</strong> ${input.customerName} (${input.customerEmail})</li><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Inicio:</strong> ${input.startAt.toISOString()}</li><li><strong>Fin:</strong> ${input.endAt.toISOString()}</li></ul>`;
+      const businessHtml = `<p>Se registró una nueva reserva en <strong>${input.tenantName}</strong>.</p><ul><li><strong>Cliente:</strong> ${input.customerName} (${input.customerEmail})</li><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Inicio:</strong> ${startAtLabel}</li><li><strong>Fin:</strong> ${endAtLabel}</li></ul>`;
 
       await this.sendWithFallback({
         to: this.businessNotificationEmail,
@@ -91,7 +95,9 @@ export class NotificationsService {
     serviceName: string;
     staffName: string;
     preferredStartAt: Date;
+    timeZone: string;
   }) {
+    const preferredStartAtLabel = this.formatDateInTimeZone(input.preferredStartAt, input.timeZone);
     const subject = `Se liberó un cupo - ${input.tenantSlug}`;
     const text = [
       `Hola ${input.customerName},`,
@@ -99,9 +105,9 @@ export class NotificationsService {
       `Se liberó un cupo para tu lista de espera.`,
       `Servicio: ${input.serviceName}`,
       `Profesional: ${input.staffName}`,
-      `Horario sugerido: ${input.preferredStartAt.toISOString()}`
+      `Horario sugerido: ${preferredStartAtLabel}`
     ].join('\n');
-    const html = `<p>Hola ${input.customerName},</p><p>Se liberó un cupo para tu lista de espera.</p><ul><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Horario sugerido:</strong> ${input.preferredStartAt.toISOString()}</li></ul>`;
+    const html = `<p>Hola ${input.customerName},</p><p>Se liberó un cupo para tu lista de espera.</p><ul><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Horario sugerido:</strong> ${preferredStartAtLabel}</li></ul>`;
 
     await this.sendWithFallback({
       to: input.customerEmail,
@@ -120,7 +126,10 @@ export class NotificationsService {
     startAt: Date;
     endAt: Date;
     reminderHoursBefore: number;
+    timeZone: string;
   }) {
+    const startAtLabel = this.formatDateInTimeZone(input.startAt, input.timeZone);
+    const endAtLabel = this.formatDateInTimeZone(input.endAt, input.timeZone);
     const subject = `Recordatorio de cita - ${input.tenantName}`;
     const text = [
       `Hola ${input.customerName},`,
@@ -128,11 +137,11 @@ export class NotificationsService {
       `Te recordamos tu cita en ${input.tenantName}.`,
       `Servicio: ${input.serviceName}`,
       `Profesional: ${input.staffName}`,
-      `Inicio: ${input.startAt.toISOString()}`,
-      `Fin: ${input.endAt.toISOString()}`,
+      `Inicio: ${startAtLabel}`,
+      `Fin: ${endAtLabel}`,
       `Anticipación del recordatorio: ${input.reminderHoursBefore}h`
     ].join('\n');
-    const html = `<p>Hola ${input.customerName},</p><p>Te recordamos tu cita en <strong>${input.tenantName}</strong>.</p><ul><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Inicio:</strong> ${input.startAt.toISOString()}</li><li><strong>Fin:</strong> ${input.endAt.toISOString()}</li><li><strong>Anticipación del recordatorio:</strong> ${input.reminderHoursBefore}h</li></ul>`;
+    const html = `<p>Hola ${input.customerName},</p><p>Te recordamos tu cita en <strong>${input.tenantName}</strong>.</p><ul><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Inicio:</strong> ${startAtLabel}</li><li><strong>Fin:</strong> ${endAtLabel}</li><li><strong>Anticipación del recordatorio:</strong> ${input.reminderHoursBefore}h</li></ul>`;
 
     await this.sendWithFallback({
       to: input.customerEmail,
@@ -217,5 +226,17 @@ export class NotificationsService {
     });
 
     return this.smtpTransporter;
+  }
+
+  private formatDateInTimeZone(value: Date, timeZone: string) {
+    try {
+      return new Intl.DateTimeFormat('es-MX', {
+        timeZone,
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      }).format(value);
+    } catch {
+      return value.toISOString();
+    }
   }
 }

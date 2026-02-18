@@ -98,6 +98,8 @@ export default function DashboardPage() {
   const [tenantSettings, setTenantSettings] = useState<TenantSettingsResponse | null>(null);
   const [logoUrl, setLogoUrl] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#2563eb');
+  const [timeZone, setTimeZone] = useState('UTC');
+  const [locale, setLocale] = useState<'es' | 'en'>('es');
   const [bookingFormFieldsText, setBookingFormFieldsText] = useState('[]');
   const [reminderHoursBeforeText, setReminderHoursBeforeText] = useState('24');
   const [refundPolicy, setRefundPolicy] = useState<'full' | 'credit' | 'none'>('none');
@@ -639,6 +641,8 @@ export default function DashboardPage() {
       setTenantSettings(payload);
       setLogoUrl(payload.logoUrl ?? '');
       setPrimaryColor(payload.primaryColor ?? '#2563eb');
+      setTimeZone(payload.timeZone ?? 'UTC');
+      setLocale(payload.locale ?? 'es');
       setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
       setReminderHoursBeforeText(String(payload.reminderHoursBefore ?? 24));
       setRefundPolicy(payload.refundPolicy ?? 'none');
@@ -728,6 +732,11 @@ export default function DashboardPage() {
       return;
     }
 
+    if (!timeZone.trim()) {
+      setTenantSettingsError('timeZone es requerida (ej: America/Mexico_City).');
+      return;
+    }
+
     setTenantSettingsLoading(true);
 
     try {
@@ -740,6 +749,8 @@ export default function DashboardPage() {
         body: JSON.stringify({
           logoUrl: logoUrl.trim() || undefined,
           primaryColor: /^#[0-9a-fA-F]{6}$/.test(primaryColor.trim()) ? primaryColor.trim() : undefined,
+          timeZone: timeZone.trim(),
+          locale,
           bookingFormFields: fieldsPayload,
           reminderHoursBefore: reminderHoursBeforeNumber,
           refundPolicy
@@ -755,6 +766,8 @@ export default function DashboardPage() {
       setTenantSettings(payload);
       setLogoUrl(payload.logoUrl ?? '');
       setPrimaryColor(payload.primaryColor ?? '#2563eb');
+      setTimeZone(payload.timeZone ?? 'UTC');
+      setLocale(payload.locale ?? 'es');
       setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
       setReminderHoursBeforeText(String(payload.reminderHoursBefore ?? reminderHoursBeforeNumber));
       setRefundPolicy(payload.refundPolicy ?? refundPolicy);
@@ -2148,6 +2161,10 @@ export default function DashboardPage() {
           setLogoUrl={setLogoUrl}
           primaryColor={primaryColor}
           setPrimaryColor={setPrimaryColor}
+          timeZone={timeZone}
+          setTimeZone={setTimeZone}
+          locale={locale}
+          setLocale={setLocale}
           refundPolicy={refundPolicy}
           setRefundPolicy={setRefundPolicy}
           reminderHoursBeforeText={reminderHoursBeforeText}
