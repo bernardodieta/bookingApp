@@ -122,6 +122,29 @@ const quickCreateAvailabilityExceptionSchema = z.object({
   note: z.string().optional()
 });
 
+const quickCancelBookingSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.'),
+  bookingId: z.string().trim().min(1, 'Booking inválido.')
+});
+
+const quickRescheduleBookingSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.'),
+  bookingId: z.string().trim().min(1, 'Booking inválido.'),
+  startAt: z.string().trim().min(1, 'Fecha/hora requerida para reprogramar.')
+});
+
+function toDateTimeLocalInput(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const pad = (input: number) => String(input).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [apiUrl, setApiUrl] = useState('http://localhost:3001');
@@ -184,6 +207,10 @@ export default function DashboardPage() {
   const [quickExceptionLoading, setQuickExceptionLoading] = useState(false);
   const [quickExceptionError, setQuickExceptionError] = useState('');
   const [quickExceptionSuccess, setQuickExceptionSuccess] = useState('');
+  const [bookingActionLoadingId, setBookingActionLoadingId] = useState('');
+  const [bookingActionError, setBookingActionError] = useState('');
+  const [bookingActionSuccess, setBookingActionSuccess] = useState('');
+  const [rescheduleDrafts, setRescheduleDrafts] = useState<Record<string, string>>({});
 
   const summaryStatus = useMemo(() => {
     if (!data) return [] as Array<[string, number]>;
@@ -420,6 +447,15 @@ export default function DashboardPage() {
 
       const payload = (await response.json()) as DashboardResponse;
       setData(payload);
+      setRescheduleDrafts((current) => {
+        const next = { ...current };
+        for (const booking of payload.bookings) {
+          if (!next[booking.id]) {
+            next[booking.id] = toDateTimeLocalInput(booking.startAt);
+          }
+        }
+        return next;
+      });
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'Error inesperado';
       setError(message);
@@ -744,6 +780,139 @@ export default function DashboardPage() {
     }
   }
 
+  async function onCancelBooking(bookingId: string) {
+    setBookingActionError('');
+    setBookingActionSuccess('');
+
+    const parsed = quickCancelBookingSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim(),
+      bookingId
+    });
+
+    if (!parsed.success) {
+      setBookingActionError(parsed.error.issues[0]?.message ?? 'No se puede cancelar booking.');
+      return;
+    }
+
+    setBookingActionLoadingId(bookingId);
+
+    try {
+      const response = await fetch(new URL(`/bookings/${parsed.data.bookingId}/cancel`, parsed.data.apiUrl).toString(), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({ reason: 'Cancelado desde dashboard' })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      setData((current) => {
+        if (!current) {
+          return current;
+        }
+
+        return {
+          ...current,
+          bookings: current.bookings.map((entry) =>
+            entry.id === bookingId
+              ? {
+                  ...entry,
+                  status: 'cancelled'
+                }
+              : entry
+          )
+        };
+      });
+      setBookingActionSuccess('Booking cancelado correctamente.');
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo cancelar booking';
+      setBookingActionError(message);
+    } finally {
+      setBookingActionLoadingId('');
+    }
+  }
+
+  async function onRescheduleBooking(bookingId: string) {
+    setBookingActionError('');
+    setBookingActionSuccess('');
+
+    const parsed = quickRescheduleBookingSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim(),
+      bookingId,
+      startAt: rescheduleDrafts[bookingId] ?? ''
+    });
+
+    if (!parsed.success) {
+      setBookingActionError(parsed.error.issues[0]?.message ?? 'No se puede reprogramar booking.');
+      return;
+    }
+
+    const startAtDate = new Date(parsed.data.startAt);
+    if (Number.isNaN(startAtDate.getTime())) {
+      setBookingActionError('Fecha/hora inválida para reprogramación.');
+      return;
+    }
+
+    setBookingActionLoadingId(bookingId);
+
+    try {
+      const response = await fetch(new URL(`/bookings/${parsed.data.bookingId}/reschedule`, parsed.data.apiUrl).toString(), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({
+          startAt: startAtDate.toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      const updated = (await response.json()) as { id: string; startAt: string; endAt: string; status: string };
+
+      setData((current) => {
+        if (!current) {
+          return current;
+        }
+
+        return {
+          ...current,
+          bookings: current.bookings.map((entry) =>
+            entry.id === bookingId
+              ? {
+                  ...entry,
+                  startAt: updated.startAt,
+                  endAt: updated.endAt,
+                  status: updated.status
+                }
+              : entry
+          )
+        };
+      });
+      setRescheduleDrafts((current) => ({
+        ...current,
+        [bookingId]: toDateTimeLocalInput(updated.startAt)
+      }));
+      setBookingActionSuccess('Booking reprogramado correctamente.');
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo reprogramar booking';
+      setBookingActionError(message);
+    } finally {
+      setBookingActionLoadingId('');
+    }
+  }
+
   return (
     <main style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 1100, margin: '0 auto' }}>
       <h1 style={{ marginBottom: 8 }}>Apoint Dashboard (MVP)</h1>
@@ -807,6 +976,13 @@ export default function DashboardPage() {
         <div style={{ background: '#fee', color: '#900', padding: 12, borderRadius: 6, marginBottom: 16 }}>{error}</div>
       ) : null}
 
+      {bookingActionError ? (
+        <div style={{ background: '#fee', color: '#900', padding: 12, borderRadius: 6, marginBottom: 16 }}>{bookingActionError}</div>
+      ) : null}
+      {bookingActionSuccess ? (
+        <div style={{ background: '#ecfdf3', color: '#166534', padding: 12, borderRadius: 6, marginBottom: 16 }}>{bookingActionSuccess}</div>
+      ) : null}
+
       {data ? (
         <section>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
@@ -839,6 +1015,7 @@ export default function DashboardPage() {
                   <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Servicio</th>
                   <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Staff</th>
                   <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Estado</th>
+                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -850,6 +1027,41 @@ export default function DashboardPage() {
                     <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{booking.service.name}</td>
                     <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{booking.staff.fullName}</td>
                     <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{booking.status}</td>
+                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void onCancelBooking(booking.id);
+                          }}
+                          disabled={bookingActionLoadingId === booking.id || booking.status === 'cancelled'}
+                          style={{ width: 120, padding: '6px 8px' }}
+                        >
+                          {bookingActionLoadingId === booking.id ? 'Procesando...' : 'Cancelar'}
+                        </button>
+                        <input
+                          type="datetime-local"
+                          value={rescheduleDrafts[booking.id] ?? toDateTimeLocalInput(booking.startAt)}
+                          onChange={(e) =>
+                            setRescheduleDrafts((current) => ({
+                              ...current,
+                              [booking.id]: e.target.value
+                            }))
+                          }
+                          style={{ width: '100%' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void onRescheduleBooking(booking.id);
+                          }}
+                          disabled={bookingActionLoadingId === booking.id || booking.status === 'cancelled'}
+                          style={{ width: 120, padding: '6px 8px' }}
+                        >
+                          {bookingActionLoadingId === booking.id ? 'Procesando...' : 'Reprogramar'}
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
