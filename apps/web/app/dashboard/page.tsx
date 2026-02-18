@@ -3,7 +3,9 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
+import { OverviewSection } from './components/overview-section';
 import { PaymentsSection } from './components/payments-section';
+import { OperationsSection } from './components/operations-section';
 import { SettingsSection } from './components/settings-section';
 import { AuditSection } from './components/audit-section';
 
@@ -171,7 +173,7 @@ const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
 const today = new Date().toISOString().slice(0, 10);
 const STATUS_OPTIONS = ['pending', 'confirmed', 'cancelled', 'rescheduled', 'no_show', 'completed'] as const;
-const PAYMENT_METHOD_OPTIONS = ['cash', 'card', 'transfer', 'link', 'stripe', 'mercadopago'] as const;
+const PAYMENT_METHOD_OPTIONS = ['cash', 'card', 'transfer', 'link', 'stripe'] as const;
 
 const dashboardFilterSchema = z.object({
   apiUrl: z.string().url('API URL inválida.'),
@@ -286,6 +288,30 @@ const quickCreatePaymentSchema = z
       });
     }
   });
+
+const quickCreateStripeCheckoutSchema = z
+  .object({
+    apiUrl: z.string().url('API URL inválida.'),
+    token: z.string().min(1, 'Token de sesión inválido.'),
+    bookingId: z.string().trim().min(1, 'Selecciona una reserva para Stripe.'),
+    mode: z.enum(['full', 'deposit']),
+    amount: z.coerce.number().positive('Monto inválido para depósito Stripe.').optional()
+  })
+  .superRefine((value, context) => {
+    if (value.mode === 'deposit' && (typeof value.amount !== 'number' || Number.isNaN(value.amount))) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Para depósito Stripe debes indicar un monto válido.',
+        path: ['amount']
+      });
+    }
+  });
+
+const quickConfirmStripeSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.'),
+  sessionId: z.string().trim().min(1, 'Ingresa un Stripe sessionId válido.')
+});
 
 const paymentsQuerySchema = z.object({
   apiUrl: z.string().url('API URL inválida.'),
@@ -492,6 +518,11 @@ export default function DashboardPage() {
   const [quickPaymentLoading, setQuickPaymentLoading] = useState(false);
   const [quickPaymentError, setQuickPaymentError] = useState('');
   const [quickPaymentSuccess, setQuickPaymentSuccess] = useState('');
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeError, setStripeError] = useState('');
+  const [stripeSuccess, setStripeSuccess] = useState('');
+  const [stripeCheckoutUrl, setStripeCheckoutUrl] = useState('');
+  const [stripeSessionId, setStripeSessionId] = useState('');
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [paymentsError, setPaymentsError] = useState('');
@@ -515,6 +546,7 @@ export default function DashboardPage() {
   useAutoDismissSuccess(quickExceptionSuccess, () => setQuickExceptionSuccess(''));
   useAutoDismissSuccess(quickWaitlistSuccess, () => setQuickWaitlistSuccess(''));
   useAutoDismissSuccess(quickPaymentSuccess, () => setQuickPaymentSuccess(''));
+  useAutoDismissSuccess(stripeSuccess, () => setStripeSuccess(''));
   useAutoDismissSuccess(bookingActionSuccess, () => setBookingActionSuccess(''));
   useAutoDismissSuccess(availabilityActionSuccess, () => setAvailabilityActionSuccess(''));
   useAutoDismissSuccess(tenantSettingsSuccess, () => setTenantSettingsSuccess(''));
@@ -561,6 +593,12 @@ export default function DashboardPage() {
       setPaymentsError('');
     }
   }, [quickPaymentSuccess]);
+
+  useEffect(() => {
+    if (stripeSuccess) {
+      setStripeError('');
+    }
+  }, [stripeSuccess]);
 
   useEffect(() => {
     if (bookingActionSuccess) {
@@ -1764,6 +1802,112 @@ export default function DashboardPage() {
     }
   }
 
+  async function onCreateStripeCheckoutSession() {
+    setStripeError('');
+    setStripeSuccess('');
+
+    const parsed = quickCreateStripeCheckoutSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim(),
+      bookingId: quickPaymentBookingId,
+      mode: quickPaymentMode,
+      amount: quickPaymentMode === 'deposit' ? quickPaymentAmount : undefined
+    });
+
+    if (!parsed.success) {
+      setStripeError(parsed.error.issues[0]?.message ?? 'Datos inválidos para checkout Stripe.');
+      return;
+    }
+
+    setStripeLoading(true);
+
+    try {
+      const response = await fetch(new URL('/payments/stripe/checkout-session', parsed.data.apiUrl).toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({
+          bookingId: parsed.data.bookingId,
+          mode: parsed.data.mode,
+          amount: parsed.data.mode === 'deposit' ? parsed.data.amount : undefined
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      const payload = (await response.json()) as {
+        sessionId?: string;
+        url?: string;
+        amount?: number;
+        currency?: string;
+      };
+
+      setStripeSessionId(payload.sessionId ?? '');
+      setStripeCheckoutUrl(payload.url ?? '');
+      if (typeof payload.amount === 'number' && payload.currency) {
+        setStripeSuccess(`Checkout Stripe creado por ${payload.amount.toFixed(2)} ${payload.currency}.`);
+      } else {
+        setStripeSuccess('Checkout Stripe creado correctamente.');
+      }
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo crear checkout Stripe';
+      setStripeError(message);
+      setStripeCheckoutUrl('');
+    } finally {
+      setStripeLoading(false);
+    }
+  }
+
+  async function onConfirmStripeSession() {
+    setStripeError('');
+    setStripeSuccess('');
+
+    const parsed = quickConfirmStripeSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim(),
+      sessionId: stripeSessionId
+    });
+
+    if (!parsed.success) {
+      setStripeError(parsed.error.issues[0]?.message ?? 'sessionId de Stripe inválido.');
+      return;
+    }
+
+    setStripeLoading(true);
+
+    try {
+      const response = await fetch(new URL('/payments/stripe/confirm', parsed.data.apiUrl).toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({
+          sessionId: parsed.data.sessionId
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      const payload = (await response.json()) as { alreadyConfirmed?: boolean };
+      setStripeSuccess(payload.alreadyConfirmed ? 'La sesión Stripe ya estaba confirmada.' : 'Pago Stripe confirmado correctamente.');
+      await loadPayments();
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo confirmar la sesión Stripe';
+      setStripeError(message);
+    } finally {
+      setStripeLoading(false);
+    }
+  }
+
   async function onCreateAvailabilityRule(event: FormEvent) {
     event.preventDefault();
     setQuickRuleError('');
@@ -2122,220 +2266,45 @@ export default function DashboardPage() {
       </nav>
 
       {activeSection === 'overview' ? (
-      <>
-
-      <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
-        <label>
-          API URL
-          <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} style={{ width: '100%' }} />
-        </label>
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
-          <label>
-            Rango
-            <select value={range} onChange={(e) => setRange(e.target.value as 'day' | 'week' | 'month')} style={{ width: '100%' }}>
-              <option value="day">Día</option>
-              <option value="week">Semana</option>
-              <option value="month">Mes</option>
-            </select>
-          </label>
-          <label>
-            Fecha base
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '100%' }} />
-          </label>
-          <label>
-            Staff (opcional)
-            <select value={staffId} onChange={(e) => setStaffId(e.target.value)} style={{ width: '100%' }} disabled={staffLoading}>
-              <option value="">Todos</option>
-              {staffOptions.map((staff) => (
-                <option key={staff.id} value={staff.id}>
-                  {staff.fullName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Estado (opcional)
-            <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: '100%' }}>
-              <option value="">Todos</option>
-              {STATUS_OPTIONS.map((entry) => (
-                <option key={entry} value={entry}>
-                  {entry}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <Notice tone="warning" message={staffError} onClose={() => setStaffError('')} />
-        <Notice tone="warning" message={serviceError} onClose={() => setServiceError('')} />
-        <button type="submit" disabled={loading || !token.trim()} style={{ width: 220, padding: '8px 12px' }}>
-          {loading ? 'Consultando...' : 'Cargar calendario'}
-        </button>
-      </form>
-
-      <Notice tone="error" message={error} withMargin onClose={() => setError('')} />
-      <Notice tone="error" message={reportsError} withMargin onClose={() => setReportsError('')} />
-      <Notice tone="error" message={bookingActionError} withMargin onClose={() => setBookingActionError('')} />
-      <Notice tone="success" message={bookingActionSuccess} withMargin onClose={() => setBookingActionSuccess('')} />
-
-      {data ? (
-        <section>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-              <strong>Total citas</strong>
-              <div>{data.summary.totalAppointments}</div>
-            </article>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-              <strong>Minutos agendados</strong>
-              <div>{data.summary.totalScheduledMinutes}</div>
-            </article>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-              <strong>Período</strong>
-              <div>{new Date(data.period.start).toLocaleString()} → {new Date(data.period.end).toLocaleString()}</div>
-            </article>
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <strong>Estados:</strong>{' '}
-            {summaryStatus.length ? summaryStatus.map(([key, value]) => `${key}: ${value}`).join(' | ') : 'Sin datos'}
-          </div>
-
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Inicio</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Fin</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Cliente</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Servicio</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Staff</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Estado</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.bookings.map((booking) => (
-                  <tr key={booking.id}>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{new Date(booking.startAt).toLocaleString()}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{new Date(booking.endAt).toLocaleString()}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{booking.customerName}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{booking.service.name}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{booking.staff.fullName}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{booking.status}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>
-                      <div style={{ display: 'grid', gap: 6 }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void onCancelBooking(booking.id);
-                          }}
-                          disabled={bookingActionLoadingId === booking.id || booking.status === 'cancelled'}
-                          style={{ width: 120, padding: '6px 8px' }}
-                        >
-                          {bookingActionLoadingId === booking.id ? 'Procesando...' : 'Cancelar'}
-                        </button>
-                        <input
-                          type="datetime-local"
-                          value={rescheduleDrafts[booking.id] ?? toDateTimeLocalInput(booking.startAt)}
-                          onChange={(e) =>
-                            setRescheduleDrafts((current) => ({
-                              ...current,
-                              [booking.id]: e.target.value
-                            }))
-                          }
-                          style={{ width: '100%' }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void onRescheduleBooking(booking.id);
-                          }}
-                          disabled={bookingActionLoadingId === booking.id || booking.status === 'cancelled'}
-                          style={{ width: 120, padding: '6px 8px' }}
-                        >
-                          {bookingActionLoadingId === booking.id ? 'Procesando...' : 'Reprogramar'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
-
-      {reports ? (
-        <section style={{ marginTop: 20 }}>
-          <h2 style={{ marginBottom: 8 }}>Reportes de negocio (MVP)</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-              <strong>Ingresos netos</strong>
-              <div>${reports.totals.netRevenue.toFixed(2)} MXN</div>
-            </article>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-              <strong>Canceladas</strong>
-              <div>{reports.totals.cancelledAppointments}</div>
-            </article>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-              <strong>Tasa cancelación</strong>
-              <div>{reports.totals.cancellationRate}%</div>
-            </article>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-              <strong>Total citas</strong>
-              <div>{reports.totals.totalAppointments}</div>
-            </article>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-              <strong>Clientes frecuentes</strong>
-              <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
-                {reports.topCustomers.length ? (
-                  reports.topCustomers.map((entry) => (
-                    <li key={entry.customerEmail}>
-                      {entry.customerName} ({entry.totalBookings})
-                    </li>
-                  ))
-                ) : (
-                  <li>Sin datos</li>
-                )}
-              </ul>
-            </article>
-
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-              <strong>Servicios más demandados</strong>
-              <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
-                {reports.topServices.length ? (
-                  reports.topServices.map((entry) => (
-                    <li key={entry.serviceId}>
-                      {entry.serviceName} ({entry.totalBookings})
-                    </li>
-                  ))
-                ) : (
-                  <li>Sin datos</li>
-                )}
-              </ul>
-            </article>
-
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-              <strong>Horas pico (UTC)</strong>
-              <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
-                {reports.peakHours.length ? (
-                  reports.peakHours.map((entry) => (
-                    <li key={entry.hour}>
-                      {String(entry.hour).padStart(2, '0')}:00 ({entry.total})
-                    </li>
-                  ))
-                ) : (
-                  <li>Sin datos</li>
-                )}
-              </ul>
-            </article>
-          </div>
-        </section>
-      ) : null}
-
-      </>
+        <OverviewSection
+          onSubmit={onSubmit}
+          apiUrl={apiUrl}
+          setApiUrl={setApiUrl}
+          range={range}
+          setRange={setRange}
+          date={date}
+          setDate={setDate}
+          staffId={staffId}
+          setStaffId={setStaffId}
+          status={status}
+          setStatus={setStatus}
+          staffLoading={staffLoading}
+          staffOptions={staffOptions}
+          statusOptions={STATUS_OPTIONS}
+          staffError={staffError}
+          setStaffError={setStaffError}
+          serviceError={serviceError}
+          setServiceError={setServiceError}
+          loading={loading}
+          token={token}
+          error={error}
+          setError={setError}
+          reportsError={reportsError}
+          setReportsError={setReportsError}
+          bookingActionError={bookingActionError}
+          setBookingActionError={setBookingActionError}
+          bookingActionSuccess={bookingActionSuccess}
+          setBookingActionSuccess={setBookingActionSuccess}
+          data={data}
+          summaryStatus={summaryStatus}
+          onCancelBooking={onCancelBooking}
+          onRescheduleBooking={onRescheduleBooking}
+          bookingActionLoadingId={bookingActionLoadingId}
+          rescheduleDrafts={rescheduleDrafts}
+          setRescheduleDrafts={setRescheduleDrafts}
+          toDateTimeLocalInput={toDateTimeLocalInput}
+          reports={reports}
+        />
       ) : null}
 
       {activeSection === 'payments' ? (
@@ -2363,6 +2332,16 @@ export default function DashboardPage() {
           setQuickPaymentError={setQuickPaymentError}
           quickPaymentSuccess={quickPaymentSuccess}
           setQuickPaymentSuccess={setQuickPaymentSuccess}
+          stripeError={stripeError}
+          setStripeError={setStripeError}
+          stripeSuccess={stripeSuccess}
+          setStripeSuccess={setStripeSuccess}
+          stripeLoading={stripeLoading}
+          onCreateStripeCheckoutSession={onCreateStripeCheckoutSession}
+          stripeCheckoutUrl={stripeCheckoutUrl}
+          stripeSessionId={stripeSessionId}
+          setStripeSessionId={setStripeSessionId}
+          onConfirmStripeSession={onConfirmStripeSession}
           paymentsError={paymentsError}
           setPaymentsError={setPaymentsError}
           payments={payments}
@@ -2375,429 +2354,134 @@ export default function DashboardPage() {
       ) : null}
 
       {activeSection === 'operations' ? (
-      <>
-      <section style={{ marginTop: 28 }}>
-        <h2 style={{ marginBottom: 8 }}>Acciones rápidas (MVP)</h2>
-        <p style={{ marginTop: 0, color: '#555' }}>Alta rápida de servicios, staff, reservas, reglas y excepciones de disponibilidad.</p>
-
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', marginBottom: 8 }}>
-          <form onSubmit={onCreateService} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Crear servicio</strong>
-            <label>
-              Nombre
-              <input value={quickServiceName} onChange={(e) => setQuickServiceName(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Duración (min)
-              <input type="number" min={5} value={quickServiceDuration} onChange={(e) => setQuickServiceDuration(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Precio
-              <input type="number" min={0} step="0.01" value={quickServicePrice} onChange={(e) => setQuickServicePrice(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <button type="submit" disabled={!canSubmitQuickService} style={{ width: 180, padding: '8px 12px' }}>
-              {quickServiceLoading ? 'Creando...' : 'Crear servicio'}
-            </button>
-            {!canSubmitQuickService && quickServiceDisabledReason ? (
-              <div style={{ color: '#666', fontSize: 12 }}>{quickServiceDisabledReason}</div>
-            ) : null}
-            <Notice tone="error" message={quickServiceError} onClose={() => setQuickServiceError('')} />
-            <Notice tone="success" message={quickServiceSuccess} onClose={() => setQuickServiceSuccess('')} />
-          </form>
-
-          <form onSubmit={onCreateStaff} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Crear staff</strong>
-            <label>
-              Nombre completo
-              <input value={quickStaffName} onChange={(e) => setQuickStaffName(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Email
-              <input type="email" value={quickStaffEmail} onChange={(e) => setQuickStaffEmail(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <button type="submit" disabled={!canSubmitQuickStaff} style={{ width: 180, padding: '8px 12px' }}>
-              {quickStaffLoading ? 'Creando...' : 'Crear staff'}
-            </button>
-            {!canSubmitQuickStaff && quickStaffDisabledReason ? (
-              <div style={{ color: '#666', fontSize: 12 }}>{quickStaffDisabledReason}</div>
-            ) : null}
-            <Notice tone="error" message={quickStaffError} onClose={() => setQuickStaffError('')} />
-            <Notice tone="success" message={quickStaffSuccess} onClose={() => setQuickStaffSuccess('')} />
-          </form>
-
-          <form onSubmit={onCreateBooking} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Crear booking</strong>
-            <label>
-              Servicio
-              <select value={quickBookingServiceId} onChange={(e) => setQuickBookingServiceId(e.target.value)} style={{ width: '100%' }} disabled={serviceLoading}>
-                <option value="">Seleccionar</option>
-                {serviceOptions.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Staff
-              <select value={quickBookingStaffId} onChange={(e) => setQuickBookingStaffId(e.target.value)} style={{ width: '100%' }} disabled={staffLoading}>
-                <option value="">Seleccionar</option>
-                {staffOptions.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.fullName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Inicio
-              <input type="datetime-local" value={quickBookingStartAt} onChange={(e) => setQuickBookingStartAt(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Cliente
-              <input value={quickBookingCustomerName} onChange={(e) => setQuickBookingCustomerName(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Email cliente
-              <input type="email" value={quickBookingCustomerEmail} onChange={(e) => setQuickBookingCustomerEmail(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Notas (opcional)
-              <input value={quickBookingNotes} onChange={(e) => setQuickBookingNotes(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <button type="submit" disabled={!canSubmitQuickBooking} style={{ width: 180, padding: '8px 12px' }}>
-              {quickBookingLoading ? 'Creando...' : 'Crear booking'}
-            </button>
-            {!canSubmitQuickBooking && quickBookingDisabledReason ? (
-              <div style={{ color: '#666', fontSize: 12 }}>{quickBookingDisabledReason}</div>
-            ) : null}
-            <Notice tone="error" message={quickBookingError} onClose={() => setQuickBookingError('')} />
-            <Notice tone="success" message={quickBookingSuccess} onClose={() => setQuickBookingSuccess('')} />
-          </form>
-
-          <form onSubmit={onCreateAvailabilityRule} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Crear regla disponibilidad</strong>
-            <label>
-              Día semana
-              <select value={quickRuleDayOfWeek} onChange={(e) => setQuickRuleDayOfWeek(e.target.value)} style={{ width: '100%' }}>
-                <option value="1">Lunes</option>
-                <option value="2">Martes</option>
-                <option value="3">Miércoles</option>
-                <option value="4">Jueves</option>
-                <option value="5">Viernes</option>
-                <option value="6">Sábado</option>
-                <option value="0">Domingo</option>
-              </select>
-            </label>
-            <label>
-              Hora inicio
-              <input type="time" value={quickRuleStartTime} onChange={(e) => setQuickRuleStartTime(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Hora fin
-              <input type="time" value={quickRuleEndTime} onChange={(e) => setQuickRuleEndTime(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Staff
-              <select value={quickRuleStaffId} onChange={(e) => setQuickRuleStaffId(e.target.value)} style={{ width: '100%' }} disabled={staffLoading}>
-                <option value="">Seleccionar</option>
-                {staffOptions.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.fullName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="submit" disabled={!canSubmitQuickRule} style={{ width: 220, padding: '8px 12px' }}>
-              {quickRuleLoading ? 'Creando...' : 'Crear regla'}
-            </button>
-            {!canSubmitQuickRule && quickRuleDisabledReason ? (
-              <div style={{ color: '#666', fontSize: 12 }}>{quickRuleDisabledReason}</div>
-            ) : null}
-            <Notice tone="error" message={quickRuleError} onClose={() => setQuickRuleError('')} />
-            <Notice tone="success" message={quickRuleSuccess} onClose={() => setQuickRuleSuccess('')} />
-          </form>
-
-          <form onSubmit={onCreateAvailabilityException} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Crear excepción disponibilidad</strong>
-            <label>
-              Fecha
-              <input type="date" value={quickExceptionDate} onChange={(e) => setQuickExceptionDate(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input type="checkbox" checked={quickExceptionFullDay} onChange={(e) => setQuickExceptionFullDay(e.target.checked)} />
-              Bloqueo todo el día
-            </label>
-            <label>
-              Hora inicio
-              <input type="time" value={quickExceptionStartTime} onChange={(e) => setQuickExceptionStartTime(e.target.value)} style={{ width: '100%' }} disabled={quickExceptionFullDay} />
-            </label>
-            <label>
-              Hora fin
-              <input type="time" value={quickExceptionEndTime} onChange={(e) => setQuickExceptionEndTime(e.target.value)} style={{ width: '100%' }} disabled={quickExceptionFullDay} />
-            </label>
-            <label>
-              Staff
-              <select value={quickExceptionStaffId} onChange={(e) => setQuickExceptionStaffId(e.target.value)} style={{ width: '100%' }} disabled={staffLoading}>
-                <option value="">Seleccionar</option>
-                {staffOptions.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.fullName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Nota (opcional)
-              <input value={quickExceptionNote} onChange={(e) => setQuickExceptionNote(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <button type="submit" disabled={!canSubmitQuickException} style={{ width: 240, padding: '8px 12px' }}>
-              {quickExceptionLoading ? 'Creando...' : 'Crear excepción'}
-            </button>
-            {!canSubmitQuickException && quickExceptionDisabledReason ? (
-              <div style={{ color: '#666', fontSize: 12 }}>{quickExceptionDisabledReason}</div>
-            ) : null}
-            <Notice tone="error" message={quickExceptionError} onClose={() => setQuickExceptionError('')} />
-            <Notice tone="success" message={quickExceptionSuccess} onClose={() => setQuickExceptionSuccess('')} />
-          </form>
-
-          <form onSubmit={onJoinWaitlist} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Join waitlist</strong>
-            <label>
-              Servicio
-              <select value={quickWaitlistServiceId} onChange={(e) => setQuickWaitlistServiceId(e.target.value)} style={{ width: '100%' }} disabled={serviceLoading}>
-                <option value="">Seleccionar</option>
-                {serviceOptions.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Staff
-              <select value={quickWaitlistStaffId} onChange={(e) => setQuickWaitlistStaffId(e.target.value)} style={{ width: '100%' }} disabled={staffLoading}>
-                <option value="">Seleccionar</option>
-                {staffOptions.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.fullName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Fecha/hora preferida
-              <input type="datetime-local" value={quickWaitlistPreferredStartAt} onChange={(e) => setQuickWaitlistPreferredStartAt(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Cliente
-              <input value={quickWaitlistCustomerName} onChange={(e) => setQuickWaitlistCustomerName(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Email cliente
-              <input type="email" value={quickWaitlistCustomerEmail} onChange={(e) => setQuickWaitlistCustomerEmail(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Notas (opcional)
-              <input value={quickWaitlistNotes} onChange={(e) => setQuickWaitlistNotes(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <button type="submit" disabled={!canSubmitQuickWaitlist} style={{ width: 180, padding: '8px 12px' }}>
-              {quickWaitlistLoading ? 'Agregando...' : 'Agregar waitlist'}
-            </button>
-            {!canSubmitQuickWaitlist && quickWaitlistDisabledReason ? (
-              <div style={{ color: '#666', fontSize: 12 }}>{quickWaitlistDisabledReason}</div>
-            ) : null}
-            <Notice tone="error" message={quickWaitlistError} onClose={() => setQuickWaitlistError('')} />
-            <Notice tone="success" message={quickWaitlistSuccess} onClose={() => setQuickWaitlistSuccess('')} />
-          </form>
-        </div>
-      </section>
-
-      <section style={{ marginTop: 28 }}>
-        <h2 style={{ marginBottom: 8 }}>Disponibilidad configurada</h2>
-        <p style={{ marginTop: 0, color: '#555' }}>Lista de reglas y excepciones actuales del tenant autenticado.</p>
-
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <button
-            type="button"
-            disabled={availabilityLoading || !token.trim()}
-            onClick={() => {
-              void loadAvailabilityData();
-            }}
-            style={{ width: 220, padding: '8px 12px' }}
-          >
-            {availabilityLoading ? 'Cargando...' : 'Refresh disponibilidad'}
-          </button>
-        </div>
-
-        <Notice tone="error" message={availabilityError} withMargin onClose={() => setAvailabilityError('')} />
-        <Notice tone="error" message={availabilityActionError} withMargin onClose={() => setAvailabilityActionError('')} />
-        <Notice tone="success" message={availabilityActionSuccess} withMargin onClose={() => setAvailabilityActionSuccess('')} />
-
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-          <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Rules</strong>
-            <div style={{ overflowX: 'auto', marginTop: 8 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Día</th>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Horario</th>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Staff</th>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Estado</th>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {availabilityRules.map((rule) => (
-                    <tr key={rule.id}>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{DAY_OF_WEEK_LABEL[rule.dayOfWeek] ?? String(rule.dayOfWeek)}</td>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{rule.startTime} - {rule.endTime}</td>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
-                        {staffOptions.find((entry) => entry.id === rule.staffId)?.fullName ?? rule.staffId ?? '-'}
-                      </td>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{rule.isActive ? 'Activa' : 'Inactiva'}</td>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void onToggleAvailabilityRule(rule);
-                            }}
-                            disabled={availabilityActionLoadingId === `rule-toggle-${rule.id}` || availabilityActionLoadingId === `rule-delete-${rule.id}`}
-                            style={{ padding: '4px 8px' }}
-                          >
-                            {availabilityActionLoadingId === `rule-toggle-${rule.id}`
-                              ? 'Guardando...'
-                              : rule.isActive
-                                ? 'Desactivar'
-                                : 'Activar'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void onDeleteAvailabilityRule(rule.id);
-                            }}
-                            disabled={availabilityActionLoadingId === `rule-delete-${rule.id}` || availabilityActionLoadingId === `rule-toggle-${rule.id}`}
-                            style={{ padding: '4px 8px' }}
-                          >
-                            {availabilityActionLoadingId === `rule-delete-${rule.id}` ? 'Eliminando...' : 'Eliminar'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {!availabilityRules.length ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: 8, color: '#666' }}>
-                        Sin reglas cargadas.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Exceptions</strong>
-            <div style={{ overflowX: 'auto', marginTop: 8 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Fecha</th>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Horario</th>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Staff</th>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Tipo</th>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {availabilityExceptions.map((exception) => (
-                    <tr key={exception.id}>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{new Date(exception.date).toLocaleDateString()}</td>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
-                        {exception.startTime && exception.endTime ? `${exception.startTime} - ${exception.endTime}` : 'Todo el día'}
-                      </td>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
-                        {staffOptions.find((entry) => entry.id === exception.staffId)?.fullName ?? exception.staffId ?? '-'}
-                      </td>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
-                        {(availabilityExceptionUnavailableDrafts[exception.id] ?? exception.isUnavailable) ? 'No disponible' : 'Disponible'}
-                      </td>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
-                        <div style={{ display: 'grid', gap: 6 }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <input
-                              type="checkbox"
-                              checked={availabilityExceptionUnavailableDrafts[exception.id] ?? exception.isUnavailable}
-                              onChange={(e) =>
-                                setAvailabilityExceptionUnavailableDrafts((current) => ({
-                                  ...current,
-                                  [exception.id]: e.target.checked
-                                }))
-                              }
-                            />
-                            No disponible
-                          </label>
-                          <input
-                            value={availabilityExceptionNoteDrafts[exception.id] ?? exception.note ?? ''}
-                            onChange={(e) =>
-                              setAvailabilityExceptionNoteDrafts((current) => ({
-                                ...current,
-                                [exception.id]: e.target.value
-                              }))
-                            }
-                            placeholder="Nota"
-                            style={{ width: '100%' }}
-                          />
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                void onSaveAvailabilityException(exception.id);
-                              }}
-                              disabled={
-                                availabilityActionLoadingId === `exception-save-${exception.id}` ||
-                                availabilityActionLoadingId === `exception-delete-${exception.id}`
-                              }
-                              style={{ padding: '4px 8px' }}
-                            >
-                              {availabilityActionLoadingId === `exception-save-${exception.id}` ? 'Guardando...' : 'Guardar'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                void onDeleteAvailabilityException(exception.id);
-                              }}
-                              disabled={
-                                availabilityActionLoadingId === `exception-delete-${exception.id}` ||
-                                availabilityActionLoadingId === `exception-save-${exception.id}`
-                              }
-                              style={{ padding: '4px 8px' }}
-                            >
-                              {availabilityActionLoadingId === `exception-delete-${exception.id}` ? 'Eliminando...' : 'Eliminar'}
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {!availabilityExceptions.length ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: 8, color: '#666' }}>
-                        Sin excepciones cargadas.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      </>
+        <OperationsSection
+          token={token}
+          serviceLoading={serviceLoading}
+          staffLoading={staffLoading}
+          onCreateService={onCreateService}
+          quickServiceName={quickServiceName}
+          setQuickServiceName={setQuickServiceName}
+          quickServiceDuration={quickServiceDuration}
+          setQuickServiceDuration={setQuickServiceDuration}
+          quickServicePrice={quickServicePrice}
+          setQuickServicePrice={setQuickServicePrice}
+          canSubmitQuickService={canSubmitQuickService}
+          quickServiceLoading={quickServiceLoading}
+          quickServiceDisabledReason={quickServiceDisabledReason}
+          quickServiceError={quickServiceError}
+          setQuickServiceError={setQuickServiceError}
+          quickServiceSuccess={quickServiceSuccess}
+          setQuickServiceSuccess={setQuickServiceSuccess}
+          onCreateStaff={onCreateStaff}
+          quickStaffName={quickStaffName}
+          setQuickStaffName={setQuickStaffName}
+          quickStaffEmail={quickStaffEmail}
+          setQuickStaffEmail={setQuickStaffEmail}
+          canSubmitQuickStaff={canSubmitQuickStaff}
+          quickStaffLoading={quickStaffLoading}
+          quickStaffDisabledReason={quickStaffDisabledReason}
+          quickStaffError={quickStaffError}
+          setQuickStaffError={setQuickStaffError}
+          quickStaffSuccess={quickStaffSuccess}
+          setQuickStaffSuccess={setQuickStaffSuccess}
+          onCreateBooking={onCreateBooking}
+          quickBookingServiceId={quickBookingServiceId}
+          setQuickBookingServiceId={setQuickBookingServiceId}
+          quickBookingStaffId={quickBookingStaffId}
+          setQuickBookingStaffId={setQuickBookingStaffId}
+          quickBookingStartAt={quickBookingStartAt}
+          setQuickBookingStartAt={setQuickBookingStartAt}
+          quickBookingCustomerName={quickBookingCustomerName}
+          setQuickBookingCustomerName={setQuickBookingCustomerName}
+          quickBookingCustomerEmail={quickBookingCustomerEmail}
+          setQuickBookingCustomerEmail={setQuickBookingCustomerEmail}
+          quickBookingNotes={quickBookingNotes}
+          setQuickBookingNotes={setQuickBookingNotes}
+          canSubmitQuickBooking={canSubmitQuickBooking}
+          quickBookingLoading={quickBookingLoading}
+          quickBookingDisabledReason={quickBookingDisabledReason}
+          quickBookingError={quickBookingError}
+          setQuickBookingError={setQuickBookingError}
+          quickBookingSuccess={quickBookingSuccess}
+          setQuickBookingSuccess={setQuickBookingSuccess}
+          onCreateAvailabilityRule={onCreateAvailabilityRule}
+          quickRuleDayOfWeek={quickRuleDayOfWeek}
+          setQuickRuleDayOfWeek={setQuickRuleDayOfWeek}
+          quickRuleStartTime={quickRuleStartTime}
+          setQuickRuleStartTime={setQuickRuleStartTime}
+          quickRuleEndTime={quickRuleEndTime}
+          setQuickRuleEndTime={setQuickRuleEndTime}
+          quickRuleStaffId={quickRuleStaffId}
+          setQuickRuleStaffId={setQuickRuleStaffId}
+          canSubmitQuickRule={canSubmitQuickRule}
+          quickRuleLoading={quickRuleLoading}
+          quickRuleDisabledReason={quickRuleDisabledReason}
+          quickRuleError={quickRuleError}
+          setQuickRuleError={setQuickRuleError}
+          quickRuleSuccess={quickRuleSuccess}
+          setQuickRuleSuccess={setQuickRuleSuccess}
+          onCreateAvailabilityException={onCreateAvailabilityException}
+          quickExceptionDate={quickExceptionDate}
+          setQuickExceptionDate={setQuickExceptionDate}
+          quickExceptionFullDay={quickExceptionFullDay}
+          setQuickExceptionFullDay={setQuickExceptionFullDay}
+          quickExceptionStartTime={quickExceptionStartTime}
+          setQuickExceptionStartTime={setQuickExceptionStartTime}
+          quickExceptionEndTime={quickExceptionEndTime}
+          setQuickExceptionEndTime={setQuickExceptionEndTime}
+          quickExceptionStaffId={quickExceptionStaffId}
+          setQuickExceptionStaffId={setQuickExceptionStaffId}
+          quickExceptionNote={quickExceptionNote}
+          setQuickExceptionNote={setQuickExceptionNote}
+          canSubmitQuickException={canSubmitQuickException}
+          quickExceptionLoading={quickExceptionLoading}
+          quickExceptionDisabledReason={quickExceptionDisabledReason}
+          quickExceptionError={quickExceptionError}
+          setQuickExceptionError={setQuickExceptionError}
+          quickExceptionSuccess={quickExceptionSuccess}
+          setQuickExceptionSuccess={setQuickExceptionSuccess}
+          onJoinWaitlist={onJoinWaitlist}
+          quickWaitlistServiceId={quickWaitlistServiceId}
+          setQuickWaitlistServiceId={setQuickWaitlistServiceId}
+          quickWaitlistStaffId={quickWaitlistStaffId}
+          setQuickWaitlistStaffId={setQuickWaitlistStaffId}
+          quickWaitlistPreferredStartAt={quickWaitlistPreferredStartAt}
+          setQuickWaitlistPreferredStartAt={setQuickWaitlistPreferredStartAt}
+          quickWaitlistCustomerName={quickWaitlistCustomerName}
+          setQuickWaitlistCustomerName={setQuickWaitlistCustomerName}
+          quickWaitlistCustomerEmail={quickWaitlistCustomerEmail}
+          setQuickWaitlistCustomerEmail={setQuickWaitlistCustomerEmail}
+          quickWaitlistNotes={quickWaitlistNotes}
+          setQuickWaitlistNotes={setQuickWaitlistNotes}
+          canSubmitQuickWaitlist={canSubmitQuickWaitlist}
+          quickWaitlistLoading={quickWaitlistLoading}
+          quickWaitlistDisabledReason={quickWaitlistDisabledReason}
+          quickWaitlistError={quickWaitlistError}
+          setQuickWaitlistError={setQuickWaitlistError}
+          quickWaitlistSuccess={quickWaitlistSuccess}
+          setQuickWaitlistSuccess={setQuickWaitlistSuccess}
+          serviceOptions={serviceOptions}
+          staffOptions={staffOptions}
+          availabilityLoading={availabilityLoading}
+          loadAvailabilityData={loadAvailabilityData}
+          availabilityError={availabilityError}
+          setAvailabilityError={setAvailabilityError}
+          availabilityActionError={availabilityActionError}
+          setAvailabilityActionError={setAvailabilityActionError}
+          availabilityActionSuccess={availabilityActionSuccess}
+          setAvailabilityActionSuccess={setAvailabilityActionSuccess}
+          availabilityRules={availabilityRules}
+          availabilityExceptions={availabilityExceptions}
+          availabilityActionLoadingId={availabilityActionLoadingId}
+          onToggleAvailabilityRule={onToggleAvailabilityRule}
+          onDeleteAvailabilityRule={onDeleteAvailabilityRule}
+          availabilityExceptionUnavailableDrafts={availabilityExceptionUnavailableDrafts}
+          setAvailabilityExceptionUnavailableDrafts={setAvailabilityExceptionUnavailableDrafts}
+          availabilityExceptionNoteDrafts={availabilityExceptionNoteDrafts}
+          setAvailabilityExceptionNoteDrafts={setAvailabilityExceptionNoteDrafts}
+          onSaveAvailabilityException={onSaveAvailabilityException}
+          onDeleteAvailabilityException={onDeleteAvailabilityException}
+        />
       ) : null}
 
       {activeSection === 'settings' ? (

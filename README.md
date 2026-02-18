@@ -201,7 +201,7 @@ Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
 
 ### Payments (protegido con Bearer)
 - `POST /payments` (registro manual de `full` o `deposit`)
-	- body base: `{ "bookingId": "...", "mode": "full|deposit", "amount?": 40, "method?": "cash|card|transfer|link|stripe|mercadopago" }`
+	- body base: `{ "bookingId": "...", "mode": "full|deposit", "amount?": 40, "method?": "cash|card|transfer|link|stripe" }`
 - `POST /payments/stripe/checkout-session` (crea sesión Checkout de Stripe)
 - `POST /payments/stripe/confirm` (confirma sesión pagada y registra el pago en sistema)
 - `GET /payments?bookingId=...&customerId=...&status=...&kind=...`
@@ -215,6 +215,9 @@ Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
 Variables para Stripe:
 - `STRIPE_SECRET_KEY` (obligatoria para crear/confirmar sesiones)
 - `NEXT_PUBLIC_APP_URL` o `WEB_BASE_URL` (opcional, para construir URLs de success/cancel)
+
+Nota de roadmap de pagos:
+- MercadoPago queda diferido para una fase posterior (PG-03), no activo en MVP actual.
 
 ### Dashboard (protegido con Bearer)
 - `GET /dashboard/appointments?range=day|week|month&date=YYYY-MM-DD&staffId=...&status=...`

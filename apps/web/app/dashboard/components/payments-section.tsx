@@ -17,8 +17,8 @@ type PaymentsSectionProps = {
   } | null;
   quickPaymentMode: 'full' | 'deposit';
   setQuickPaymentMode: (value: 'full' | 'deposit') => void;
-  quickPaymentMethod: 'cash' | 'card' | 'transfer' | 'link' | 'stripe' | 'mercadopago';
-  setQuickPaymentMethod: (value: 'cash' | 'card' | 'transfer' | 'link' | 'stripe' | 'mercadopago') => void;
+  quickPaymentMethod: 'cash' | 'card' | 'transfer' | 'link' | 'stripe';
+  setQuickPaymentMethod: (value: 'cash' | 'card' | 'transfer' | 'link' | 'stripe') => void;
   paymentMethodOptions: readonly string[];
   quickPaymentAmount: string;
   setQuickPaymentAmount: (value: string) => void;
@@ -134,7 +134,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
             Método
             <select
               value={props.quickPaymentMethod}
-              onChange={(event) => props.setQuickPaymentMethod(event.target.value as 'cash' | 'card' | 'transfer' | 'link' | 'stripe' | 'mercadopago')}
+              onChange={(event) => props.setQuickPaymentMethod(event.target.value as 'cash' | 'card' | 'transfer' | 'link' | 'stripe')}
               style={{ width: '100%' }}
             >
               {props.paymentMethodOptions.map((method) => (

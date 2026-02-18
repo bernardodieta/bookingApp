@@ -107,7 +107,7 @@ Usar estos IDs para historias, PRs y QA.
 ### 3.5 Pagos (PG)
 - [x] **PG-01** Pago completo o depósito parcial
 - [x] **PG-02** Integración Stripe
-- [ ] **PG-03** Integración MercadoPago
+- [ ] **PG-03** Integración MercadoPago (diferido por decisión de producto)
 - [x] **PG-04** Nota de venta/factura básica
 - [x] **PG-05** Política de reembolso configurable
 - [x] **PG-06** Historial de pagos por cliente
