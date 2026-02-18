@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Bell, ClipboardList, CreditCard, LayoutDashboard, LogOut, Settings, Wrench } from 'lucide-react';
 import { OverviewSection } from './components/overview-section';
 import { PaymentsSection } from './components/payments-section';
 import { OperationsSection } from './components/operations-section';
@@ -1759,40 +1760,42 @@ export default function DashboardPage() {
   }
 
   return (
-    <main style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 1100, margin: '0 auto' }}>
-      <h1 style={{ marginBottom: 8 }}>Apoint Dashboard (MVP)</h1>
-      <p style={{ marginTop: 0, color: '#555' }}>Calendario operativo día/semana/mes consumiendo API real.</p>
-
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <button type="button" onClick={onLogout} style={{ padding: '8px 12px' }}>
-          Logout
+    <main className="app-shell">
+      <header className="page-header">
+        <div>
+          <h1 className="page-title">Apoint Dashboard</h1>
+          <p className="page-subtitle">Panel operativo con agenda, pagos, settings y auditoría en tiempo real.</p>
+        </div>
+        <button type="button" onClick={onLogout} className="btn btn-ghost">
+          <LogOut size={16} />
+          Cerrar sesión
         </button>
-      </div>
+      </header>
 
-      <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+      <nav className="tabbar">
         {[
-          { key: 'overview' as const, label: 'Overview' },
-          { key: 'payments' as const, label: 'Payments' },
-          { key: 'operations' as const, label: 'Operations' },
-          { key: 'settings' as const, label: 'Settings' },
-          { key: 'audit' as const, label: 'Audit' }
+          { key: 'overview' as const, label: 'Resumen', icon: <LayoutDashboard size={16} /> },
+          { key: 'payments' as const, label: 'Pagos', icon: <CreditCard size={16} /> },
+          { key: 'operations' as const, label: 'Operación', icon: <Wrench size={16} /> },
+          { key: 'settings' as const, label: 'Settings', icon: <Settings size={16} /> },
+          { key: 'audit' as const, label: 'Auditoría', icon: <ClipboardList size={16} /> }
         ].map((section) => (
           <button
             key={section.key}
             type="button"
             onClick={() => setActiveSection(section.key)}
-            style={{
-              padding: '8px 12px',
-              border: '1px solid #ddd',
-              borderRadius: 8,
-              background: activeSection === section.key ? '#f4f4f4' : '#fff',
-              fontWeight: activeSection === section.key ? 600 : 400
-            }}
+            className={`tab-btn ${activeSection === section.key ? 'active' : ''}`}
           >
+            {section.icon}
             {section.label}
           </button>
         ))}
       </nav>
+
+      <div className="panel" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, color: '#475569' }}>
+        <Bell size={16} />
+        <span>Tip: usa cada sección por pestaña para operar más rápido y evitar errores.</span>
+      </div>
 
       {activeSection === 'overview' ? (
         <OverviewSection

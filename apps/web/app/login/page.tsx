@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
+import { Building2, LogIn, UserPlus } from 'lucide-react';
 
 const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
@@ -120,13 +121,21 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 560, margin: '0 auto' }}>
-      <h1 style={{ marginBottom: 8 }}>{mode === 'login' ? 'Apoint Login' : 'Apoint Registro'}</h1>
-      <p style={{ marginTop: 0, color: '#555' }}>
-        {mode === 'login' ? 'Inicia sesión para usar el dashboard operativo.' : 'Registra tu negocio (owner) para crear tu tenant.'}
-      </p>
+    <main className="app-shell" style={{ maxWidth: 640 }}>
+      <section className="surface" style={{ padding: 22 }}>
+        <header className="page-header" style={{ marginBottom: 12 }}>
+          <div>
+            <h1 className="page-title">{mode === 'login' ? 'Apoint Login' : 'Crear negocio'}</h1>
+            <p className="page-subtitle">
+              {mode === 'login' ? 'Inicia sesión para usar tu dashboard.' : 'Registra tu cuenta owner y entra en un paso.'}
+            </p>
+          </div>
+          <div style={{ width: 46, height: 46, borderRadius: 12, background: '#eaf1ff', display: 'grid', placeItems: 'center' }}>
+            {mode === 'login' ? <LogIn size={22} color="#1d4ed8" /> : <Building2 size={22} color="#1d4ed8" />}
+          </div>
+        </header>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      <div className="toolbar" style={{ marginBottom: 14 }}>
         <button
           type="button"
           onClick={() => {
@@ -134,8 +143,9 @@ export default function LoginPage() {
             setError('');
           }}
           disabled={loading || mode === 'login'}
-          style={{ width: 180, padding: '8px 12px' }}
+          className={`btn ${mode === 'login' ? 'btn-primary' : 'btn-ghost'}`}
         >
+          <LogIn size={16} />
           Ya tengo cuenta
         </button>
         <button
@@ -145,13 +155,14 @@ export default function LoginPage() {
             setError('');
           }}
           disabled={loading || mode === 'register'}
-          style={{ width: 180, padding: '8px 12px' }}
+          className={`btn ${mode === 'register' ? 'btn-primary' : 'btn-ghost'}`}
         >
+          <UserPlus size={16} />
           Crear negocio
         </button>
       </div>
 
-      <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12, padding: 12, border: '1px solid #ddd', borderRadius: 8 }}>
+      <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
         <label>
           API URL
           <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} style={{ width: '100%' }} />
@@ -170,12 +181,14 @@ export default function LoginPage() {
           Password
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: '100%' }} />
         </label>
-        <button type="submit" disabled={loading} style={{ width: 180, padding: '8px 12px' }}>
+        <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: 220 }}>
+          {mode === 'login' ? <LogIn size={16} /> : <UserPlus size={16} />}
           {loading ? (mode === 'login' ? 'Ingresando...' : 'Registrando...') : mode === 'login' ? 'Entrar' : 'Registrar y entrar'}
         </button>
       </form>
 
-      {error ? <div style={{ marginTop: 12, background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{error}</div> : null}
+      {error ? <div className="status-error" style={{ marginTop: 14 }}>{error}</div> : null}
+      </section>
     </main>
   );
 }

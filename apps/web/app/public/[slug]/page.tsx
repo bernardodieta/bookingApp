@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
+import { CalendarDays, Clock3, Send, UserRound } from 'lucide-react';
 
 type PublicPageProps = {
   params: {
@@ -415,15 +416,23 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
   }
 
   return (
-    <main style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 920, margin: '0 auto' }}>
-      <h1 style={{ marginBottom: 8 }}>{tenant?.name ? `Reservas - ${tenant.name}` : 'Reservas online'}</h1>
-      <p style={{ marginTop: 0, color: '#555' }}>Selecciona servicio, profesional y horario para agendar tu cita.</p>
+    <main className="app-shell" style={{ maxWidth: 980 }}>
+      <header className="page-header">
+        <div>
+          <h1 className="page-title">{tenant?.name ? `Reservas · ${tenant.name}` : 'Reservas online'}</h1>
+          <p className="page-subtitle">Selecciona servicio, profesional y horario para agendar tu cita.</p>
+        </div>
+        <div style={{ width: 46, height: 46, borderRadius: 12, background: '#eaf1ff', display: 'grid', placeItems: 'center' }}>
+          <CalendarDays size={22} color="#1d4ed8" />
+        </div>
+      </header>
 
       <form
         onSubmit={(event) => {
           event.preventDefault();
         }}
-        style={{ marginBottom: 16, border: '1px solid #ddd', borderRadius: 8, padding: 12, display: 'grid', gap: 8 }}
+        className="panel"
+        style={{ marginBottom: 16, display: 'grid', gap: 8 }}
       >
         <label>
           API URL
@@ -432,11 +441,11 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
       </form>
 
       {loading ? <div>Cargando perfil público...</div> : null}
-      {error ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{error}</div> : null}
+      {error ? <div className="status-error">{error}</div> : null}
 
       {!loading && !error ? (
         <section style={{ display: 'grid', gap: 12 }}>
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+          <div className="panel" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
             <label>
               Servicio
               <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} style={{ width: '100%' }}>
@@ -465,8 +474,10 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
             </label>
           </div>
 
-          <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Horarios disponibles</strong>
+          <div className="panel">
+            <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <Clock3 size={16} /> Horarios disponibles
+            </strong>
             {slotsLoading ? <div style={{ marginTop: 8 }}>Cargando horarios...</div> : null}
             {slotsError ? <div style={{ marginTop: 8, color: '#900' }}>{slotsError}</div> : null}
             {!slotsLoading && !slotsError ? (
@@ -491,8 +502,10 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
             ) : null}
           </div>
 
-          <form onSubmit={onSubmitBooking} style={{ display: 'grid', gap: 10, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Datos de la reserva</strong>
+          <form onSubmit={onSubmitBooking} className="panel" style={{ display: 'grid', gap: 10 }}>
+            <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <UserRound size={16} /> Datos de la reserva
+            </strong>
             <label>
               Nombre completo
               <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} style={{ width: '100%' }} />
@@ -545,15 +558,16 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
               <strong>{selectedSlot ? formatDateTime(selectedSlot) : 'Ninguno'}</strong>
             </div>
 
-            <button type="submit" disabled={submitLoading} style={{ width: 200, padding: '8px 12px' }}>
+            <button type="submit" disabled={submitLoading} className="btn btn-primary" style={{ width: 220 }}>
+              <Send size={16} />
               {submitLoading ? 'Reservando...' : 'Confirmar reserva'}
             </button>
 
-            {submitError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{submitError}</div> : null}
-            {submitSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{submitSuccess}</div> : null}
+            {submitError ? <div className="status-error">{submitError}</div> : null}
+            {submitSuccess ? <div className="status-success">{submitSuccess}</div> : null}
           </form>
 
-          <form onSubmit={onJoinWaitlist} style={{ display: 'grid', gap: 10, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+          <form onSubmit={onJoinWaitlist} className="panel" style={{ display: 'grid', gap: 10 }}>
             <strong>Lista de espera</strong>
             <label>
               Fecha/hora preferida
@@ -565,12 +579,12 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
               />
             </label>
 
-            <button type="submit" disabled={waitlistLoading} style={{ width: 220, padding: '8px 12px' }}>
+            <button type="submit" disabled={waitlistLoading} className="btn btn-ghost" style={{ width: 240 }}>
               {waitlistLoading ? 'Procesando...' : 'Unirme a lista de espera'}
             </button>
 
-            {waitlistError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{waitlistError}</div> : null}
-            {waitlistSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{waitlistSuccess}</div> : null}
+            {waitlistError ? <div className="status-error">{waitlistError}</div> : null}
+            {waitlistSuccess ? <div className="status-success">{waitlistSuccess}</div> : null}
           </form>
         </section>
       ) : null}
