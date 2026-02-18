@@ -178,7 +178,11 @@ export class BookingsService {
   }
 
   async runDueReminders(user: AuthUser) {
-    const tenantSettings = await this.getTenantSettings(user.tenantId);
+    return this.runDueRemindersForTenant(user.tenantId, user.sub);
+  }
+
+  async runDueRemindersForTenant(tenantId: string, actorUserId: string) {
+    const tenantSettings = await this.getTenantSettings(tenantId);
     const reminderHoursBefore = tenantSettings.reminderHoursBefore;
 
     if (reminderHoursBefore <= 0) {
@@ -197,7 +201,7 @@ export class BookingsService {
 
     const dueBookings = await this.prisma.booking.findMany({
       where: {
-        tenantId: user.tenantId,
+        tenantId,
         status: {
           in: [BookingStatus.pending, BookingStatus.confirmed, BookingStatus.rescheduled]
         },
@@ -229,7 +233,7 @@ export class BookingsService {
 
     const reminderLogs = await this.prisma.auditLog.findMany({
       where: {
-        tenantId: user.tenantId,
+        tenantId,
         action: 'BOOKING_REMINDER_SENT',
         entity: 'booking',
         entityId: {
@@ -264,8 +268,8 @@ export class BookingsService {
       });
 
       await this.auditService.log({
-        tenantId: user.tenantId,
-        actorUserId: user.sub,
+        tenantId,
+        actorUserId,
         action: 'BOOKING_REMINDER_SENT',
         entity: 'booking',
         entityId: booking.id,

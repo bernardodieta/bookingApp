@@ -194,6 +194,9 @@ Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
 - `PATCH /bookings/:id/cancel`
 - `PATCH /bookings/:id/reschedule`
 - `POST /bookings/reminders/run` (ejecuta envío de recordatorios para ventana activa)
+- Scheduler automático de recordatorios activo por defecto (ciclo cada 5 min)
+	- `REMINDERS_AUTO_ENABLED=false` para deshabilitarlo
+	- `REMINDERS_RUN_INTERVAL_MS=300000` para ajustar intervalo (mínimo 15000)
 - `POST /bookings` soporta `customFields` (objeto JSON)
 
 ### Dashboard (protegido con Bearer)

@@ -11,7 +11,8 @@ Resumen ejecutivo:
 - Flujo público por slug implementado con formulario configurable (`bookingFormFields`).
 - Validación de campos requeridos aplicada tanto en frontend como en backend.
 - Notificaciones email implementadas con fallback SendGrid → Nodemailer.
-- Suite e2e crítica pasando (14/14).
+- Recordatorios NT-04 ejecutándose automáticamente por scheduler en backend.
+- Suite e2e crítica pasando (15/15).
 
 Pendiente inmediato para cierre de go-live MVP:
 - Prueba manual integrada dashboard → public/:slug → reserva (checklist abajo).

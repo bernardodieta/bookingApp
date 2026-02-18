@@ -13,6 +13,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { CustomersModule } from './customers/customers.module';
 import { AuditModule } from './audit/audit.module';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -27,7 +28,8 @@ import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
     PublicModule,
     DashboardModule,
     CustomersModule,
-    AuditModule
+    AuditModule,
+    PaymentsModule
   ],
   controllers: [HealthController],
   providers: []

@@ -16,4 +16,9 @@ export class DashboardController {
   appointments(@Req() req: RequestWithUser, @Query() query: DashboardQueryDto) {
     return this.dashboardService.getAppointments(req.user, query);
   }
+
+  @Get('reports')
+  reports(@Req() req: RequestWithUser, @Query() query: DashboardQueryDto) {
+    return this.dashboardService.getReports(req.user, query);
+  }
 }
