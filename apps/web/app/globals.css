@@ -278,6 +278,32 @@ button:disabled {
   font-size: 13px;
 }
 
+.sidebar-subitem.active {
+  border-color: #c7d8ff;
+  background: #eaf1ff;
+  color: #1d4ed8;
+}
+
+.sidebar-subgroup-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sidebar-submenu-nested {
+  display: grid;
+  gap: 6px;
+  padding-left: 12px;
+}
+
 .dashboard-main {
   min-width: 0;
 }

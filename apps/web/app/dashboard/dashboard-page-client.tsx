@@ -49,6 +49,15 @@ const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
 const today = new Date().toISOString().slice(0, 10);
 
+type OperationsView =
+  | 'quick-service'
+  | 'quick-staff'
+  | 'quick-booking'
+  | 'quick-waitlist'
+  | 'availability-rules'
+  | 'availability-exceptions'
+  | 'availability-overview';
+
 export default function DashboardPage() {
   const router = useRouter();
   const [apiUrl, setApiUrl] = useState('http://localhost:3001');
@@ -56,6 +65,9 @@ export default function DashboardPage() {
   const [range, setRange] = useState<'day' | 'week' | 'month'>('day');
   const [activeSection, setActiveSection] = useState<'overview' | 'payments' | 'operations' | 'settings' | 'audit'>('overview');
   const [operationsOpen, setOperationsOpen] = useState(true);
+  const [operationsQuickOpen, setOperationsQuickOpen] = useState(true);
+  const [operationsAvailabilityOpen, setOperationsAvailabilityOpen] = useState(true);
+  const [operationsView, setOperationsView] = useState<OperationsView>('quick-service');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [date, setDate] = useState(today);
   const [staffId, setStaffId] = useState('');
@@ -1761,6 +1773,12 @@ export default function DashboardPage() {
     }
   }
 
+  function openOperationsView(view: OperationsView) {
+    setActiveSection('operations');
+    setOperationsOpen(true);
+    setOperationsView(view);
+  }
+
   return (
     <main className="dashboard-layout">
       <aside className="dashboard-sidebar surface">
@@ -1800,12 +1818,74 @@ export default function DashboardPage() {
 
           {operationsOpen ? (
             <div className="sidebar-submenu">
-              <button type="button" className="sidebar-subitem" onClick={() => setActiveSection('operations')}>
-                Acciones rápidas
+              <button type="button" className="sidebar-subgroup-toggle" onClick={() => setOperationsQuickOpen((current) => !current)}>
+                <span style={{ flex: 1, textAlign: 'left' }}>Acciones rápidas</span>
+                {operationsQuickOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               </button>
-              <button type="button" className="sidebar-subitem" onClick={() => setActiveSection('operations')}>
-                Disponibilidad
+
+              {operationsQuickOpen ? (
+                <div className="sidebar-submenu-nested">
+                  <button
+                    type="button"
+                    className={`sidebar-subitem ${operationsView === 'quick-service' ? 'active' : ''}`}
+                    onClick={() => openOperationsView('quick-service')}
+                  >
+                    Crear servicio
+                  </button>
+                  <button
+                    type="button"
+                    className={`sidebar-subitem ${operationsView === 'quick-staff' ? 'active' : ''}`}
+                    onClick={() => openOperationsView('quick-staff')}
+                  >
+                    Crear staff
+                  </button>
+                  <button
+                    type="button"
+                    className={`sidebar-subitem ${operationsView === 'quick-booking' ? 'active' : ''}`}
+                    onClick={() => openOperationsView('quick-booking')}
+                  >
+                    Crear booking
+                  </button>
+                  <button
+                    type="button"
+                    className={`sidebar-subitem ${operationsView === 'quick-waitlist' ? 'active' : ''}`}
+                    onClick={() => openOperationsView('quick-waitlist')}
+                  >
+                    Waitlist
+                  </button>
+                </div>
+              ) : null}
+
+              <button type="button" className="sidebar-subgroup-toggle" onClick={() => setOperationsAvailabilityOpen((current) => !current)}>
+                <span style={{ flex: 1, textAlign: 'left' }}>Disponibilidad</span>
+                {operationsAvailabilityOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               </button>
+
+              {operationsAvailabilityOpen ? (
+                <div className="sidebar-submenu-nested">
+                  <button
+                    type="button"
+                    className={`sidebar-subitem ${operationsView === 'availability-overview' ? 'active' : ''}`}
+                    onClick={() => openOperationsView('availability-overview')}
+                  >
+                    Panel disponibilidad
+                  </button>
+                  <button
+                    type="button"
+                    className={`sidebar-subitem ${operationsView === 'availability-rules' ? 'active' : ''}`}
+                    onClick={() => openOperationsView('availability-rules')}
+                  >
+                    Reglas
+                  </button>
+                  <button
+                    type="button"
+                    className={`sidebar-subitem ${operationsView === 'availability-exceptions' ? 'active' : ''}`}
+                    onClick={() => openOperationsView('availability-exceptions')}
+                  >
+                    Excepciones
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -1944,6 +2024,7 @@ export default function DashboardPage() {
 
       {activeSection === 'operations' ? (
         <OperationsSection
+          operationsView={operationsView}
           token={token}
           serviceLoading={serviceLoading}
           staffLoading={staffLoading}
