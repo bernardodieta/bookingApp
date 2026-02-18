@@ -552,6 +552,102 @@ export class IntegrationsService {
     };
   }
 
+  async previewInboundConflict(user: AuthUser, conflictId: string) {
+    const conflict = await this.prisma.auditLog.findFirst({
+      where: {
+        id: conflictId,
+        tenantId: user.tenantId,
+        action: 'CAL_SYNC_CONFLICT'
+      }
+    });
+
+    if (!conflict) {
+      throw new NotFoundException('Conflicto no encontrado.');
+    }
+
+    const metadata = this.asJsonObject(conflict.metadata);
+    const reason = typeof metadata?.reason === 'string' ? metadata.reason : 'unknown';
+    const provider =
+      typeof metadata?.provider === 'string' && (metadata.provider === 'google' || metadata.provider === 'microsoft')
+        ? metadata.provider
+        : null;
+    const externalEventId = typeof metadata?.externalEventId === 'string' ? metadata.externalEventId : null;
+
+    const resolution = await this.prisma.auditLog.findFirst({
+      where: {
+        tenantId: user.tenantId,
+        action: 'CAL_SYNC_CONFLICT_RESOLVED',
+        entity: 'audit_log',
+        entityId: conflict.id
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+    });
+
+    const retryTarget = await this.extractRetrySyncTarget(user.tenantId, conflict);
+    const retryAccount = retryTarget
+      ? await this.prisma.calendarAccount.findFirst({
+          where: {
+            id: retryTarget.accountId,
+            tenantId: user.tenantId
+          },
+          select: {
+            id: true,
+            provider: true,
+            status: true,
+            lastSyncAt: true,
+            lastError: true
+          }
+        })
+      : null;
+
+    const suggestedAction: 'dismiss' | 'retry_sync' = resolution
+      ? 'dismiss'
+      : retryTarget
+        ? 'retry_sync'
+        : 'dismiss';
+
+    const impactSummary = resolution
+      ? 'El conflicto ya fue resuelto; no se recomienda una nueva acción automática.'
+      : suggestedAction === 'retry_sync'
+        ? 'Se intentará re-ejecutar el sync inbound de la cuenta asociada. Esto puede actualizar/cancelar bookings vinculados según cambios externos.'
+        : 'Se marcará el conflicto como resuelto sin reintentar sincronización automática.';
+
+    return {
+      conflict: {
+        id: conflict.id,
+        createdAt: conflict.createdAt,
+        reason,
+        provider,
+        entity: conflict.entity,
+        entityId: conflict.entityId,
+        externalEventId
+      },
+      resolved: !!resolution,
+      resolution: resolution
+        ? {
+            id: resolution.id,
+            actorUserId: resolution.actorUserId,
+            createdAt: resolution.createdAt,
+            metadata: resolution.metadata
+          }
+        : null,
+      suggestedAction,
+      retrySync: {
+        available: !!retryTarget,
+        target: retryAccount
+          ? {
+              accountId: retryAccount.id,
+              provider: retryAccount.provider,
+              status: retryAccount.status,
+              lastSyncAt: retryAccount.lastSyncAt,
+              lastError: retryAccount.lastError
+            }
+          : null
+      },
+      impactSummary
+    };
+  }
+
   async requestCalendarResync(user: AuthUser, accountId: string) {
     const account = await this.prisma.calendarAccount.findFirst({
       where: {
@@ -2081,6 +2177,14 @@ export class IntegrationsService {
       provider,
       accountId: account.id
     };
+  }
+
+  private asJsonObject(value: Prisma.JsonValue | null) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+
+    return value as Record<string, unknown>;
   }
 
   private isAccessTokenExpiring(tokenExpiresAt: Date | null | undefined) {

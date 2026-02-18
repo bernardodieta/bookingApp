@@ -2,12 +2,13 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, ChevronDown, ChevronRight, ClipboardList, CreditCard, LayoutDashboard, LogOut, Settings, UserCircle2, Wrench } from 'lucide-react';
+import { Building2, ChevronDown, ChevronRight, ClipboardList, CreditCard, LayoutDashboard, Link2, LogOut, Settings, UserCircle2, Wrench } from 'lucide-react';
 import { OverviewSection } from './components/overview-section';
 import { PaymentsSection } from './components/payments-section';
 import { OperationsSection } from './components/operations-section';
 import { SettingsSection } from './components/settings-section';
 import { AuditSection } from './components/audit-section';
+import { IntegrationsSection } from './components/integrations-section';
 import { useDashboardBoot } from './hooks/use-dashboard-boot';
 import { useAutoDismissSuccess, looksLikeEmail, toDateTimeLocalInput } from './dashboard-utils';
 import type {
@@ -72,7 +73,7 @@ export default function DashboardPage() {
   const [apiUrl, setApiUrl] = useState('http://localhost:3001');
   const [token, setToken] = useState('');
   const [range, setRange] = useState<'day' | 'week' | 'month'>('day');
-  const [activeSection, setActiveSection] = useState<'overview' | 'payments' | 'operations' | 'settings' | 'audit'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'payments' | 'operations' | 'settings' | 'integrations' | 'audit'>('overview');
   const [operationsOpen, setOperationsOpen] = useState(true);
   const [operationsQuickOpen, setOperationsQuickOpen] = useState(true);
   const [operationsAvailabilityOpen, setOperationsAvailabilityOpen] = useState(true);
@@ -2060,6 +2061,15 @@ export default function DashboardPage() {
             <ClipboardList size={16} />
             <span>Auditoría</span>
           </button>
+
+          <button
+            type="button"
+            className={`sidebar-item ${activeSection === 'integrations' ? 'active' : ''}`}
+            onClick={() => setActiveSection('integrations')}
+          >
+            <Link2 size={16} />
+            <span>Integraciones</span>
+          </button>
         </nav>
       </aside>
 
@@ -2393,6 +2403,10 @@ export default function DashboardPage() {
           setAuditError={setAuditError}
           auditLogs={auditLogs}
         />
+      ) : null}
+
+      {activeSection === 'integrations' ? (
+        <IntegrationsSection apiUrl={apiUrl} token={token} staffOptions={staffOptions} />
       ) : null}
         </div>
       </section>

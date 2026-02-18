@@ -200,8 +200,21 @@ Estado de avance real (2026-02-18):
   - `GET /integrations/calendar/metrics?windowDays=...` expone salud por provider (cuentas conectadas/error/stale).
   - Incluye métricas de cola outbound (`pending/processing/succeeded/dead_letter`).
   - Incluye incidencias (`CAL_SYNC_ERROR`, `CAL_SYNC_CONFLICT`, `CAL_SYNC_DEAD_LETTER`, reintentos) y lag promedio/máximo.
-- ⏳ Pendiente para marcar IN-01/IN-02 como completos:
-  - UI dashboard de Integraciones (incluyendo operación de conflictos y resolución manual).
+- ✅ UI dashboard de Integraciones implementada:
+  - Sección `Integraciones` en dashboard web con conexión OAuth Google/Outlook por staff.
+  - Vista de métricas operativas + cuentas conectadas + conflictos inbound.
+  - Acciones manuales disponibles: `resync`, `disconnect`, `dismiss`, `retry_sync`.
+- ✅ Hardening UX de conflictos implementado en dashboard:
+  - Priorización visual de conflictos pendientes sobre resueltos.
+  - Filtros operativos por estado, provider y motivo.
+  - Visibilidad de resolución aplicada (acción + timestamp).
+- ✅ Flujo de aprobación asistida implementado (backend + UI):
+  - `GET /integrations/calendar/conflicts/:id/preview` devuelve acción sugerida e impacto esperado.
+  - UI de conflictos expone `Preview impacto` previo a `dismiss`/`retry_sync`.
+  - Operador puede decidir acción con contexto antes de resolver manualmente.
+- ✅ Cobertura unitaria inicial agregada para conflictos de integraciones:
+  - `apps/api/src/integrations/integrations.service.spec.ts` valida `previewInboundConflict`.
+  - Valida resolución `dismiss` y caso `retry_sync` sin target (error controlado).
 
 ### 3.8.1 Plan técnico de implementación (IN-01 e IN-02)
 

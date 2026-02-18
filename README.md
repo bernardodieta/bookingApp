@@ -40,6 +40,9 @@ npm run qa:smoke:stripe:prod
 npm run qa:smoke:partner-google
 npm run qa:smoke:partner-google:staging
 npm run qa:smoke:partner-google:prod
+npm run qa:smoke:integrations
+npm run qa:smoke:integrations:staging
+npm run qa:smoke:integrations:prod
 npm run qa:smoke:widget
 npm run qa:smoke:widget:staging
 npm run qa:smoke:widget:prod
@@ -149,10 +152,14 @@ Smoke multi-entorno:
 - `npm run qa:smoke:stripe:prod` usa `PROD_API_URL` para smoke Stripe
 - `npm run qa:smoke:partner-google:staging` usa `STAGING_API_URL` para smoke partner Google
 - `npm run qa:smoke:partner-google:prod` usa `PROD_API_URL` para smoke partner Google
+- `npm run qa:smoke:integrations` valida endpoints base de Integraciones (`metrics`, `accounts`, `conflicts`) y flujo OAuth authorize (si hay configuración)
+- `npm run qa:smoke:integrations:staging` usa `STAGING_API_URL` para smoke de Integraciones
+- `npm run qa:smoke:integrations:prod` usa `PROD_API_URL` para smoke de Integraciones
 - `npm run qa:smoke:widget` valida específicamente dominio custom + `widget-config` + `widget.js`
 - `npm run qa:smoke:widget:staging` usa `STAGING_API_URL` en modo widget-only
 - `npm run qa:smoke:widget:prod` usa `PROD_API_URL` en modo widget-only
 - override opcional: `node scripts/mvp-go-live-smoke.js --api-url=https://tu-api`
+- override opcional Integraciones: `node scripts/mvp-integrations-smoke.js --api-url=https://tu-api --exercise-resolve`
 - modos disponibles: `--mode=full` (default) y `--mode=widget`
 
 Gate por entorno (preflight + migrate + smoke):
@@ -336,6 +343,7 @@ Nota de roadmap de pagos:
 - `GET /integrations/calendar/accounts`
 - `GET /integrations/calendar/metrics?windowDays=7` (salud operativa por provider: cuentas, cola, incidencias y lag)
 - `GET /integrations/calendar/conflicts` (lista conflictos inbound con estado de resolución)
+- `GET /integrations/calendar/conflicts/:id/preview` (preview de impacto y acción sugerida)
 - `POST /integrations/calendar/conflicts/:id/resolve` (acciones: `dismiss` o `retry_sync`)
 - `POST /integrations/calendar/accounts/:id/resync`
 - `DELETE /integrations/calendar/accounts/:id`
@@ -356,7 +364,9 @@ Estado actual del scaffold IN-01/IN-02:
 - Política configurable para eventos externos sin vínculo: `conflict` (auditar conflicto) o `auto_create` (crear booking provisional + `CalendarEventLink`).
 - Backend de revisión manual disponible: listado de conflictos y resolución (`dismiss`/`retry_sync`) con auditoría `CAL_SYNC_CONFLICT_RESOLVED`.
 - Backend de métricas disponible para UI: `metrics` agrega estados por provider, tamaño de cola, incidencias y latencia de sync por ventana.
-- Pendiente: UI dashboard para operar esa revisión manual.
+- UI dashboard de Integraciones implementada: conecta OAuth por staff, muestra métricas/cuentas/conflictos y permite `resync`, `disconnect`, `dismiss` y `retry_sync`.
+- Hardening UX de conflictos: prioriza pendientes, muestra estado de resolución y soporta filtros por estado/provider/motivo.
+- Revisión asistida: botón `Preview impacto` por conflicto con sugerencia (`dismiss`/`retry_sync`) y resumen antes de ejecutar la acción.
 
 ### Auditoría (protegido con Bearer)
 - `GET /audit/logs?action=...&actorUserId=...&from=...&to=...&limit=...&cursor=...`

@@ -68,6 +68,12 @@ export class IntegrationsController {
     return this.integrationsService.listInboundConflicts(req.user, query);
   }
 
+  @Get('conflicts/:id/preview')
+  @UseGuards(AuthGuard)
+  previewConflict(@Req() req: RequestWithUser, @Param('id') id: string) {
+    return this.integrationsService.previewInboundConflict(req.user, id);
+  }
+
   @Post('conflicts/:id/resolve')
   @UseGuards(AuthGuard)
   resolveConflict(@Req() req: RequestWithUser, @Param('id') id: string, @Body() body: ResolveCalendarConflictDto) {
