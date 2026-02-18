@@ -98,6 +98,8 @@ export default function DashboardPage() {
   const [tenantSettings, setTenantSettings] = useState<TenantSettingsResponse | null>(null);
   const [logoUrl, setLogoUrl] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#2563eb');
+  const [customDomain, setCustomDomain] = useState('');
+  const [widgetEnabled, setWidgetEnabled] = useState(false);
   const [timeZone, setTimeZone] = useState('UTC');
   const [locale, setLocale] = useState<'es' | 'en'>('es');
   const [bookingFormFieldsText, setBookingFormFieldsText] = useState('[]');
@@ -641,6 +643,8 @@ export default function DashboardPage() {
       setTenantSettings(payload);
       setLogoUrl(payload.logoUrl ?? '');
       setPrimaryColor(payload.primaryColor ?? '#2563eb');
+      setCustomDomain(payload.customDomain ?? '');
+      setWidgetEnabled(payload.widgetEnabled ?? false);
       setTimeZone(payload.timeZone ?? 'UTC');
       setLocale(payload.locale ?? 'es');
       setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
@@ -749,6 +753,8 @@ export default function DashboardPage() {
         body: JSON.stringify({
           logoUrl: logoUrl.trim() || undefined,
           primaryColor: /^#[0-9a-fA-F]{6}$/.test(primaryColor.trim()) ? primaryColor.trim() : undefined,
+          customDomain: customDomain.trim() || undefined,
+          widgetEnabled,
           timeZone: timeZone.trim(),
           locale,
           bookingFormFields: fieldsPayload,
@@ -766,6 +772,8 @@ export default function DashboardPage() {
       setTenantSettings(payload);
       setLogoUrl(payload.logoUrl ?? '');
       setPrimaryColor(payload.primaryColor ?? '#2563eb');
+      setCustomDomain(payload.customDomain ?? '');
+      setWidgetEnabled(payload.widgetEnabled ?? false);
       setTimeZone(payload.timeZone ?? 'UTC');
       setLocale(payload.locale ?? 'es');
       setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
@@ -2148,6 +2156,7 @@ export default function DashboardPage() {
 
       {activeSection === 'settings' ? (
         <SettingsSection
+          apiUrl={apiUrl}
           tenantSettings={tenantSettings}
           tenantSettingsLoading={tenantSettingsLoading}
           token={token}
@@ -2161,6 +2170,10 @@ export default function DashboardPage() {
           setLogoUrl={setLogoUrl}
           primaryColor={primaryColor}
           setPrimaryColor={setPrimaryColor}
+          customDomain={customDomain}
+          setCustomDomain={setCustomDomain}
+          widgetEnabled={widgetEnabled}
+          setWidgetEnabled={setWidgetEnabled}
           timeZone={timeZone}
           setTimeZone={setTimeZone}
           locale={locale}

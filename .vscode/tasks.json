@@ -1,0 +1,38 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Release Staging Widget Quick",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"qa:release:staging:widget:quick"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Release Staging Full",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"qa:release:staging"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Release Prod Widget Dry",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"qa:release:prod:widget:dry"
+			],
+			"isBackground": false,
+			"group": "test"
+		}
+	]
+}

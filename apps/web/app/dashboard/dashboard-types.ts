@@ -102,6 +102,8 @@ export type TenantSettingsResponse = {
   plan: string;
   logoUrl: string | null;
   primaryColor: string | null;
+  customDomain: string | null;
+  widgetEnabled: boolean;
   timeZone: string;
   locale: 'es' | 'en';
   bookingBufferMinutes: number;

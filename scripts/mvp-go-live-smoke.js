@@ -54,6 +54,7 @@ function parseArgs() {
   const args = process.argv.slice(2);
   let envTarget = 'dev';
   let apiUrl = '';
+  let mode = 'full';
 
   for (const arg of args) {
     if (arg.startsWith('--env=')) {
@@ -62,11 +63,22 @@ function parseArgs() {
     if (arg.startsWith('--api-url=')) {
       apiUrl = arg.slice('--api-url='.length).trim();
     }
+    if (arg.startsWith('--mode=')) {
+      mode = arg.slice('--mode='.length).trim().toLowerCase() || 'full';
+    }
+    if (arg === '--widget-only') {
+      mode = 'widget';
+    }
+  }
+
+  if (mode !== 'full' && mode !== 'widget') {
+    throw new Error('Argumento inválido: --mode debe ser full o widget.');
   }
 
   return {
     envTarget,
-    apiUrl
+    apiUrl,
+    mode
   };
 }
 
@@ -135,8 +147,9 @@ async function run() {
   const ownerEmail = `owner.smoke.${runTag}@example.com`;
   const staffEmail = `staff.smoke.${runTag}@example.com`;
   const customerEmail = `customer.smoke.${runTag}@example.com`;
+  const customDomain = `agenda-smoke-${runTag}.test`;
 
-  logStep('START', `ENV=${options.envTarget} API=${apiBase}`);
+  logStep('START', `ENV=${options.envTarget} API=${apiBase} MODE=${options.mode}`);
 
   const register = await apiRequest(apiBase, '/auth/register', {
     method: 'POST',
@@ -217,10 +230,51 @@ async function run() {
   const patchSettings = await apiRequest(apiBase, '/tenant/settings', {
     method: 'PATCH',
     headers: authHeaders,
-    body: JSON.stringify({ bookingFormFields: configuredFields })
+    body: JSON.stringify({
+      bookingFormFields: configuredFields,
+      customDomain,
+      widgetEnabled: true
+    })
   });
   assertStatus(patchSettings.response, 200, 'TENANT_SETTINGS_PATCH', patchSettings.payload);
   logStep('TENANT_SETTINGS_PATCH', 'ok');
+
+  const widgetConfigBySlug = await apiRequest(apiBase, `/public/${slug}/widget-config`);
+  assertStatus(widgetConfigBySlug.response, 200, 'WIDGET_CONFIG_BY_SLUG', widgetConfigBySlug.payload);
+  if (widgetConfigBySlug.payload?.customDomain !== customDomain) {
+    throw new Error('[WIDGET_CONFIG_BY_SLUG] customDomain no coincide con tenant settings.');
+  }
+  logStep('WIDGET_CONFIG_BY_SLUG', 'ok');
+
+  const publicTenantByDomain = await apiRequest(apiBase, `/public/${customDomain}`);
+  assertStatus(publicTenantByDomain.response, 200, 'PUBLIC_PROFILE_BY_CUSTOM_DOMAIN', publicTenantByDomain.payload);
+  if (publicTenantByDomain.payload?.slug !== slug) {
+    throw new Error('[PUBLIC_PROFILE_BY_CUSTOM_DOMAIN] slug no coincide con tenant original.');
+  }
+  logStep('PUBLIC_PROFILE_BY_CUSTOM_DOMAIN', 'ok');
+
+  const widgetConfigByDomain = await apiRequest(apiBase, `/public/${customDomain}/widget-config`);
+  assertStatus(widgetConfigByDomain.response, 200, 'WIDGET_CONFIG_BY_DOMAIN', widgetConfigByDomain.payload);
+  if (!widgetConfigByDomain.payload?.bookingUrl || !String(widgetConfigByDomain.payload.bookingUrl).includes(customDomain)) {
+    throw new Error('[WIDGET_CONFIG_BY_DOMAIN] bookingUrl no usa customDomain.');
+  }
+  logStep('WIDGET_CONFIG_BY_DOMAIN', 'ok');
+
+  const widgetScript = await apiRequest(apiBase, `/public/${customDomain}/widget.js`);
+  assertStatus(widgetScript.response, 200, 'WIDGET_SCRIPT', widgetScript.payload);
+  if (typeof widgetScript.payload !== 'string' || !widgetScript.payload.includes('data-apoint-book')) {
+    throw new Error('[WIDGET_SCRIPT] contenido JS inválido o incompleto.');
+  }
+  logStep('WIDGET_SCRIPT', 'ok');
+
+  if (options.mode === 'widget') {
+    console.log('');
+    console.log('✅ MVP smoke widget completado correctamente.');
+    console.log(`Tenant slug: ${slug}`);
+    console.log(`Custom domain: ${customDomain}`);
+    console.log(`Owner email: ${ownerEmail}`);
+    return;
+  }
 
   const publicForm = await apiRequest(apiBase, `/public/${slug}/form`);
   assertStatus(publicForm.response, 200, 'PUBLIC_FORM_GET', publicForm.payload);

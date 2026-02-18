@@ -22,6 +22,8 @@ export class TenantSettingsService {
         plan: true,
         logoUrl: true,
         primaryColor: true,
+        customDomain: true,
+        widgetEnabled: true,
         timeZone: true,
         locale: true,
         bookingBufferMinutes: true,
@@ -49,9 +51,13 @@ export class TenantSettingsService {
       this.ensureValidTimeZone(payload.timeZone);
     }
 
+    const customDomain = payload.customDomain ? this.normalizeCustomDomain(payload.customDomain) : undefined;
+
     const data: Prisma.TenantUpdateInput = {
       logoUrl: payload.logoUrl,
       primaryColor: payload.primaryColor,
+      customDomain,
+      widgetEnabled: payload.widgetEnabled,
       timeZone: payload.timeZone,
       locale: payload.locale,
       bookingBufferMinutes: payload.bookingBufferMinutes,
@@ -64,28 +70,40 @@ export class TenantSettingsService {
       bookingFormFields: payload.bookingFormFields as Prisma.InputJsonValue | undefined
     };
 
-    const updated = await this.prisma.tenant.update({
-      where: { id: user.tenantId },
-      data,
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        plan: true,
-        logoUrl: true,
-        primaryColor: true,
-        timeZone: true,
-        locale: true,
-        bookingBufferMinutes: true,
-        maxBookingsPerDay: true,
-        maxBookingsPerWeek: true,
-        cancellationNoticeHours: true,
-        rescheduleNoticeHours: true,
-        reminderHoursBefore: true,
-        refundPolicy: true,
-        bookingFormFields: true
+    let updated;
+
+    try {
+      updated = await this.prisma.tenant.update({
+        where: { id: user.tenantId },
+        data,
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          plan: true,
+          logoUrl: true,
+          primaryColor: true,
+          customDomain: true,
+          widgetEnabled: true,
+          timeZone: true,
+          locale: true,
+          bookingBufferMinutes: true,
+          maxBookingsPerDay: true,
+          maxBookingsPerWeek: true,
+          cancellationNoticeHours: true,
+          rescheduleNoticeHours: true,
+          reminderHoursBefore: true,
+          refundPolicy: true,
+          bookingFormFields: true
+        }
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new BadRequestException('Ese dominio ya está en uso por otro tenant.');
       }
-    });
+
+      throw error;
+    }
 
     await this.auditService.log({
       tenantId: user.tenantId,
@@ -112,5 +130,31 @@ export class TenantSettingsService {
     } catch {
       throw new BadRequestException('timeZone inválida. Usa formato IANA, por ejemplo America/Mexico_City.');
     }
+  }
+
+  private normalizeCustomDomain(customDomain: string) {
+    const value = customDomain.trim().toLowerCase();
+
+    if (!value) {
+      throw new BadRequestException('customDomain no puede ser vacío.');
+    }
+
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      throw new BadRequestException('customDomain debe enviarse sin protocolo, por ejemplo agenda.mi-negocio.com.');
+    }
+
+    if (value.includes('/') || value.includes(':')) {
+      throw new BadRequestException('customDomain solo admite hostname, sin rutas ni puertos.');
+    }
+
+    if (!/^[a-z0-9.-]+$/i.test(value) || value.startsWith('.') || value.endsWith('.') || value.includes('..')) {
+      throw new BadRequestException('customDomain tiene un formato inválido.');
+    }
+
+    if (value !== 'localhost' && !value.includes('.')) {
+      throw new BadRequestException('customDomain debe incluir al menos un subdominio y dominio (ej: agenda.mi-negocio.com).');
+    }
+
+    return value;
   }
 }

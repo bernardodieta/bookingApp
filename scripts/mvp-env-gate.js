@@ -8,6 +8,7 @@ function parseArgs() {
   let skipMigrate = false;
   let skipSmoke = false;
   let smokeApiUrl = '';
+  let smokeMode = 'full';
   let strict = false;
   let allowPlaceholderEnv = false;
 
@@ -20,6 +21,10 @@ function parseArgs() {
       skipSmoke = true;
     } else if (arg.startsWith('--smoke-api-url=')) {
       smokeApiUrl = arg.slice('--smoke-api-url='.length).trim();
+    } else if (arg.startsWith('--smoke-mode=')) {
+      smokeMode = arg.slice('--smoke-mode='.length).trim().toLowerCase() || 'full';
+    } else if (arg === '--widget-only') {
+      smokeMode = 'widget';
     } else if (arg === '--strict') {
       strict = true;
     } else if (arg === '--allow-placeholder-env') {
@@ -31,7 +36,11 @@ function parseArgs() {
     throw new Error('Argumento inválido: --env debe ser staging o prod.');
   }
 
-  return { envTarget, skipMigrate, skipSmoke, smokeApiUrl, strict, allowPlaceholderEnv };
+  if (smokeMode !== 'full' && smokeMode !== 'widget') {
+    throw new Error('Argumento inválido: --smoke-mode debe ser full o widget.');
+  }
+
+  return { envTarget, skipMigrate, skipSmoke, smokeApiUrl, smokeMode, strict, allowPlaceholderEnv };
 }
 
 function runCommand(command, args, label, extraEnv) {
@@ -139,9 +148,16 @@ async function run() {
     : options.strict
       ? 'qa:preflight:prod:strict'
       : 'qa:preflight:prod';
-  const smokeScript = options.envTarget === 'staging' ? 'qa:smoke:staging' : 'qa:smoke:prod';
+  const smokeScript =
+    options.envTarget === 'staging'
+      ? options.smokeMode === 'widget'
+        ? 'qa:smoke:widget:staging'
+        : 'qa:smoke:staging'
+      : options.smokeMode === 'widget'
+        ? 'qa:smoke:widget:prod'
+        : 'qa:smoke:prod';
 
-  console.log(`[MVP-GATE] entorno=${options.envTarget} strict=${options.strict ? 'on' : 'off'}`);
+  console.log(`[MVP-GATE] entorno=${options.envTarget} strict=${options.strict ? 'on' : 'off'} smokeMode=${options.smokeMode}`);
 
   const preflightArgs = ['run', preflightScript];
   if (options.allowPlaceholderEnv) {
@@ -159,9 +175,13 @@ async function run() {
   if (!options.skipSmoke) {
     if (options.smokeApiUrl) {
       await ensureSmokeApiReachable(options.smokeApiUrl);
+      const smokeArgs = ['scripts/mvp-go-live-smoke.js', `--env=${options.envTarget}`, `--api-url=${options.smokeApiUrl}`];
+      if (options.smokeMode === 'widget') {
+        smokeArgs.push('--mode=widget');
+      }
       runCommand(
         'node',
-        ['scripts/mvp-go-live-smoke.js', `--env=${options.envTarget}`, `--api-url=${options.smokeApiUrl}`],
+        smokeArgs,
         'SMOKE_OVERRIDE_URL',
         gateEnv
       );

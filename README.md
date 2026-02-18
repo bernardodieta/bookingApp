@@ -34,12 +34,33 @@ npm run qa:preflight:prod:strict
 npm run qa:smoke:mvp
 npm run qa:smoke:staging
 npm run qa:smoke:prod
+npm run qa:smoke:widget
+npm run qa:smoke:widget:staging
+npm run qa:smoke:widget:prod
 npm run qa:staging:gate
+npm run qa:staging:gate:widget
 npm run qa:staging:gate:local
+npm run qa:staging:gate:quick
+npm run qa:staging:gate:widget:local
+npm run qa:staging:gate:widget:quick
 npm run qa:staging:gate:strict
+npm run qa:staging:gate:strict:quick
+npm run qa:staging:gate:strict:widget
+npm run qa:staging:gate:strict:widget:local
+npm run qa:staging:gate:strict:widget:quick
 npm run qa:prod:gate
+npm run qa:prod:gate:widget
 npm run qa:prod:gate:dry
+npm run qa:prod:gate:widget:dry
+npm run qa:prod:gate:strict:widget
 npm run qa:prod:gate:strict
+npm run qa:release:staging
+npm run qa:release:staging:widget
+npm run qa:release:staging:widget:quick
+npm run qa:release:prod
+npm run qa:release:prod:widget
+npm run qa:release:prod:widget:dry
+npm run qa:release:help
 npm run test:e2e -w @apoint/api
 ```
 
@@ -111,16 +132,48 @@ Smoke multi-entorno:
 - `npm run qa:smoke:mvp` usa `API_URL` o `http://localhost:3001`
 - `npm run qa:smoke:staging` usa `STAGING_API_URL`
 - `npm run qa:smoke:prod` usa `PROD_API_URL`
+- `npm run qa:smoke:widget` valida específicamente dominio custom + `widget-config` + `widget.js`
+- `npm run qa:smoke:widget:staging` usa `STAGING_API_URL` en modo widget-only
+- `npm run qa:smoke:widget:prod` usa `PROD_API_URL` en modo widget-only
 - override opcional: `node scripts/mvp-go-live-smoke.js --api-url=https://tu-api`
+- modos disponibles: `--mode=full` (default) y `--mode=widget`
 
 Gate por entorno (preflight + migrate + smoke):
 - `npm run qa:staging:gate`
+- `npm run qa:staging:gate:widget` gate de staging con smoke widget-only
 - `npm run qa:staging:gate:local` simula staging usando API local (`http://localhost:3001`) y omite migraciones
+- `npm run qa:staging:gate:quick` alias recomendado para local sin flags extra
+- `npm run qa:staging:gate:widget:local` igual que local, pero ejecuta smoke en modo widget-only
+- `npm run qa:staging:gate:widget:quick` alias recomendado para widget local sin flags extra
 - `npm run qa:staging:gate:strict` exige preflight sin warnings
+- `npm run qa:staging:gate:strict:quick` strict local sin flags extra
+- `npm run qa:staging:gate:strict:widget` strict + smoke widget-only en staging
+- `npm run qa:staging:gate:strict:widget:local` local + strict + smoke widget-only
+- `npm run qa:staging:gate:strict:widget:quick` strict widget local sin flags extra
 - `npm run qa:prod:gate`
+- `npm run qa:prod:gate:widget` gate de prod con smoke widget-only
 - `npm run qa:prod:gate:dry` valida estricto sin migraciones/smoke (chequeo rápido)
+- `npm run qa:prod:gate:widget:dry` dry-run estricto para release de dominio/widget
+- `npm run qa:prod:gate:strict:widget` strict + smoke widget-only en prod
 - `npm run qa:prod:gate:strict` exige preflight sin warnings
-- flags opcionales: `node scripts/mvp-env-gate.js --env=staging --skip-migrate --skip-smoke`
+- flags opcionales: `node scripts/mvp-env-gate.js --env=staging --skip-migrate --skip-smoke --smoke-mode=widget`
+
+Runbook operativo (incidentes + rollback dominio/widget):
+- [docs/runbooks/domain-widget-release.md](docs/runbooks/domain-widget-release.md)
+
+One-click release commands:
+- `npm run qa:release:staging` (strict full)
+- `npm run qa:release:staging:widget` (strict widget)
+- `npm run qa:release:staging:widget:quick` (strict widget local rápido)
+- `npm run qa:release:prod` (strict full)
+- `npm run qa:release:prod:widget` (strict widget)
+- `npm run qa:release:prod:widget:dry` (dry-run widget)
+- `npm run qa:release:help` (muestra comando recomendado por escenario)
+
+VS Code Tasks disponibles en `.vscode/tasks.json`:
+- `Release Staging Widget Quick`
+- `Release Staging Full`
+- `Release Prod Widget Dry`
 
 ## API disponible (Sprint 1 base)
 

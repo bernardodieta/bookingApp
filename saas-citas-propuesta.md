@@ -230,4 +230,38 @@ El frontend contempla dos aplicaciones dentro del mismo proyecto:
 
 ---
 
+## 9. Checklist de Release (Dominio + Widget)
+
+Para publicar una entrega de dominio personalizado y widget embebible sin fricción operativa, se recomienda este flujo:
+
+### 9.1 Pre-release técnico
+
+- Configurar `customDomain` y activar `widgetEnabled` en tenant settings.
+- Verificar DNS del dominio del cliente (CNAME/A) apuntando al frontend.
+- Confirmar certificado TLS activo (Cloudflare o proveedor de edge).
+- Ejecutar preflight del entorno objetivo (`staging` o `prod`).
+
+### 9.2 Validación automatizada
+
+- Smoke completo: `npm run qa:smoke:staging` / `npm run qa:smoke:prod`.
+- Smoke widget-only: `npm run qa:smoke:widget:staging` / `npm run qa:smoke:widget:prod`.
+- Gate completo: `npm run qa:staging:gate` / `npm run qa:prod:gate`.
+- Gate widget-only: `npm run qa:staging:gate:widget` / `npm run qa:prod:gate:widget`.
+
+### 9.3 Verificación funcional manual mínima
+
+- Abrir el dominio custom y confirmar carga directa de la página pública de reservas.
+- Validar endpoint `widget-config` y `widget.js` para el tenant.
+- Probar el snippet embebido (`iframe` o `script src`) en una página externa de prueba.
+- Ejecutar una reserva real de prueba y confirmar notificaciones.
+
+### 9.4 Criterios de salida
+
+- Sin errores bloqueantes en preflight/gate.
+- Smoke widget exitoso en entorno objetivo.
+- Reserva end-to-end confirmada en dominio custom.
+- Evidencia registrada (logs + captura de flujo) para auditoría interna.
+
+---
+
 *Documento preparado para presentación con cliente — Febrero 2026*

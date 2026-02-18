@@ -12,6 +12,7 @@ type BookingFieldDraft = {
 };
 
 type SettingsSectionProps = {
+  apiUrl: string;
   tenantSettings: { name: string; slug: string } | null;
   tenantSettingsLoading: boolean;
   token: string;
@@ -25,6 +26,10 @@ type SettingsSectionProps = {
   setLogoUrl: (value: string) => void;
   primaryColor: string;
   setPrimaryColor: (value: string) => void;
+  customDomain: string;
+  setCustomDomain: (value: string) => void;
+  widgetEnabled: boolean;
+  setWidgetEnabled: (value: boolean) => void;
   timeZone: string;
   setTimeZone: (value: string) => void;
   locale: 'es' | 'en';
@@ -177,6 +182,27 @@ export function SettingsSection(props: SettingsSectionProps) {
     props.tenantSettings?.slug && typeof window !== 'undefined'
       ? `${window.location.origin}${publicPath}`
       : publicPath;
+  const normalizedCustomDomain = props.customDomain.trim().toLowerCase();
+  const customDomainPublicUrl = normalizedCustomDomain
+    ? `${normalizedCustomDomain.startsWith('localhost') ? 'http' : 'https'}://${normalizedCustomDomain}`
+    : '';
+  const widgetTargetUrl = customDomainPublicUrl || publicUrl;
+  const widgetIframeSnippet = widgetTargetUrl
+    ? `<iframe src="${widgetTargetUrl}" width="100%" height="780" style="border:0;border-radius:12px;overflow:hidden;" loading="lazy"></iframe>`
+    : '';
+  const widgetPopupSnippet = widgetTargetUrl
+    ? `<a href="${widgetTargetUrl}" target="_blank" rel="noopener noreferrer">Reservar cita</a>`
+    : '';
+  const widgetPopupScriptSnippet = widgetTargetUrl
+    ? `<button id="apoint-book-btn" type="button">Reservar cita</button>\n<script>\n(function(){\n  var btn=document.getElementById('apoint-book-btn');\n  if(!btn)return;\n  btn.addEventListener('click',function(){\n    var width=480,height=780,left=(window.screen.width-width)/2,top=(window.screen.height-height)/2;\n    window.open('${widgetTargetUrl}','apointBooking','width='+width+',height='+height+',left='+left+',top='+top+',menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes');\n  });\n})();\n<\/script>`
+    : '';
+  const widgetSlugOrDomain = normalizedCustomDomain || props.tenantSettings?.slug || '';
+  const widgetScriptSrc = widgetSlugOrDomain
+    ? new URL(`/public/${widgetSlugOrDomain}/widget.js`, props.apiUrl.trim() || 'http://localhost:3001').toString()
+    : '';
+  const widgetScriptTagSnippet = widgetScriptSrc
+    ? `<script src="${widgetScriptSrc}" defer></script>\n<button data-apoint-book type="button">Reservar cita</button>`
+    : '';
 
   return (
     <section className="section-block" style={{ marginTop: 28 }}>
@@ -245,6 +271,21 @@ export function SettingsSection(props: SettingsSectionProps) {
           </label>
 
           <label>
+            Dominio custom (opcional)
+            <input
+              value={props.customDomain}
+              onChange={(e) => props.setCustomDomain(e.target.value)}
+              placeholder="agenda.mi-negocio.com"
+              className="w-full"
+            />
+          </label>
+
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" checked={props.widgetEnabled} onChange={(event) => props.setWidgetEnabled(event.target.checked)} />
+            Habilitar widget embebible
+          </label>
+
+          <label>
             Zona horaria (IANA)
             <input
               value={props.timeZone}
@@ -279,6 +320,48 @@ export function SettingsSection(props: SettingsSectionProps) {
               UTC
             </button>
           </div>
+        </div>
+
+        <div className="panel section-form" style={{ gap: 8 }}>
+          <strong>Widget embebible</strong>
+          <p className="section-subtitle" style={{ fontSize: 13 }}>
+            Usa estos snippets para insertar reservas en tu web externa.
+          </p>
+
+          {widgetTargetUrl ? (
+            <>
+              <label>
+                URL de booking usada por el widget
+                <input value={widgetTargetUrl} readOnly className="w-full" />
+              </label>
+
+              <label>
+                Snippet iframe
+                <textarea readOnly value={widgetIframeSnippet} style={{ minHeight: 86, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} />
+              </label>
+
+              <label>
+                Snippet enlace/popup
+                <textarea readOnly value={widgetPopupSnippet} style={{ minHeight: 72, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} />
+              </label>
+
+              <label>
+                Snippet JS popup
+                <textarea readOnly value={widgetPopupScriptSnippet} style={{ minHeight: 160, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} />
+              </label>
+
+              <label>
+                Snippet script src (recomendado)
+                <textarea readOnly value={widgetScriptTagSnippet} style={{ minHeight: 120, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} />
+              </label>
+            </>
+          ) : (
+            <div className="table-empty">Necesitas un slug o dominio custom para generar snippets.</div>
+          )}
+
+          {!props.widgetEnabled ? (
+            <div style={{ color: '#555', fontSize: 13 }}>Activa “Habilitar widget embebible” y guarda para dejarlo disponible oficialmente.</div>
+          ) : null}
         </div>
 
         <div className="panel section-form" style={{ gap: 8 }}>
