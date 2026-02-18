@@ -384,7 +384,7 @@ Evidencia DEV (última ejecución automática):
 Evidencia STAGING local (última ejecución):
 - Fecha: 2026-02-17
 - `npm run qa:staging:gate:local`: ✅ completado
-- `node scripts/mvp-env-gate.js --env=staging --strict --skip-migrate --smoke-api-url=http://localhost:3001`: ✅ completado
+- `npm run qa:staging:gate:strict:local`: ✅ completado
 - Estado de preflight staging:
   - `qa:preflight:staging`: ✅ pasa con warnings si `DATABASE_URL`/`REDIS_URL` están en placeholder.
   - `qa:preflight:staging:strict`: ❌ bloquea hasta reemplazar placeholders por valores reales.

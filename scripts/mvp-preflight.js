@@ -102,11 +102,19 @@ function parseEnvTarget() {
 
 function parseRuntimeOptions() {
   const failOnWarn = process.argv.includes('--fail-on-warn');
-  return { failOnWarn };
+  const allowPlaceholderEnv = process.argv.includes('--allow-placeholder-env');
+  return { failOnWarn, allowPlaceholderEnv };
 }
 
 function pushIssue(issues, level, code, message) {
   issues.push({ level, code, message });
+}
+
+function getPlaceholderIssueLevel(target, runtime) {
+  if (runtime.allowPlaceholderEnv && target === 'staging') {
+    return 'info';
+  }
+  return target === 'prod' ? 'error' : 'warn';
 }
 
 function run() {
@@ -148,7 +156,7 @@ function run() {
       pushIssue(issues, target === 'prod' ? 'error' : 'warn', 'NON_HTTPS_API_URL', 'NEXT_PUBLIC_API_URL debería usar HTTPS fuera de dev.');
     }
     if ((target === 'staging' || target === 'prod') && looksPlaceholderUrl(apiUrl)) {
-      pushIssue(issues, target === 'prod' ? 'error' : 'warn', 'PLACEHOLDER_PUBLIC_API_URL', 'NEXT_PUBLIC_API_URL parece placeholder.');
+      pushIssue(issues, getPlaceholderIssueLevel(target, runtime), 'PLACEHOLDER_PUBLIC_API_URL', 'NEXT_PUBLIC_API_URL parece placeholder.');
     }
   }
 
@@ -161,7 +169,12 @@ function run() {
         pushIssue(issues, 'warn', 'NON_HTTPS_STAGING_API_URL', 'STAGING_API_URL debería usar HTTPS.');
       }
       if (looksPlaceholderUrl(stagingApiUrl)) {
-        pushIssue(issues, 'warn', 'PLACEHOLDER_STAGING_API_URL', 'STAGING_API_URL parece placeholder.');
+        pushIssue(
+          issues,
+          runtime.allowPlaceholderEnv ? 'info' : 'warn',
+          'PLACEHOLDER_STAGING_API_URL',
+          'STAGING_API_URL parece placeholder.'
+        );
       }
       if (stagingApiUrl.includes('localhost') || stagingApiUrl.includes('127.0.0.1')) {
         pushIssue(issues, 'warn', 'LOCAL_STAGING_API_URL', 'STAGING_API_URL apunta a localhost.');
@@ -191,7 +204,7 @@ function run() {
     if (looksPlaceholderUrl(dbUrl)) {
       pushIssue(
         issues,
-        target === 'prod' ? 'error' : 'warn',
+        getPlaceholderIssueLevel(target, runtime),
         'PLACEHOLDER_DB_URL',
         'DATABASE_URL parece placeholder (ej. example.com/changeme).'
       );
@@ -205,7 +218,7 @@ function run() {
   if (redisUrl && (target === 'staging' || target === 'prod') && looksPlaceholderUrl(redisUrl)) {
     pushIssue(
       issues,
-      target === 'prod' ? 'error' : 'warn',
+      getPlaceholderIssueLevel(target, runtime),
       'PLACEHOLDER_REDIS_URL',
       'REDIS_URL parece placeholder (ej. example.com/changeme).'
     );
@@ -228,17 +241,22 @@ function run() {
 
   const errorCount = issues.filter((entry) => entry.level === 'error').length;
   const warnCount = issues.filter((entry) => entry.level === 'warn').length;
+  const infoCount = issues.filter((entry) => entry.level === 'info').length;
 
   console.log(`MVP preflight target: ${target}`);
   console.log(`Checks: ${required.length + 5}`);
 
   for (const issue of issues) {
-    const icon = issue.level === 'error' ? '❌' : '⚠️';
+    const icon = issue.level === 'error' ? '❌' : issue.level === 'warn' ? '⚠️' : 'ℹ️';
     console.log(`${icon} [${issue.code}] ${issue.message}`);
   }
 
   if (errorCount === 0 && warnCount === 0) {
-    console.log('✅ Preflight MVP OK.');
+    if (infoCount > 0) {
+      console.log(`✅ Preflight MVP OK (${infoCount} info).`);
+    } else {
+      console.log('✅ Preflight MVP OK.');
+    }
     return;
   }
 

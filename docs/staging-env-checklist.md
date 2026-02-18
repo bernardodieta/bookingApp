@@ -45,3 +45,11 @@ Configura al menos un proveedor completo:
 3. `npm run qa:staging:gate:strict`
 
 Si `strict` falla, corregir variables reportadas y repetir.
+
+## Atajo local para continuar desarrollo (sin secretos reales)
+
+Cuando solo quieras validar flujo técnico local y todavía no tengas secretos/endpoints reales de staging:
+
+`npm run qa:staging:gate:strict:local`
+
+Este modo convierte placeholders de staging en `info` (solo local) y mantiene el smoke end-to-end.

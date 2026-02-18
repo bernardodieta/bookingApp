@@ -9,6 +9,7 @@ function parseArgs() {
   let skipSmoke = false;
   let smokeApiUrl = '';
   let strict = false;
+  let allowPlaceholderEnv = false;
 
   for (const arg of args) {
     if (arg.startsWith('--env=')) {
@@ -21,6 +22,8 @@ function parseArgs() {
       smokeApiUrl = arg.slice('--smoke-api-url='.length).trim();
     } else if (arg === '--strict') {
       strict = true;
+    } else if (arg === '--allow-placeholder-env') {
+      allowPlaceholderEnv = true;
     }
   }
 
@@ -28,7 +31,7 @@ function parseArgs() {
     throw new Error('Argumento inválido: --env debe ser staging o prod.');
   }
 
-  return { envTarget, skipMigrate, skipSmoke, smokeApiUrl, strict };
+  return { envTarget, skipMigrate, skipSmoke, smokeApiUrl, strict, allowPlaceholderEnv };
 }
 
 function runCommand(command, args, label, extraEnv) {
@@ -140,7 +143,12 @@ async function run() {
 
   console.log(`[MVP-GATE] entorno=${options.envTarget} strict=${options.strict ? 'on' : 'off'}`);
 
-  runCommand('npm', ['run', preflightScript], 'PREFLIGHT', gateEnv);
+  const preflightArgs = ['run', preflightScript];
+  if (options.allowPlaceholderEnv) {
+    preflightArgs.push('--', '--allow-placeholder-env');
+  }
+
+  runCommand('npm', preflightArgs, 'PREFLIGHT', gateEnv);
 
   if (!options.skipMigrate) {
     runCommand('npm', ['run', 'prisma:deploy', '-w', '@apoint/api'], 'MIGRATE', gateEnv);
