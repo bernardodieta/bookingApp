@@ -15,6 +15,8 @@ type TenantProfile = {
   name: string;
   slug: string;
   plan: string;
+  logoUrl: string | null;
+  primaryColor: string | null;
 };
 
 type ServiceItem = {
@@ -126,6 +128,13 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
   const [waitlistError, setWaitlistError] = useState('');
   const [waitlistSuccess, setWaitlistSuccess] = useState('');
   const [preferredStartAt, setPreferredStartAt] = useState('');
+
+  const brandPrimary = useMemo(() => {
+    const candidate = tenant?.primaryColor?.trim() ?? '';
+    return /^#[0-9a-fA-F]{6}$/.test(candidate) ? candidate : '#1d4ed8';
+  }, [tenant?.primaryColor]);
+
+  const brandTint = `${brandPrimary}1A`;
 
   const normalizedFields = useMemo(
     () =>
@@ -422,8 +431,13 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
           <h1 className="page-title">{tenant?.name ? `Reservas · ${tenant.name}` : 'Reservas online'}</h1>
           <p className="page-subtitle">Selecciona servicio, profesional y horario para agendar tu cita.</p>
         </div>
-        <div style={{ width: 46, height: 46, borderRadius: 12, background: '#eaf1ff', display: 'grid', placeItems: 'center' }}>
-          <CalendarDays size={22} color="#1d4ed8" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {tenant?.logoUrl ? (
+            <img src={tenant.logoUrl} alt="Logo" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'contain', border: '1px solid var(--border)', background: '#fff' }} />
+          ) : null}
+          <div style={{ width: 46, height: 46, borderRadius: 12, background: brandTint, display: 'grid', placeItems: 'center' }}>
+            <CalendarDays size={22} color={brandPrimary} />
+          </div>
         </div>
       </header>
 
@@ -490,8 +504,8 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
                     style={{
                       padding: '6px 10px',
                       borderRadius: 6,
-                      border: selectedSlot === slot.startAt ? '2px solid #1d4ed8' : '1px solid #ddd',
-                      background: selectedSlot === slot.startAt ? '#eff6ff' : '#fff'
+                      border: selectedSlot === slot.startAt ? `2px solid ${brandPrimary}` : '1px solid #ddd',
+                      background: selectedSlot === slot.startAt ? brandTint : '#fff'
                     }}
                   >
                     {formatDateTime(slot.startAt)}
@@ -558,7 +572,12 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
               <strong>{selectedSlot ? formatDateTime(selectedSlot) : 'Ninguno'}</strong>
             </div>
 
-            <button type="submit" disabled={submitLoading} className="btn btn-primary" style={{ width: 220 }}>
+            <button
+              type="submit"
+              disabled={submitLoading}
+              className="btn"
+              style={{ width: 220, borderColor: brandPrimary, background: brandPrimary, color: '#fff' }}
+            >
               <Send size={16} />
               {submitLoading ? 'Reservando...' : 'Confirmar reserva'}
             </button>

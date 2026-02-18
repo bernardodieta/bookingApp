@@ -20,6 +20,8 @@ export class TenantSettingsService {
         name: true,
         slug: true,
         plan: true,
+        logoUrl: true,
+        primaryColor: true,
         bookingBufferMinutes: true,
         maxBookingsPerDay: true,
         maxBookingsPerWeek: true,
@@ -42,6 +44,8 @@ export class TenantSettingsService {
     await this.ensureTenant(user.tenantId);
 
     const data: Prisma.TenantUpdateInput = {
+      logoUrl: payload.logoUrl,
+      primaryColor: payload.primaryColor,
       bookingBufferMinutes: payload.bookingBufferMinutes,
       maxBookingsPerDay: payload.maxBookingsPerDay,
       maxBookingsPerWeek: payload.maxBookingsPerWeek,
@@ -60,6 +64,8 @@ export class TenantSettingsService {
         name: true,
         slug: true,
         plan: true,
+        logoUrl: true,
+        primaryColor: true,
         bookingBufferMinutes: true,
         maxBookingsPerDay: true,
         maxBookingsPerWeek: true,

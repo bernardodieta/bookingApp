@@ -96,6 +96,8 @@ export default function DashboardPage() {
   const [tenantSettingsError, setTenantSettingsError] = useState('');
   const [tenantSettingsSuccess, setTenantSettingsSuccess] = useState('');
   const [tenantSettings, setTenantSettings] = useState<TenantSettingsResponse | null>(null);
+  const [logoUrl, setLogoUrl] = useState('');
+  const [primaryColor, setPrimaryColor] = useState('#2563eb');
   const [bookingFormFieldsText, setBookingFormFieldsText] = useState('[]');
   const [reminderHoursBeforeText, setReminderHoursBeforeText] = useState('24');
   const [refundPolicy, setRefundPolicy] = useState<'full' | 'credit' | 'none'>('none');
@@ -635,6 +637,8 @@ export default function DashboardPage() {
 
       const payload = (await response.json()) as TenantSettingsResponse;
       setTenantSettings(payload);
+      setLogoUrl(payload.logoUrl ?? '');
+      setPrimaryColor(payload.primaryColor ?? '#2563eb');
       setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
       setReminderHoursBeforeText(String(payload.reminderHoursBefore ?? 24));
       setRefundPolicy(payload.refundPolicy ?? 'none');
@@ -719,6 +723,11 @@ export default function DashboardPage() {
       return;
     }
 
+    if (primaryColor.trim() && !/^#[0-9a-fA-F]{6}$/.test(primaryColor.trim())) {
+      setTenantSettingsError('primaryColor debe estar en formato HEX, por ejemplo #2563eb.');
+      return;
+    }
+
     setTenantSettingsLoading(true);
 
     try {
@@ -729,6 +738,8 @@ export default function DashboardPage() {
           Authorization: `Bearer ${parsed.data.token}`
         },
         body: JSON.stringify({
+          logoUrl: logoUrl.trim() || undefined,
+          primaryColor: /^#[0-9a-fA-F]{6}$/.test(primaryColor.trim()) ? primaryColor.trim() : undefined,
           bookingFormFields: fieldsPayload,
           reminderHoursBefore: reminderHoursBeforeNumber,
           refundPolicy
@@ -742,10 +753,12 @@ export default function DashboardPage() {
 
       const payload = (await response.json()) as TenantSettingsResponse;
       setTenantSettings(payload);
+      setLogoUrl(payload.logoUrl ?? '');
+      setPrimaryColor(payload.primaryColor ?? '#2563eb');
       setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
       setReminderHoursBeforeText(String(payload.reminderHoursBefore ?? reminderHoursBeforeNumber));
       setRefundPolicy(payload.refundPolicy ?? refundPolicy);
-      setTenantSettingsSuccess('Booking form fields actualizados correctamente.');
+      setTenantSettingsSuccess('Settings actualizados correctamente.');
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudieron guardar bookingFormFields';
       setTenantSettingsError(message);
@@ -1742,12 +1755,15 @@ export default function DashboardPage() {
     setOperationsView(view);
   }
 
+  const brandPrimary = /^#[0-9a-fA-F]{6}$/.test(primaryColor.trim()) ? primaryColor.trim() : '#2563eb';
+  const brandTint = `${brandPrimary}1A`;
+
   return (
     <main className="dashboard-layout">
       <aside className="dashboard-sidebar surface">
         <div className="sidebar-brand">
-          <div className="sidebar-logo">
-            <Building2 size={18} />
+          <div className="sidebar-logo" style={{ background: brandTint, color: brandPrimary }}>
+            {logoUrl ? <img src={logoUrl} alt="Logo" style={{ width: 22, height: 22, objectFit: 'contain' }} /> : <Building2 size={18} />}
           </div>
           <div>
             <div style={{ fontWeight: 700 }}>{tenantSettings?.name ?? 'Apoint'}</div>
@@ -1867,8 +1883,8 @@ export default function DashboardPage() {
       <section className="dashboard-main">
         <header className="dashboard-topbar surface">
           <div className="topbar-left">
-            <div className="topbar-logo">
-              <Building2 size={16} />
+            <div className="topbar-logo" style={{ background: brandTint, color: brandPrimary }}>
+              {logoUrl ? <img src={logoUrl} alt="Logo" style={{ width: 20, height: 20, objectFit: 'contain' }} /> : <Building2 size={16} />}
             </div>
             <div>
               <div style={{ fontWeight: 700 }}>{tenantSettings?.name ?? 'Apoint'}</div>
@@ -2128,6 +2144,10 @@ export default function DashboardPage() {
           tenantSettingsSuccess={tenantSettingsSuccess}
           setTenantSettingsSuccess={setTenantSettingsSuccess}
           onSaveBookingFormFields={onSaveBookingFormFields}
+          logoUrl={logoUrl}
+          setLogoUrl={setLogoUrl}
+          primaryColor={primaryColor}
+          setPrimaryColor={setPrimaryColor}
           refundPolicy={refundPolicy}
           setRefundPolicy={setRefundPolicy}
           reminderHoursBeforeText={reminderHoursBeforeText}

@@ -98,6 +98,8 @@ export type TenantSettingsResponse = {
   name: string;
   slug: string;
   plan: string;
+  logoUrl: string | null;
+  primaryColor: string | null;
   bookingBufferMinutes: number;
   maxBookingsPerDay: number | null;
   maxBookingsPerWeek: number | null;

@@ -1,7 +1,16 @@
 import { RefundPolicy } from '@prisma/client';
-import { IsArray, IsEnum, IsInt, IsObject, IsOptional, Min } from 'class-validator';
+import { IsArray, IsEnum, IsHexColor, IsInt, IsObject, IsOptional, IsString, IsUrl, Min } from 'class-validator';
 
 export class UpdateTenantSettingsDto {
+  @IsOptional()
+  @IsString()
+  @IsUrl({ require_tld: false }, { message: 'logoUrl debe ser una URL válida.' })
+  logoUrl?: string;
+
+  @IsOptional()
+  @IsHexColor({ message: 'primaryColor debe ser un color HEX válido (ej. #2563eb).' })
+  primaryColor?: string;
+
   @IsOptional()
   @IsInt()
   @Min(0)

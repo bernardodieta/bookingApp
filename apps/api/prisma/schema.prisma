@@ -74,6 +74,8 @@ model Tenant {
   name                   String
   slug                   String                  @unique
   plan                   Plan                    @default(free)
+  logoUrl                String?
+  primaryColor           String?
   bookingBufferMinutes   Int                     @default(0)
   maxBookingsPerDay      Int?
   maxBookingsPerWeek     Int?

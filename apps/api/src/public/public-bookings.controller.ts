@@ -20,7 +20,9 @@ export class PublicBookingsController {
         id: true,
         name: true,
         slug: true,
-        plan: true
+        plan: true,
+        logoUrl: true,
+        primaryColor: true
       }
     });
 

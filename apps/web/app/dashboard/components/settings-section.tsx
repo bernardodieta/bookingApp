@@ -21,6 +21,10 @@ type SettingsSectionProps = {
   tenantSettingsSuccess: string;
   setTenantSettingsSuccess: (value: string) => void;
   onSaveBookingFormFields: (event: React.FormEvent) => Promise<void>;
+  logoUrl: string;
+  setLogoUrl: (value: string) => void;
+  primaryColor: string;
+  setPrimaryColor: (value: string) => void;
   refundPolicy: 'full' | 'credit' | 'none';
   setRefundPolicy: (value: 'full' | 'credit' | 'none') => void;
   reminderHoursBeforeText: string;
@@ -201,6 +205,42 @@ export function SettingsSection(props: SettingsSectionProps) {
       <Notice tone="success" message={props.tenantSettingsSuccess} withMargin onClose={() => props.setTenantSettingsSuccess('')} />
 
       <form onSubmit={props.onSaveBookingFormFields} className="section-form" style={{ gap: 12 }}>
+        <div className="panel section-form" style={{ gap: 8 }}>
+          <strong>Branding del negocio</strong>
+          <p className="section-subtitle" style={{ fontSize: 13 }}>
+            Personaliza el look público con logo y color principal.
+          </p>
+
+          <label>
+            Logo URL
+            <input
+              type="url"
+              value={props.logoUrl}
+              onChange={(e) => props.setLogoUrl(e.target.value)}
+              placeholder="https://mi-dominio.com/logo.png"
+              className="w-full"
+            />
+          </label>
+
+          <label>
+            Color principal
+            <div className="section-actions">
+              <input
+                type="color"
+                value={props.primaryColor || '#2563eb'}
+                onChange={(e) => props.setPrimaryColor(e.target.value)}
+                style={{ width: 64, padding: 4 }}
+              />
+              <input
+                value={props.primaryColor}
+                onChange={(e) => props.setPrimaryColor(e.target.value)}
+                placeholder="#2563eb"
+                className="w-full"
+              />
+            </div>
+          </label>
+        </div>
+
         <div className="panel section-form" style={{ gap: 8 }}>
           <strong>Reglas del negocio</strong>
           <p className="section-subtitle" style={{ fontSize: 13 }}>
