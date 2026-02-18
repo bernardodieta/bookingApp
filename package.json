@@ -1,0 +1,21 @@
+{
+  "name": "apoint-app",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "npm@10.8.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w @apoint/web\" \"npm run start:dev -w @apoint/api\"",
+    "dev:web": "npm run dev -w @apoint/web",
+    "dev:api": "npm run start:dev -w @apoint/api",
+    "build": "npm run build -w @apoint/web && npm run build -w @apoint/api",
+    "lint": "npm run lint -w @apoint/web && npm run lint -w @apoint/api",
+    "typecheck": "npm run typecheck -w @apoint/web && npm run build -w @apoint/api"
+  },
+  "devDependencies": {
+    "concurrently": "8.2.2"
+  }
+}
