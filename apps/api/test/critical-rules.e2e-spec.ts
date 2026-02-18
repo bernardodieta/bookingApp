@@ -321,6 +321,59 @@ describe('Critical MVP rules (e2e)', () => {
 
     expect(finalExceptions.body).toHaveLength(0);
   });
+
+  it('envía recordatorios de booking en ventana configurada y evita duplicados por auditoría', async () => {
+    const seed = await registerAndSeed(app, 'bookingreminders');
+
+    await request(app.getHttpServer())
+      .patch('/tenant/settings')
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({ reminderHoursBefore: 24 })
+      .expect(200);
+
+    const reminderStartAt = new Date(Date.now() + 24 * 60 * 60_000 + 5 * 60_000);
+    const reminderEndAt = new Date(reminderStartAt.getTime() + 30 * 60_000);
+
+    const booking = await prisma.booking.create({
+      data: {
+        tenantId: seed.auth.tenantId,
+        serviceId: seed.service.id,
+        staffId: seed.staff.id,
+        customerName: 'Cliente Reminder',
+        customerEmail: 'cliente.reminder@example.com',
+        startAt: reminderStartAt,
+        endAt: reminderEndAt,
+        status: BookingStatus.confirmed
+      }
+    });
+
+    const firstRun = await request(app.getHttpServer())
+      .post('/bookings/reminders/run')
+      .set('Authorization', authHeader(seed.auth.token))
+      .expect(201);
+
+    expect(firstRun.body.sent).toBe(1);
+    expect(firstRun.body.processed).toBeGreaterThanOrEqual(1);
+
+    const reminderAudit = await prisma.auditLog.findFirst({
+      where: {
+        tenantId: seed.auth.tenantId,
+        action: 'BOOKING_REMINDER_SENT',
+        entity: 'booking',
+        entityId: booking.id
+      }
+    });
+
+    expect(reminderAudit).toBeTruthy();
+
+    const secondRun = await request(app.getHttpServer())
+      .post('/bookings/reminders/run')
+      .set('Authorization', authHeader(seed.auth.token))
+      .expect(201);
+
+    expect(secondRun.body.sent).toBe(0);
+    expect(secondRun.body.skippedAlreadySent).toBeGreaterThanOrEqual(1);
+  });
 });
 
 describe('Public/Auth rate limiting (e2e)', () => {

@@ -6,6 +6,7 @@ function parseArgs() {
   let skipMigrate = false;
   let skipSmoke = false;
   let smokeApiUrl = '';
+  let strict = false;
 
   for (const arg of args) {
     if (arg.startsWith('--env=')) {
@@ -16,6 +17,8 @@ function parseArgs() {
       skipSmoke = true;
     } else if (arg.startsWith('--smoke-api-url=')) {
       smokeApiUrl = arg.slice('--smoke-api-url='.length).trim();
+    } else if (arg === '--strict') {
+      strict = true;
     }
   }
 
@@ -23,7 +26,7 @@ function parseArgs() {
     throw new Error('Argumento inválido: --env debe ser staging o prod.');
   }
 
-  return { envTarget, skipMigrate, skipSmoke, smokeApiUrl };
+  return { envTarget, skipMigrate, skipSmoke, smokeApiUrl, strict };
 }
 
 function runCommand(command, args, label, extraEnv) {
@@ -44,10 +47,16 @@ function runCommand(command, args, label, extraEnv) {
 
 function run() {
   const options = parseArgs();
-  const preflightScript = options.envTarget === 'staging' ? 'qa:preflight:staging' : 'qa:preflight:prod';
+  const preflightScript = options.envTarget === 'staging'
+    ? options.strict
+      ? 'qa:preflight:staging:strict'
+      : 'qa:preflight:staging'
+    : options.strict
+      ? 'qa:preflight:prod:strict'
+      : 'qa:preflight:prod';
   const smokeScript = options.envTarget === 'staging' ? 'qa:smoke:staging' : 'qa:smoke:prod';
 
-  console.log(`[MVP-GATE] entorno=${options.envTarget}`);
+  console.log(`[MVP-GATE] entorno=${options.envTarget} strict=${options.strict ? 'on' : 'off'}`);
 
   runCommand('npm', ['run', preflightScript], 'PREFLIGHT');
 

@@ -24,14 +24,22 @@ npm run dev:prep
 npm run dev:reset:win
 npm run qa:email:local
 npm run qa:secrets:local
+npm run qa:env:staging:init
+npm run qa:env:prod:init
 npm run qa:preflight:mvp
 npm run qa:preflight:staging
 npm run qa:preflight:prod
+npm run qa:preflight:staging:strict
+npm run qa:preflight:prod:strict
 npm run qa:smoke:mvp
 npm run qa:smoke:staging
 npm run qa:smoke:prod
 npm run qa:staging:gate
+npm run qa:staging:gate:local
+npm run qa:staging:gate:strict
 npm run qa:prod:gate
+npm run qa:prod:gate:dry
+npm run qa:prod:gate:strict
 npm run test:e2e -w @apoint/api
 ```
 
@@ -93,6 +101,11 @@ Preflight de configuración MVP:
 - `npm run qa:preflight:mvp` valida variables mínimas y setup de email
 - `npm run qa:preflight:staging` valida configuración para staging
 - `npm run qa:preflight:prod` valida configuración para producción
+- `npm run qa:preflight:staging:strict` y `npm run qa:preflight:prod:strict` fallan también con warnings
+
+Bootstrap de entorno remoto:
+- `npm run qa:env:staging:init` crea `.env.staging` con plantilla inicial
+- `npm run qa:env:prod:init` crea `.env.prod` con plantilla inicial
 
 Smoke multi-entorno:
 - `npm run qa:smoke:mvp` usa `API_URL` o `http://localhost:3001`
@@ -102,7 +115,11 @@ Smoke multi-entorno:
 
 Gate por entorno (preflight + migrate + smoke):
 - `npm run qa:staging:gate`
+- `npm run qa:staging:gate:local` simula staging usando API local (`http://localhost:3001`) y omite migraciones
+- `npm run qa:staging:gate:strict` exige preflight sin warnings
 - `npm run qa:prod:gate`
+- `npm run qa:prod:gate:dry` valida estricto sin migraciones/smoke (chequeo rápido)
+- `npm run qa:prod:gate:strict` exige preflight sin warnings
 - flags opcionales: `node scripts/mvp-env-gate.js --env=staging --skip-migrate --skip-smoke`
 
 ## API disponible (Sprint 1 base)
@@ -128,6 +145,7 @@ Pruebas e2e disponibles en API (`npm run test:e2e -w @apoint/api`):
 - Rate limiting en rutas públicas
 - Flujo público: slots, auto-waitlist por slot ocupado y notificación de waitlist al cancelar
 - Flujo público configurable: `bookingFormFields` expuestos por slug y validación backend de campos requeridos
+- Recordatorios email configurables por tenant (`reminderHoursBefore`) + runner deduplicado por auditoría
 - Smoke MVP: registro de negocio -> setup base -> reserva pública completa
 - Aislamiento multi-tenant: sin acceso cruzado entre tenants
 
@@ -175,6 +193,7 @@ Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
 - `GET /bookings`
 - `PATCH /bookings/:id/cancel`
 - `PATCH /bookings/:id/reschedule`
+- `POST /bookings/reminders/run` (ejecuta envío de recordatorios para ventana activa)
 - `POST /bookings` soporta `customFields` (objeto JSON)
 
 ### Dashboard (protegido con Bearer)
@@ -224,6 +243,7 @@ Notas CRM:
 	- `maxBookingsPerWeek`
 	- `cancellationNoticeHours`
 	- `rescheduleNoticeHours`
+	- `reminderHoursBefore` (horas antes de la cita para recordatorio; `0` desactiva)
 	- `bookingFormFields` (array de campos configurables; `required: true` exige `customFields[key]` al reservar)
 
 ### Public Booking (sin auth)

@@ -177,6 +177,117 @@ export class BookingsService {
     });
   }
 
+  async runDueReminders(user: AuthUser) {
+    const tenantSettings = await this.getTenantSettings(user.tenantId);
+    const reminderHoursBefore = tenantSettings.reminderHoursBefore;
+
+    if (reminderHoursBefore <= 0) {
+      return {
+        reminderHoursBefore,
+        processed: 0,
+        sent: 0,
+        skippedAlreadySent: 0,
+        disabled: true
+      };
+    }
+
+    const now = new Date();
+    const windowStart = new Date(now.getTime() + reminderHoursBefore * 60 * 60_000);
+    const windowEnd = new Date(windowStart.getTime() + 15 * 60_000);
+
+    const dueBookings = await this.prisma.booking.findMany({
+      where: {
+        tenantId: user.tenantId,
+        status: {
+          in: [BookingStatus.pending, BookingStatus.confirmed, BookingStatus.rescheduled]
+        },
+        startAt: {
+          gte: windowStart,
+          lt: windowEnd
+        }
+      },
+      include: {
+        service: {
+          select: { name: true }
+        },
+        staff: {
+          select: { fullName: true }
+        }
+      }
+    });
+
+    if (!dueBookings.length) {
+      return {
+        reminderHoursBefore,
+        processed: 0,
+        sent: 0,
+        skippedAlreadySent: 0,
+        windowStart: windowStart.toISOString(),
+        windowEnd: windowEnd.toISOString()
+      };
+    }
+
+    const reminderLogs = await this.prisma.auditLog.findMany({
+      where: {
+        tenantId: user.tenantId,
+        action: 'BOOKING_REMINDER_SENT',
+        entity: 'booking',
+        entityId: {
+          in: dueBookings.map((booking) => booking.id)
+        }
+      },
+      select: {
+        entityId: true
+      }
+    });
+
+    const alreadySentBookingIds = new Set(reminderLogs.map((entry) => entry.entityId).filter((entry): entry is string => !!entry));
+
+    let sent = 0;
+    let skippedAlreadySent = 0;
+
+    for (const booking of dueBookings) {
+      if (alreadySentBookingIds.has(booking.id)) {
+        skippedAlreadySent += 1;
+        continue;
+      }
+
+      await this.notificationsService.sendBookingReminderEmail({
+        tenantName: tenantSettings.name,
+        customerName: booking.customerName,
+        customerEmail: booking.customerEmail,
+        serviceName: booking.service.name,
+        staffName: booking.staff.fullName,
+        startAt: booking.startAt,
+        endAt: booking.endAt,
+        reminderHoursBefore
+      });
+
+      await this.auditService.log({
+        tenantId: user.tenantId,
+        actorUserId: user.sub,
+        action: 'BOOKING_REMINDER_SENT',
+        entity: 'booking',
+        entityId: booking.id,
+        metadata: {
+          reminderHoursBefore,
+          startAt: booking.startAt.toISOString()
+        } as Prisma.InputJsonValue
+      });
+
+      sent += 1;
+    }
+
+    return {
+      reminderHoursBefore,
+      processed: dueBookings.length,
+      sent,
+      skippedAlreadySent,
+      windowStart: windowStart.toISOString(),
+      windowEnd: windowEnd.toISOString()
+    };
+  }
+
   async joinWaitlistForTenant(tenantId: string, payload: JoinWaitlistDto) {
     const preferredStartAt = new Date(payload.preferredStartAt);
     if (Number.isNaN(preferredStartAt.getTime())) {
@@ -535,6 +646,7 @@ export class BookingsService {
         maxBookingsPerWeek: true,
         cancellationNoticeHours: true,
         rescheduleNoticeHours: true,
+        reminderHoursBefore: true,
         bookingFormFields: true
       }
     });

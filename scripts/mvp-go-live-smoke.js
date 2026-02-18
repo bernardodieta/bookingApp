@@ -1,3 +1,55 @@
+const fs = require('node:fs');
+const path = require('node:path');
+
+function parseDotEnv(content) {
+  const result = {};
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    const eq = line.indexOf('=');
+    if (eq <= 0) {
+      continue;
+    }
+
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+
+    result[key] = value;
+  }
+  return result;
+}
+
+function readEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return {};
+  }
+  return parseDotEnv(fs.readFileSync(filePath, 'utf8'));
+}
+
+function resolveEnvValues(target) {
+  const root = process.cwd();
+  const base = readEnvFile(path.join(root, '.env'));
+  const targetFile =
+    target === 'staging'
+      ? '.env.staging'
+      : target === 'prod' || target === 'production'
+        ? '.env.prod'
+        : '.env';
+  const scoped = readEnvFile(path.join(root, targetFile));
+
+  return {
+    ...base,
+    ...scoped,
+    ...process.env
+  };
+}
+
 function parseArgs() {
   const args = process.argv.slice(2);
   let envTarget = 'dev';
@@ -18,13 +70,13 @@ function parseArgs() {
   };
 }
 
-function resolveApiBase(options) {
+function resolveApiBase(options, envValues) {
   if (options.apiUrl) {
     return options.apiUrl;
   }
 
   if (options.envTarget === 'staging') {
-    const staging = (process.env.STAGING_API_URL ?? '').trim();
+    const staging = (envValues.STAGING_API_URL ?? '').trim();
     if (!staging) {
       throw new Error('Falta STAGING_API_URL para ejecutar smoke en staging.');
     }
@@ -32,14 +84,14 @@ function resolveApiBase(options) {
   }
 
   if (options.envTarget === 'prod' || options.envTarget === 'production') {
-    const prod = (process.env.PROD_API_URL ?? '').trim();
+    const prod = (envValues.PROD_API_URL ?? '').trim();
     if (!prod) {
       throw new Error('Falta PROD_API_URL para ejecutar smoke en prod.');
     }
     return prod;
   }
 
-  return process.env.API_URL ?? 'http://localhost:3001';
+  return envValues.API_URL ?? 'http://localhost:3001';
 }
 
 function nextWeekdayUtc(targetDay, hour = 10, minute = 0) {
@@ -77,7 +129,8 @@ function logStep(step, message) {
 
 async function run() {
   const options = parseArgs();
-  const apiBase = resolveApiBase(options);
+  const envValues = resolveEnvValues(options.envTarget);
+  const apiBase = resolveApiBase(options, envValues);
   const runTag = `${Date.now()}`;
   const ownerEmail = `owner.smoke.${runTag}@example.com`;
   const staffEmail = `staff.smoke.${runTag}@example.com`;

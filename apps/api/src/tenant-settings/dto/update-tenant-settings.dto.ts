@@ -27,6 +27,11 @@ export class UpdateTenantSettingsDto {
   rescheduleNoticeHours?: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  reminderHoursBefore?: number;
+
+  @IsOptional()
   @IsArray()
   @IsObject({ each: true })
   bookingFormFields?: Array<Record<string, unknown>>;

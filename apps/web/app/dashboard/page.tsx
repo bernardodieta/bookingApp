@@ -81,6 +81,7 @@ type TenantSettingsResponse = {
   maxBookingsPerWeek: number | null;
   cancellationNoticeHours: number;
   rescheduleNoticeHours: number;
+  reminderHoursBefore: number;
   bookingFormFields: Array<Record<string, unknown>> | null;
 };
 
@@ -321,6 +322,7 @@ export default function DashboardPage() {
   const [tenantSettingsSuccess, setTenantSettingsSuccess] = useState('');
   const [tenantSettings, setTenantSettings] = useState<TenantSettingsResponse | null>(null);
   const [bookingFormFieldsText, setBookingFormFieldsText] = useState('[]');
+  const [reminderHoursBeforeText, setReminderHoursBeforeText] = useState('24');
   const [quickServiceName, setQuickServiceName] = useState('');
   const [quickServiceDuration, setQuickServiceDuration] = useState('30');
   const [quickServicePrice, setQuickServicePrice] = useState('100');
@@ -885,6 +887,7 @@ export default function DashboardPage() {
       const payload = (await response.json()) as TenantSettingsResponse;
       setTenantSettings(payload);
       setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
+      setReminderHoursBeforeText(String(payload.reminderHoursBefore ?? 24));
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo cargar tenant settings';
       setTenantSettingsError(message);
@@ -910,6 +913,7 @@ export default function DashboardPage() {
     }
 
     let fieldsPayload: Array<Record<string, unknown>>;
+    const reminderHoursBeforeNumber = Number(reminderHoursBeforeText);
     try {
       const parsedJson = JSON.parse(bookingFormFieldsText || '[]') as unknown;
       if (!Array.isArray(parsedJson) || parsedJson.some((entry) => typeof entry !== 'object' || entry === null)) {
@@ -922,6 +926,11 @@ export default function DashboardPage() {
       return;
     }
 
+    if (!Number.isFinite(reminderHoursBeforeNumber) || !Number.isInteger(reminderHoursBeforeNumber) || reminderHoursBeforeNumber < 0) {
+      setTenantSettingsError('reminderHoursBefore debe ser un entero mayor o igual a 0.');
+      return;
+    }
+
     setTenantSettingsLoading(true);
 
     try {
@@ -931,7 +940,10 @@ export default function DashboardPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${parsed.data.token}`
         },
-        body: JSON.stringify({ bookingFormFields: fieldsPayload })
+        body: JSON.stringify({
+          bookingFormFields: fieldsPayload,
+          reminderHoursBefore: reminderHoursBeforeNumber
+        })
       });
 
       if (!response.ok) {
@@ -942,6 +954,7 @@ export default function DashboardPage() {
       const payload = (await response.json()) as TenantSettingsResponse;
       setTenantSettings(payload);
       setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
+      setReminderHoursBeforeText(String(payload.reminderHoursBefore ?? reminderHoursBeforeNumber));
       setTenantSettingsSuccess('Booking form fields actualizados correctamente.');
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudieron guardar bookingFormFields';
@@ -2385,6 +2398,17 @@ export default function DashboardPage() {
 
         <form onSubmit={onSaveBookingFormFields} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
           <label>
+            reminderHoursBefore (0 desactiva recordatorios)
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={reminderHoursBeforeText}
+              onChange={(e) => setReminderHoursBeforeText(e.target.value)}
+              style={{ width: 220 }}
+            />
+          </label>
+          <label>
             bookingFormFields (JSON array)
             <textarea
               value={bookingFormFieldsText}
@@ -2394,7 +2418,8 @@ export default function DashboardPage() {
             />
           </label>
           <div style={{ color: '#555', fontSize: 13 }}>
-            Sugerencia: usa objetos con `key`, `label`, `type` (`text|email|tel|textarea`) y `required`.
+            Sugerencia: usa objetos con `key`, `label`, `type` (`text|email|tel|textarea`) y `required`. El runner
+            de recordatorios usa `reminderHoursBefore` para enviar emails antes de la cita.
           </div>
           <button type="submit" disabled={tenantSettingsLoading || !token.trim()} style={{ width: 260, padding: '8px 12px' }}>
             {tenantSettingsLoading ? 'Guardando...' : 'Guardar bookingFormFields'}

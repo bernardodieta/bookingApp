@@ -39,4 +39,9 @@ export class BookingsController {
   joinWaitlist(@Req() req: RequestWithUser, @Body() body: JoinWaitlistDto) {
     return this.bookingsService.joinWaitlist(req.user, body);
   }
+
+  @Post('reminders/run')
+  runReminders(@Req() req: RequestWithUser) {
+    return this.bookingsService.runDueReminders(req.user);
+  }
 }

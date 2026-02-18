@@ -25,6 +25,7 @@ export class TenantSettingsService {
         maxBookingsPerWeek: true,
         cancellationNoticeHours: true,
         rescheduleNoticeHours: true,
+        reminderHoursBefore: true,
         bookingFormFields: true
       }
     });
@@ -45,6 +46,7 @@ export class TenantSettingsService {
       maxBookingsPerWeek: payload.maxBookingsPerWeek,
       cancellationNoticeHours: payload.cancellationNoticeHours,
       rescheduleNoticeHours: payload.rescheduleNoticeHours,
+      reminderHoursBefore: payload.reminderHoursBefore,
       bookingFormFields: payload.bookingFormFields as Prisma.InputJsonValue | undefined
     };
 
@@ -61,6 +63,7 @@ export class TenantSettingsService {
         maxBookingsPerWeek: true,
         cancellationNoticeHours: true,
         rescheduleNoticeHours: true,
+        reminderHoursBefore: true,
         bookingFormFields: true
       }
     });

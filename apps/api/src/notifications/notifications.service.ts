@@ -111,6 +111,37 @@ export class NotificationsService {
     });
   }
 
+  async sendBookingReminderEmail(input: {
+    tenantName: string;
+    customerName: string;
+    customerEmail: string;
+    serviceName: string;
+    staffName: string;
+    startAt: Date;
+    endAt: Date;
+    reminderHoursBefore: number;
+  }) {
+    const subject = `Recordatorio de cita - ${input.tenantName}`;
+    const text = [
+      `Hola ${input.customerName},`,
+      '',
+      `Te recordamos tu cita en ${input.tenantName}.`,
+      `Servicio: ${input.serviceName}`,
+      `Profesional: ${input.staffName}`,
+      `Inicio: ${input.startAt.toISOString()}`,
+      `Fin: ${input.endAt.toISOString()}`,
+      `Anticipación del recordatorio: ${input.reminderHoursBefore}h`
+    ].join('\n');
+    const html = `<p>Hola ${input.customerName},</p><p>Te recordamos tu cita en <strong>${input.tenantName}</strong>.</p><ul><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Inicio:</strong> ${input.startAt.toISOString()}</li><li><strong>Fin:</strong> ${input.endAt.toISOString()}</li><li><strong>Anticipación del recordatorio:</strong> ${input.reminderHoursBefore}h</li></ul>`;
+
+    await this.sendWithFallback({
+      to: input.customerEmail,
+      subject,
+      text,
+      html
+    });
+  }
+
   private async sendWithFallback(payload: EmailPayload) {
     if (!payload.to.trim()) {
       this.logger.warn('[EMAIL][SKIP] destinatario vacío');

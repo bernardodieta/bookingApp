@@ -45,6 +45,7 @@ model Tenant {
   maxBookingsPerWeek     Int?
   cancellationNoticeHours Int                    @default(0)
   rescheduleNoticeHours   Int                    @default(0)
+  reminderHoursBefore     Int                    @default(24)
   bookingFormFields       Json?
   users                  User[]
   services               Service[]

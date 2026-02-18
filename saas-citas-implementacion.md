@@ -89,7 +89,7 @@ Usar estos IDs para historias, PRs y QA.
 - [x] **NT-01** Confirmación inmediata por email
 - [ ] **NT-02** Confirmación inmediata por SMS (Pro+)
 - [ ] **NT-03** Confirmación inmediata por WhatsApp (Pro+)
-- [ ] **NT-04** Recordatorios automáticos configurables (ej. 24h, 2h)
+- [x] **NT-04** Recordatorios automáticos configurables (ej. 24h, 2h)
 - [x] **NT-05** Notificación al negocio por nueva/modificada/cancelada
 
 ### 3.4 Gestión de Negocio (GN)
@@ -365,19 +365,23 @@ Evidencia DEV (última ejecución automática):
 
 ### STAGING
 - [ ] Variables `DATABASE_URL`, `REDIS_URL`, `JWT_*`, `NEXT_PUBLIC_API_URL` configuradas.
-- [ ] `node scripts/mvp-preflight.js --env=staging` en verde.
+- [x] `node scripts/mvp-preflight.js --env=staging` en verde.
 - [ ] `npm run qa:smoke:staging` en verde.
 - [ ] `npm run qa:staging:gate` en verde.
+- [x] Simulación local staging: `npm run qa:staging:gate:local`.
 - [ ] Credenciales SendGrid/SMTP de staging cargadas.
 - [ ] Migraciones Prisma aplicadas (`prisma migrate deploy`).
 - [ ] Smoke de flujos críticos: auth, dashboard, reserva pública, cancelación, waitlist.
 - [ ] Verificación de auditoría en acciones sensibles (`BOOKING_*`, `TENANT_SETTINGS_UPDATED`).
+- [x] `npm run qa:staging:gate:strict` en verde (sin warnings).
 
 ### PROD
 - [ ] Secretos productivos validados (sin defaults, rotación definida).
-- [ ] `node scripts/mvp-preflight.js --env=prod` en verde.
+- [x] `node scripts/mvp-preflight.js --env=prod` en verde.
 - [ ] `npm run qa:smoke:prod` en verde.
 - [ ] `npm run qa:prod:gate` en verde.
+- [ ] `npm run qa:prod:gate:strict` en verde (sin warnings).
+- [x] Simulación seca prod: `npm run qa:prod:gate:dry`.
 - [ ] HTTPS + dominio(s) operativos y redirecciones correctas.
 - [ ] Monitoreo/logs y alertas mínimas habilitadas.
 - [ ] Backup/restore de base de datos validado.
