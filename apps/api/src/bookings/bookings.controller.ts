@@ -6,6 +6,7 @@ import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
+import { JoinWaitlistDto } from './dto/join-waitlist.dto';
 
 type RequestWithUser = Request & { user: AuthUser };
 
@@ -32,5 +33,10 @@ export class BookingsController {
   @Patch(':id/reschedule')
   reschedule(@Req() req: RequestWithUser, @Param('id') id: string, @Body() body: RescheduleBookingDto) {
     return this.bookingsService.reschedule(req.user, id, body);
+  }
+
+  @Post('waitlist')
+  joinWaitlist(@Req() req: RequestWithUser, @Body() body: JoinWaitlistDto) {
+    return this.bookingsService.joinWaitlist(req.user, body);
   }
 }

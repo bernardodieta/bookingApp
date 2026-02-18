@@ -149,6 +149,7 @@ Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
 - Consultar auditoría con filtros (`action`, `actorUserId`, fechas, `limit`) y paginación por `nextCursor`
 - Acciones rápidas para crear `service`, `staff`, `booking`, `availability rule` y `availability exception` desde la misma vista
 - Acciones desde tabla para cancelar y reprogramar bookings
+- Acción rápida para agregar clientes a waitlist desde dashboard (`POST /bookings/waitlist`)
 
 ### CRM Clientes (protegido con Bearer)
 - `GET /customers?search=...`

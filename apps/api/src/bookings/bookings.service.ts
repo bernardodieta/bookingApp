@@ -25,6 +25,10 @@ export class BookingsService {
     return this.createForTenant(user.tenantId, payload, false, user.sub);
   }
 
+  async joinWaitlist(user: AuthUser, payload: JoinWaitlistDto) {
+    return this.joinWaitlistForTenant(user.tenantId, payload);
+  }
+
   async createForTenant(tenantId: string, payload: CreateBookingDto, autoWaitlistOnOccupied = false, actorUserId?: string) {
     const startAt = new Date(payload.startAt);
     if (Number.isNaN(startAt.getTime())) {

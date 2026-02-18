@@ -135,6 +135,17 @@ const quickRescheduleBookingSchema = z.object({
   startAt: z.string().trim().min(1, 'Fecha/hora requerida para reprogramar.')
 });
 
+const quickJoinWaitlistSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.'),
+  serviceId: z.string().trim().min(1, 'Selecciona un servicio.'),
+  staffId: z.string().trim().min(1, 'Selecciona un staff.'),
+  preferredStartAt: z.string().trim().min(1, 'Fecha/hora preferida requerida.'),
+  customerName: z.string().trim().min(1, 'Nombre de cliente requerido.'),
+  customerEmail: z.string().trim().email('Email de cliente inválido.'),
+  notes: z.string().optional()
+});
+
 function toDateTimeLocalInput(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -211,6 +222,15 @@ export default function DashboardPage() {
   const [bookingActionError, setBookingActionError] = useState('');
   const [bookingActionSuccess, setBookingActionSuccess] = useState('');
   const [rescheduleDrafts, setRescheduleDrafts] = useState<Record<string, string>>({});
+  const [quickWaitlistServiceId, setQuickWaitlistServiceId] = useState('');
+  const [quickWaitlistStaffId, setQuickWaitlistStaffId] = useState('');
+  const [quickWaitlistPreferredStartAt, setQuickWaitlistPreferredStartAt] = useState('');
+  const [quickWaitlistCustomerName, setQuickWaitlistCustomerName] = useState('');
+  const [quickWaitlistCustomerEmail, setQuickWaitlistCustomerEmail] = useState('');
+  const [quickWaitlistNotes, setQuickWaitlistNotes] = useState('');
+  const [quickWaitlistLoading, setQuickWaitlistLoading] = useState(false);
+  const [quickWaitlistError, setQuickWaitlistError] = useState('');
+  const [quickWaitlistSuccess, setQuickWaitlistSuccess] = useState('');
 
   const summaryStatus = useMemo(() => {
     if (!data) return [] as Array<[string, number]>;
@@ -304,9 +324,15 @@ export default function DashboardPage() {
         if (staffPayload.length && !staffPayload.some((entry) => entry.id === quickExceptionStaffId)) {
           setQuickExceptionStaffId(staffPayload[0]?.id ?? '');
         }
+        if (staffPayload.length && !staffPayload.some((entry) => entry.id === quickWaitlistStaffId)) {
+          setQuickWaitlistStaffId(staffPayload[0]?.id ?? '');
+        }
 
         if (servicesPayload.length && !servicesPayload.some((entry) => entry.id === quickBookingServiceId)) {
           setQuickBookingServiceId(servicesPayload[0]?.id ?? '');
+        }
+        if (servicesPayload.length && !servicesPayload.some((entry) => entry.id === quickWaitlistServiceId)) {
+          setQuickWaitlistServiceId(servicesPayload[0]?.id ?? '');
         }
       } catch (loadError) {
         if (cancelled) {
@@ -518,6 +544,9 @@ export default function DashboardPage() {
         if (!quickBookingServiceId) {
           setQuickBookingServiceId(created.id);
         }
+        if (!quickWaitlistServiceId) {
+          setQuickWaitlistServiceId(created.id);
+        }
       }
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo crear servicio';
@@ -585,6 +614,9 @@ export default function DashboardPage() {
       }
       if (!quickExceptionStaffId && payload?.id) {
         setQuickExceptionStaffId(payload.id);
+      }
+      if (!quickWaitlistStaffId && payload?.id) {
+        setQuickWaitlistStaffId(payload.id);
       }
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo crear staff';
@@ -777,6 +809,70 @@ export default function DashboardPage() {
       setQuickExceptionError(message);
     } finally {
       setQuickExceptionLoading(false);
+    }
+  }
+
+  async function onJoinWaitlist(event: FormEvent) {
+    event.preventDefault();
+    setQuickWaitlistError('');
+    setQuickWaitlistSuccess('');
+
+    const parsed = quickJoinWaitlistSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim(),
+      serviceId: quickWaitlistServiceId,
+      staffId: quickWaitlistStaffId,
+      preferredStartAt: quickWaitlistPreferredStartAt,
+      customerName: quickWaitlistCustomerName,
+      customerEmail: quickWaitlistCustomerEmail,
+      notes: quickWaitlistNotes.trim() || undefined
+    });
+
+    if (!parsed.success) {
+      setQuickWaitlistError(parsed.error.issues[0]?.message ?? 'Datos de waitlist inválidos.');
+      return;
+    }
+
+    const preferredDate = new Date(parsed.data.preferredStartAt);
+    if (Number.isNaN(preferredDate.getTime())) {
+      setQuickWaitlistError('Fecha/hora preferida inválida.');
+      return;
+    }
+
+    setQuickWaitlistLoading(true);
+
+    try {
+      const response = await fetch(new URL('/bookings/waitlist', parsed.data.apiUrl).toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({
+          serviceId: parsed.data.serviceId,
+          staffId: parsed.data.staffId,
+          preferredStartAt: preferredDate.toISOString(),
+          customerName: parsed.data.customerName,
+          customerEmail: parsed.data.customerEmail,
+          notes: parsed.data.notes
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      setQuickWaitlistSuccess('Cliente agregado a lista de espera.');
+      setQuickWaitlistPreferredStartAt('');
+      setQuickWaitlistCustomerName('');
+      setQuickWaitlistCustomerEmail('');
+      setQuickWaitlistNotes('');
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo agregar a waitlist';
+      setQuickWaitlistError(message);
+    } finally {
+      setQuickWaitlistLoading(false);
     }
   }
 
@@ -1238,6 +1334,53 @@ export default function DashboardPage() {
             </button>
             {quickExceptionError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickExceptionError}</div> : null}
             {quickExceptionSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickExceptionSuccess}</div> : null}
+          </form>
+
+          <form onSubmit={onJoinWaitlist} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <strong>Join waitlist</strong>
+            <label>
+              Servicio
+              <select value={quickWaitlistServiceId} onChange={(e) => setQuickWaitlistServiceId(e.target.value)} style={{ width: '100%' }} disabled={serviceLoading}>
+                <option value="">Seleccionar</option>
+                {serviceOptions.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Staff
+              <select value={quickWaitlistStaffId} onChange={(e) => setQuickWaitlistStaffId(e.target.value)} style={{ width: '100%' }} disabled={staffLoading}>
+                <option value="">Seleccionar</option>
+                {staffOptions.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.fullName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Fecha/hora preferida
+              <input type="datetime-local" value={quickWaitlistPreferredStartAt} onChange={(e) => setQuickWaitlistPreferredStartAt(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Cliente
+              <input value={quickWaitlistCustomerName} onChange={(e) => setQuickWaitlistCustomerName(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Email cliente
+              <input type="email" value={quickWaitlistCustomerEmail} onChange={(e) => setQuickWaitlistCustomerEmail(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Notas (opcional)
+              <input value={quickWaitlistNotes} onChange={(e) => setQuickWaitlistNotes(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <button type="submit" disabled={quickWaitlistLoading || !token.trim()} style={{ width: 180, padding: '8px 12px' }}>
+              {quickWaitlistLoading ? 'Agregando...' : 'Agregar waitlist'}
+            </button>
+            {quickWaitlistError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickWaitlistError}</div> : null}
+            {quickWaitlistSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickWaitlistSuccess}</div> : null}
           </form>
         </div>
       </section>
