@@ -231,7 +231,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
         const url = new URL(`/public/${params.slug}/slots`, apiBase);
         url.searchParams.set('serviceId', serviceId);
         url.searchParams.set('staffId', staffId);
-        url.searchParams.set('date', `${date}T00:00:00.000Z`);
+        url.searchParams.set('date', date);
 
         const response = await fetch(url.toString());
         if (!response.ok) {

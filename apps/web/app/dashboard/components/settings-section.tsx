@@ -1,7 +1,7 @@
 import { Notice } from './notice';
 
 type SettingsSectionProps = {
-  tenantSettings: { name: string } | null;
+  tenantSettings: { name: string; slug: string } | null;
   tenantSettingsLoading: boolean;
   token: string;
   loadTenantSettings: () => Promise<void>;
@@ -20,6 +20,12 @@ type SettingsSectionProps = {
 };
 
 export function SettingsSection(props: SettingsSectionProps) {
+  const publicPath = props.tenantSettings?.slug ? `/public/${props.tenantSettings.slug}` : '';
+  const publicUrl =
+    props.tenantSettings?.slug && typeof window !== 'undefined'
+      ? `${window.location.origin}${publicPath}`
+      : publicPath;
+
   return (
     <section style={{ marginTop: 28 }}>
       <h2 style={{ marginBottom: 8 }}>Tenant Settings (MVP)</h2>
@@ -39,6 +45,13 @@ export function SettingsSection(props: SettingsSectionProps) {
           {props.tenantSettingsLoading ? 'Cargando...' : 'Refresh settings'}
         </button>
       </div>
+
+      {props.tenantSettings?.slug ? (
+        <div style={{ marginBottom: 12, padding: 10, borderRadius: 6, border: '1px solid #ddd', background: '#fafafa' }}>
+          <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>URL pública para clientes</div>
+          <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', wordBreak: 'break-all' }}>{publicUrl}</div>
+        </div>
+      ) : null}
 
       <Notice tone="error" message={props.tenantSettingsError} withMargin onClose={() => props.setTenantSettingsError('')} />
       <Notice tone="success" message={props.tenantSettingsSuccess} withMargin onClose={() => props.setTenantSettingsSuccess('')} />
