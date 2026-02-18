@@ -2,9 +2,16 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { z } from 'zod';
 
 const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
+
+const loginSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  email: z.string().trim().email('Email inválido.'),
+  password: z.string().min(8, 'Password debe tener al menos 8 caracteres.')
+});
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,15 +35,30 @@ export default function LoginPage() {
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError('');
+
+    const parsed = loginSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      email: email.trim(),
+      password
+    });
+
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await fetch(new URL('/auth/login', apiUrl).toString(), {
+      const response = await fetch(new URL('/auth/login', parsed.data.apiUrl).toString(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({
+          email: parsed.data.email,
+          password: parsed.data.password
+        })
       });
 
       if (!response.ok) {
@@ -50,7 +72,7 @@ export default function LoginPage() {
       }
 
       localStorage.setItem(TOKEN_KEY, payload.accessToken);
-      localStorage.setItem(API_URL_KEY, apiUrl);
+      localStorage.setItem(API_URL_KEY, parsed.data.apiUrl);
       router.replace('/dashboard');
     } catch (loginError) {
       const message = loginError instanceof Error ? loginError.message : 'No se pudo iniciar sesión';

@@ -81,6 +81,12 @@ Pruebas e2e disponibles en API (`npm run test:e2e -w @apoint/api`):
 - Smoke MVP: registro de negocio -> setup base -> reserva pública completa
 - Aislamiento multi-tenant: sin acceso cruzado entre tenants
 
+Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
+- Colisiones de horario
+- Políticas de cancelación/reprogramación por ventana de aviso
+- Límites de reservas por día/semana/mes (plan `free`)
+- Generación de slots públicos (reglas, excepciones y buffer)
+
 ### Health
 - `GET /health`
 
@@ -140,6 +146,8 @@ Pruebas e2e disponibles en API (`npm run test:e2e -w @apoint/api`):
 - Filtro de staff por nombre (dropdown cargado desde `GET /staff`)
 - Filtro de estado por dropdown (`pending`, `confirmed`, `cancelled`, `rescheduled`, `no_show`, `completed`)
 - Consumir en vivo `GET /dashboard/appointments`
+- Consultar auditoría con filtros (`action`, `actorUserId`, fechas, `limit`) y paginación por `nextCursor`
+- Acciones rápidas para crear `service`, `staff` y `booking` desde la misma vista
 
 ### CRM Clientes (protegido con Bearer)
 - `GET /customers?search=...`

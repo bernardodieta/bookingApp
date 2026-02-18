@@ -2,10 +2,16 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { z } from 'zod';
 
 type StaffMember = {
   id: string;
   fullName: string;
+};
+
+type ServiceItem = {
+  id: string;
+  name: string;
 };
 
 type DashboardResponse = {
@@ -32,10 +38,69 @@ type DashboardResponse = {
   }>;
 };
 
+type AuditLogEntry = {
+  id: string;
+  action: string;
+  entity: string;
+  entityId: string | null;
+  actorUserId: string | null;
+  createdAt: string;
+};
+
+type AuditLogsResponse = {
+  items: AuditLogEntry[];
+  nextCursor: string | null;
+};
+
 const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
 const today = new Date().toISOString().slice(0, 10);
 const STATUS_OPTIONS = ['pending', 'confirmed', 'cancelled', 'rescheduled', 'no_show', 'completed'] as const;
+
+const dashboardFilterSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  range: z.enum(['day', 'week', 'month']),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida. Usa formato YYYY-MM-DD.'),
+  staffId: z.string().optional(),
+  status: z.union([z.literal(''), z.enum(STATUS_OPTIONS)]),
+  token: z.string().min(1, 'Token de sesión inválido.')
+});
+
+const auditFilterSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.'),
+  action: z.string().optional(),
+  actorUserId: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  limit: z.number().int().min(1).max(200)
+});
+
+const quickCreateServiceSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.'),
+  name: z.string().trim().min(1, 'Nombre de servicio requerido.'),
+  durationMinutes: z.coerce.number().int().min(5, 'Duración mínima: 5 minutos.'),
+  price: z.coerce.number().min(0, 'Precio inválido.')
+});
+
+const quickCreateStaffSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.'),
+  fullName: z.string().trim().min(1, 'Nombre de staff requerido.'),
+  email: z.string().trim().email('Email de staff inválido.')
+});
+
+const quickCreateBookingSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.'),
+  serviceId: z.string().trim().min(1, 'Selecciona un servicio.'),
+  staffId: z.string().trim().min(1, 'Selecciona un staff.'),
+  startAt: z.string().trim().min(1, 'Fecha/hora requerida.'),
+  customerName: z.string().trim().min(1, 'Nombre de cliente requerido.'),
+  customerEmail: z.string().trim().email('Email de cliente inválido.'),
+  notes: z.string().optional()
+});
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -46,11 +111,43 @@ export default function DashboardPage() {
   const [staffId, setStaffId] = useState('');
   const [status, setStatus] = useState('');
   const [staffOptions, setStaffOptions] = useState<StaffMember[]>([]);
+  const [serviceOptions, setServiceOptions] = useState<ServiceItem[]>([]);
   const [staffLoading, setStaffLoading] = useState(false);
+  const [serviceLoading, setServiceLoading] = useState(false);
   const [staffError, setStaffError] = useState('');
+  const [serviceError, setServiceError] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState<DashboardResponse | null>(null);
+  const [auditAction, setAuditAction] = useState('');
+  const [auditActorUserId, setAuditActorUserId] = useState('');
+  const [auditFrom, setAuditFrom] = useState(today);
+  const [auditTo, setAuditTo] = useState(today);
+  const [auditLimit, setAuditLimit] = useState('20');
+  const [auditCursor, setAuditCursor] = useState<string | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState('');
+  const [quickServiceName, setQuickServiceName] = useState('');
+  const [quickServiceDuration, setQuickServiceDuration] = useState('30');
+  const [quickServicePrice, setQuickServicePrice] = useState('100');
+  const [quickServiceLoading, setQuickServiceLoading] = useState(false);
+  const [quickServiceError, setQuickServiceError] = useState('');
+  const [quickServiceSuccess, setQuickServiceSuccess] = useState('');
+  const [quickStaffName, setQuickStaffName] = useState('');
+  const [quickStaffEmail, setQuickStaffEmail] = useState('');
+  const [quickStaffLoading, setQuickStaffLoading] = useState(false);
+  const [quickStaffError, setQuickStaffError] = useState('');
+  const [quickStaffSuccess, setQuickStaffSuccess] = useState('');
+  const [quickBookingServiceId, setQuickBookingServiceId] = useState('');
+  const [quickBookingStaffId, setQuickBookingStaffId] = useState('');
+  const [quickBookingStartAt, setQuickBookingStartAt] = useState('');
+  const [quickBookingCustomerName, setQuickBookingCustomerName] = useState('');
+  const [quickBookingCustomerEmail, setQuickBookingCustomerEmail] = useState('');
+  const [quickBookingNotes, setQuickBookingNotes] = useState('');
+  const [quickBookingLoading, setQuickBookingLoading] = useState(false);
+  const [quickBookingError, setQuickBookingError] = useState('');
+  const [quickBookingSuccess, setQuickBookingSuccess] = useState('');
 
   const summaryStatus = useMemo(() => {
     if (!data) return [] as Array<[string, number]>;
@@ -73,8 +170,9 @@ export default function DashboardPage() {
   }, [router]);
 
   useEffect(() => {
-    if (apiUrl.trim()) {
-      localStorage.setItem(API_URL_KEY, apiUrl.trim());
+    const parsedApiUrl = z.string().url().safeParse(apiUrl.trim());
+    if (parsedApiUrl.success) {
+      localStorage.setItem(API_URL_KEY, parsedApiUrl.data);
     }
   }, [apiUrl]);
 
@@ -85,30 +183,61 @@ export default function DashboardPage() {
 
     let cancelled = false;
 
-    async function loadStaff() {
+    async function loadReferenceData() {
       setStaffLoading(true);
+      setServiceLoading(true);
       setStaffError('');
+      setServiceError('');
 
       try {
-        const response = await fetch(new URL('/staff', apiUrl).toString(), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(text || `Error ${response.status}`);
+        const parsedApiUrl = z.string().url().safeParse(apiUrl.trim());
+        if (!parsedApiUrl.success) {
+          setStaffError('API URL inválida.');
+          setServiceError('API URL inválida.');
+          return;
         }
 
-        const payload = (await response.json()) as StaffMember[];
+        const [staffResponse, servicesResponse] = await Promise.all([
+          fetch(new URL('/staff', parsedApiUrl.data).toString(), {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }),
+          fetch(new URL('/services', parsedApiUrl.data).toString(), {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          })
+        ]);
+
+        if (!staffResponse.ok) {
+          const text = await staffResponse.text();
+          throw new Error(text || `Error ${staffResponse.status}`);
+        }
+
+        if (!servicesResponse.ok) {
+          const text = await servicesResponse.text();
+          throw new Error(text || `Error ${servicesResponse.status}`);
+        }
+
+        const staffPayload = (await staffResponse.json()) as StaffMember[];
+        const servicesPayload = (await servicesResponse.json()) as ServiceItem[];
         if (cancelled) {
           return;
         }
 
-        setStaffOptions(payload);
-        if (payload.length && !payload.some((entry) => entry.id === staffId)) {
+        setStaffOptions(staffPayload);
+        setServiceOptions(servicesPayload);
+
+        if (staffPayload.length && !staffPayload.some((entry) => entry.id === staffId)) {
           setStaffId('');
+        }
+        if (staffPayload.length && !staffPayload.some((entry) => entry.id === quickBookingStaffId)) {
+          setQuickBookingStaffId(staffPayload[0]?.id ?? '');
+        }
+
+        if (servicesPayload.length && !servicesPayload.some((entry) => entry.id === quickBookingServiceId)) {
+          setQuickBookingServiceId(servicesPayload[0]?.id ?? '');
         }
       } catch (loadError) {
         if (cancelled) {
@@ -116,14 +245,16 @@ export default function DashboardPage() {
         }
         const message = loadError instanceof Error ? loadError.message : 'No se pudo cargar staff';
         setStaffError(message);
+        setServiceError(message);
       } finally {
         if (!cancelled) {
           setStaffLoading(false);
+          setServiceLoading(false);
         }
       }
     }
 
-    loadStaff();
+    loadReferenceData();
 
     return () => {
       cancelled = true;
@@ -133,28 +264,110 @@ export default function DashboardPage() {
   function onLogout() {
     localStorage.removeItem(TOKEN_KEY);
     setData(null);
+    setAuditLogs([]);
+    setAuditCursor(null);
     router.replace('/login');
+  }
+
+  async function loadAuditLogs(nextCursor?: string) {
+    setAuditError('');
+
+    const parsedLimit = Number(auditLimit);
+    const parsed = auditFilterSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim(),
+      action: auditAction.trim() || undefined,
+      actorUserId: auditActorUserId.trim() || undefined,
+      from: auditFrom || undefined,
+      to: auditTo || undefined,
+      limit: Number.isFinite(parsedLimit) ? parsedLimit : NaN
+    });
+
+    if (!parsed.success) {
+      setAuditError(parsed.error.issues[0]?.message ?? 'Filtros de auditoría inválidos.');
+      return;
+    }
+
+    setAuditLoading(true);
+
+    try {
+      const url = new URL('/audit/logs', parsed.data.apiUrl);
+      if (parsed.data.action) {
+        url.searchParams.set('action', parsed.data.action);
+      }
+      if (parsed.data.actorUserId) {
+        url.searchParams.set('actorUserId', parsed.data.actorUserId);
+      }
+      if (parsed.data.from) {
+        url.searchParams.set('from', `${parsed.data.from}T00:00:00.000Z`);
+      }
+      if (parsed.data.to) {
+        url.searchParams.set('to', `${parsed.data.to}T23:59:59.999Z`);
+      }
+      url.searchParams.set('limit', String(parsed.data.limit));
+      if (nextCursor) {
+        url.searchParams.set('cursor', nextCursor);
+      }
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          Authorization: `Bearer ${parsed.data.token}`
+        }
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      const payload = (await response.json()) as AuditLogsResponse;
+      setAuditLogs(payload.items ?? []);
+      setAuditCursor(payload.nextCursor ?? null);
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo cargar auditoría';
+      setAuditError(message);
+      setAuditLogs([]);
+      setAuditCursor(null);
+    } finally {
+      setAuditLoading(false);
+    }
   }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError('');
+
+    const parsed = dashboardFilterSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      range,
+      date,
+      staffId: staffId.trim() || undefined,
+      status,
+      token: token.trim()
+    });
+
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? 'Filtros inválidos.');
+      setData(null);
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const url = new URL('/dashboard/appointments', apiUrl);
-      url.searchParams.set('range', range);
-      url.searchParams.set('date', date);
-      if (staffId.trim()) {
-        url.searchParams.set('staffId', staffId.trim());
+      const url = new URL('/dashboard/appointments', parsed.data.apiUrl);
+      url.searchParams.set('range', parsed.data.range);
+      url.searchParams.set('date', parsed.data.date);
+      if (parsed.data.staffId) {
+        url.searchParams.set('staffId', parsed.data.staffId);
       }
-      if (status.trim()) {
-        url.searchParams.set('status', status.trim());
+      if (parsed.data.status) {
+        url.searchParams.set('status', parsed.data.status);
       }
 
       const response = await fetch(url.toString(), {
         headers: {
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${parsed.data.token}`
         }
       });
 
@@ -171,6 +384,193 @@ export default function DashboardPage() {
       setData(null);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onCreateService(event: FormEvent) {
+    event.preventDefault();
+    setQuickServiceError('');
+    setQuickServiceSuccess('');
+
+    const parsed = quickCreateServiceSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim(),
+      name: quickServiceName,
+      durationMinutes: quickServiceDuration,
+      price: quickServicePrice
+    });
+
+    if (!parsed.success) {
+      setQuickServiceError(parsed.error.issues[0]?.message ?? 'Datos de servicio inválidos.');
+      return;
+    }
+
+    setQuickServiceLoading(true);
+
+    try {
+      const response = await fetch(new URL('/services', parsed.data.apiUrl).toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({
+          name: parsed.data.name,
+          durationMinutes: parsed.data.durationMinutes,
+          price: parsed.data.price
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      setQuickServiceSuccess('Servicio creado correctamente.');
+      setQuickServiceName('');
+
+      const created = (await response.json()) as ServiceItem;
+      if (created?.id && created?.name) {
+        setServiceOptions((current) => {
+          if (current.some((entry) => entry.id === created.id)) {
+            return current;
+          }
+          return [...current, created];
+        });
+        if (!quickBookingServiceId) {
+          setQuickBookingServiceId(created.id);
+        }
+      }
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo crear servicio';
+      setQuickServiceError(message);
+    } finally {
+      setQuickServiceLoading(false);
+    }
+  }
+
+  async function onCreateStaff(event: FormEvent) {
+    event.preventDefault();
+    setQuickStaffError('');
+    setQuickStaffSuccess('');
+
+    const parsed = quickCreateStaffSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim(),
+      fullName: quickStaffName,
+      email: quickStaffEmail
+    });
+
+    if (!parsed.success) {
+      setQuickStaffError(parsed.error.issues[0]?.message ?? 'Datos de staff inválidos.');
+      return;
+    }
+
+    setQuickStaffLoading(true);
+
+    try {
+      const response = await fetch(new URL('/staff', parsed.data.apiUrl).toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({
+          fullName: parsed.data.fullName,
+          email: parsed.data.email
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      const payload = (await response.json()) as StaffMember;
+      if (payload?.id && payload?.fullName) {
+        setStaffOptions((current) => {
+          if (current.some((entry) => entry.id === payload.id)) {
+            return current;
+          }
+          return [...current, payload];
+        });
+      }
+
+      setQuickStaffSuccess('Staff creado correctamente.');
+      setQuickStaffName('');
+      setQuickStaffEmail('');
+      if (!quickBookingStaffId && payload?.id) {
+        setQuickBookingStaffId(payload.id);
+      }
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo crear staff';
+      setQuickStaffError(message);
+    } finally {
+      setQuickStaffLoading(false);
+    }
+  }
+
+  async function onCreateBooking(event: FormEvent) {
+    event.preventDefault();
+    setQuickBookingError('');
+    setQuickBookingSuccess('');
+
+    const parsed = quickCreateBookingSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim(),
+      serviceId: quickBookingServiceId,
+      staffId: quickBookingStaffId,
+      startAt: quickBookingStartAt,
+      customerName: quickBookingCustomerName,
+      customerEmail: quickBookingCustomerEmail,
+      notes: quickBookingNotes.trim() || undefined
+    });
+
+    if (!parsed.success) {
+      setQuickBookingError(parsed.error.issues[0]?.message ?? 'Datos de booking inválidos.');
+      return;
+    }
+
+    const startAtDate = new Date(parsed.data.startAt);
+    if (Number.isNaN(startAtDate.getTime())) {
+      setQuickBookingError('Fecha/hora inválida para la reserva.');
+      return;
+    }
+
+    setQuickBookingLoading(true);
+
+    try {
+      const response = await fetch(new URL('/bookings', parsed.data.apiUrl).toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({
+          serviceId: parsed.data.serviceId,
+          staffId: parsed.data.staffId,
+          startAt: startAtDate.toISOString(),
+          customerName: parsed.data.customerName,
+          customerEmail: parsed.data.customerEmail,
+          notes: parsed.data.notes
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      setQuickBookingSuccess('Reserva creada correctamente.');
+      setQuickBookingStartAt('');
+      setQuickBookingCustomerName('');
+      setQuickBookingCustomerEmail('');
+      setQuickBookingNotes('');
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo crear reserva';
+      setQuickBookingError(message);
+    } finally {
+      setQuickBookingLoading(false);
     }
   }
 
@@ -227,6 +627,7 @@ export default function DashboardPage() {
           </label>
         </div>
         {staffError ? <div style={{ background: '#fff4e5', color: '#8a5300', padding: 10, borderRadius: 6 }}>{staffError}</div> : null}
+        {serviceError ? <div style={{ background: '#fff4e5', color: '#8a5300', padding: 10, borderRadius: 6 }}>{serviceError}</div> : null}
         <button type="submit" disabled={loading || !token.trim()} style={{ width: 220, padding: '8px 12px' }}>
           {loading ? 'Consultando...' : 'Cargar calendario'}
         </button>
@@ -286,6 +687,187 @@ export default function DashboardPage() {
           </div>
         </section>
       ) : null}
+
+      <section style={{ marginTop: 28 }}>
+        <h2 style={{ marginBottom: 8 }}>Acciones rápidas (MVP)</h2>
+        <p style={{ marginTop: 0, color: '#555' }}>Alta rápida de servicios, staff y reservas sin salir del dashboard.</p>
+
+        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', marginBottom: 8 }}>
+          <form onSubmit={onCreateService} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <strong>Crear servicio</strong>
+            <label>
+              Nombre
+              <input value={quickServiceName} onChange={(e) => setQuickServiceName(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Duración (min)
+              <input type="number" min={5} value={quickServiceDuration} onChange={(e) => setQuickServiceDuration(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Precio
+              <input type="number" min={0} step="0.01" value={quickServicePrice} onChange={(e) => setQuickServicePrice(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <button type="submit" disabled={quickServiceLoading || !token.trim()} style={{ width: 180, padding: '8px 12px' }}>
+              {quickServiceLoading ? 'Creando...' : 'Crear servicio'}
+            </button>
+            {quickServiceError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickServiceError}</div> : null}
+            {quickServiceSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickServiceSuccess}</div> : null}
+          </form>
+
+          <form onSubmit={onCreateStaff} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <strong>Crear staff</strong>
+            <label>
+              Nombre completo
+              <input value={quickStaffName} onChange={(e) => setQuickStaffName(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Email
+              <input type="email" value={quickStaffEmail} onChange={(e) => setQuickStaffEmail(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <button type="submit" disabled={quickStaffLoading || !token.trim()} style={{ width: 180, padding: '8px 12px' }}>
+              {quickStaffLoading ? 'Creando...' : 'Crear staff'}
+            </button>
+            {quickStaffError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickStaffError}</div> : null}
+            {quickStaffSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickStaffSuccess}</div> : null}
+          </form>
+
+          <form onSubmit={onCreateBooking} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <strong>Crear booking</strong>
+            <label>
+              Servicio
+              <select value={quickBookingServiceId} onChange={(e) => setQuickBookingServiceId(e.target.value)} style={{ width: '100%' }} disabled={serviceLoading}>
+                <option value="">Seleccionar</option>
+                {serviceOptions.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Staff
+              <select value={quickBookingStaffId} onChange={(e) => setQuickBookingStaffId(e.target.value)} style={{ width: '100%' }} disabled={staffLoading}>
+                <option value="">Seleccionar</option>
+                {staffOptions.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.fullName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Inicio
+              <input type="datetime-local" value={quickBookingStartAt} onChange={(e) => setQuickBookingStartAt(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Cliente
+              <input value={quickBookingCustomerName} onChange={(e) => setQuickBookingCustomerName(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Email cliente
+              <input type="email" value={quickBookingCustomerEmail} onChange={(e) => setQuickBookingCustomerEmail(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Notas (opcional)
+              <input value={quickBookingNotes} onChange={(e) => setQuickBookingNotes(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <button type="submit" disabled={quickBookingLoading || !token.trim()} style={{ width: 180, padding: '8px 12px' }}>
+              {quickBookingLoading ? 'Creando...' : 'Crear booking'}
+            </button>
+            {quickBookingError ? <div style={{ background: '#fee', color: '#900', padding: 10, borderRadius: 6 }}>{quickBookingError}</div> : null}
+            {quickBookingSuccess ? <div style={{ background: '#ecfdf3', color: '#166534', padding: 10, borderRadius: 6 }}>{quickBookingSuccess}</div> : null}
+          </form>
+        </div>
+      </section>
+
+      <section style={{ marginTop: 28 }}>
+        <h2 style={{ marginBottom: 8 }}>Auditoría (MVP)</h2>
+        <p style={{ marginTop: 0, color: '#555' }}>Consulta acciones sensibles del tenant autenticado.</p>
+
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void loadAuditLogs();
+          }}
+          style={{ display: 'grid', gap: 12, marginBottom: 14 }}
+        >
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+            <label>
+              Acción (opcional)
+              <input value={auditAction} onChange={(e) => setAuditAction(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Actor User ID (opcional)
+              <input value={auditActorUserId} onChange={(e) => setAuditActorUserId(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Desde
+              <input type="date" value={auditFrom} onChange={(e) => setAuditFrom(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Hasta
+              <input type="date" value={auditTo} onChange={(e) => setAuditTo(e.target.value)} style={{ width: '100%' }} />
+            </label>
+            <label>
+              Límite
+              <input type="number" min={1} max={200} value={auditLimit} onChange={(e) => setAuditLimit(e.target.value)} style={{ width: '100%' }} />
+            </label>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="submit" disabled={auditLoading || !token.trim()} style={{ width: 180, padding: '8px 12px' }}>
+              {auditLoading ? 'Cargando...' : 'Cargar auditoría'}
+            </button>
+            <button
+              type="button"
+              disabled={auditLoading || !auditCursor}
+              onClick={() => {
+                if (auditCursor) {
+                  void loadAuditLogs(auditCursor);
+                }
+              }}
+              style={{ width: 180, padding: '8px 12px' }}
+            >
+              Siguiente página
+            </button>
+          </div>
+        </form>
+
+        {auditError ? (
+          <div style={{ background: '#fee', color: '#900', padding: 12, borderRadius: 6, marginBottom: 12 }}>{auditError}</div>
+        ) : null}
+
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Fecha</th>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Acción</th>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Entidad</th>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Entity ID</th>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Actor User ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {auditLogs.map((entry) => (
+                <tr key={entry.id}>
+                  <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{new Date(entry.createdAt).toLocaleString()}</td>
+                  <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.action}</td>
+                  <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.entity}</td>
+                  <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.entityId ?? '-'}</td>
+                  <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.actorUserId ?? '-'}</td>
+                </tr>
+              ))}
+              {!auditLogs.length ? (
+                <tr>
+                  <td colSpan={5} style={{ padding: 10, color: '#666' }}>
+                    Sin registros para los filtros actuales.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
   );
 }
