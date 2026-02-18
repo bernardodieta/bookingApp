@@ -3,6 +3,9 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
+import { PaymentsSection } from './components/payments-section';
+import { SettingsSection } from './components/settings-section';
+import { AuditSection } from './components/audit-section';
 
 type StaffMember = {
   id: string;
@@ -401,6 +404,7 @@ export default function DashboardPage() {
   const [apiUrl, setApiUrl] = useState('http://localhost:3001');
   const [token, setToken] = useState('');
   const [range, setRange] = useState<'day' | 'week' | 'month'>('day');
+  const [activeSection, setActiveSection] = useState<'overview' | 'payments' | 'operations' | 'settings' | 'audit'>('overview');
   const [date, setDate] = useState(today);
   const [staffId, setStaffId] = useState('');
   const [status, setStatus] = useState('');
@@ -2092,6 +2096,34 @@ export default function DashboardPage() {
         </button>
       </div>
 
+      <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        {[
+          { key: 'overview' as const, label: 'Overview' },
+          { key: 'payments' as const, label: 'Payments' },
+          { key: 'operations' as const, label: 'Operations' },
+          { key: 'settings' as const, label: 'Settings' },
+          { key: 'audit' as const, label: 'Audit' }
+        ].map((section) => (
+          <button
+            key={section.key}
+            type="button"
+            onClick={() => setActiveSection(section.key)}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: 8,
+              background: activeSection === section.key ? '#f4f4f4' : '#fff',
+              fontWeight: activeSection === section.key ? 600 : 400
+            }}
+          >
+            {section.label}
+          </button>
+        ))}
+      </nav>
+
+      {activeSection === 'overview' ? (
+      <>
+
       <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
         <label>
           API URL
@@ -2303,166 +2335,47 @@ export default function DashboardPage() {
         </section>
       ) : null}
 
-      <section style={{ marginTop: 28 }}>
-        <h2 style={{ marginBottom: 8 }}>Pagos (MVP)</h2>
-        <p style={{ marginTop: 0, color: '#555' }}>
-          Registra pago completo o depósito para una reserva y consulta historial reciente.
-        </p>
+      </>
+      ) : null}
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <button
-            type="button"
-            disabled={paymentsLoading || !token.trim()}
-            onClick={() => {
-              void loadPayments();
-            }}
-            style={{ width: 180, padding: '8px 12px' }}
-          >
-            {paymentsLoading ? 'Cargando...' : 'Refresh pagos'}
-          </button>
-        </div>
+      {activeSection === 'payments' ? (
+        <PaymentsSection
+          token={token}
+          paymentsLoading={paymentsLoading}
+          loadPayments={loadPayments}
+          onCreatePayment={onCreatePayment}
+          quickPaymentBookingId={quickPaymentBookingId}
+          setQuickPaymentBookingId={setQuickPaymentBookingId}
+          data={data}
+          quickPaymentMode={quickPaymentMode}
+          setQuickPaymentMode={setQuickPaymentMode}
+          quickPaymentMethod={quickPaymentMethod}
+          setQuickPaymentMethod={setQuickPaymentMethod}
+          paymentMethodOptions={PAYMENT_METHOD_OPTIONS}
+          quickPaymentAmount={quickPaymentAmount}
+          setQuickPaymentAmount={setQuickPaymentAmount}
+          quickPaymentNotes={quickPaymentNotes}
+          setQuickPaymentNotes={setQuickPaymentNotes}
+          quickPaymentLoading={quickPaymentLoading}
+          canSubmitQuickPayment={canSubmitQuickPayment}
+          quickPaymentDisabledReason={quickPaymentDisabledReason}
+          quickPaymentError={quickPaymentError}
+          setQuickPaymentError={setQuickPaymentError}
+          quickPaymentSuccess={quickPaymentSuccess}
+          setQuickPaymentSuccess={setQuickPaymentSuccess}
+          paymentsError={paymentsError}
+          setPaymentsError={setPaymentsError}
+          payments={payments}
+          saleNoteLoadingId={saleNoteLoadingId}
+          onLoadSaleNote={onLoadSaleNote}
+          saleNoteError={saleNoteError}
+          setSaleNoteError={setSaleNoteError}
+          saleNote={saleNote}
+        />
+      ) : null}
 
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', marginBottom: 12 }}>
-          <form onSubmit={onCreatePayment} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Registrar pago</strong>
-            <label>
-              Reserva
-              <select
-                value={quickPaymentBookingId}
-                onChange={(event) => setQuickPaymentBookingId(event.target.value)}
-                style={{ width: '100%' }}
-                disabled={!data?.bookings?.length}
-              >
-                <option value="">Seleccionar</option>
-                {(data?.bookings ?? []).map((booking) => (
-                  <option key={booking.id} value={booking.id}>
-                    {booking.customerName} · {booking.service.name} · {new Date(booking.startAt).toLocaleString()}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Tipo
-              <select value={quickPaymentMode} onChange={(event) => setQuickPaymentMode(event.target.value as 'full' | 'deposit')} style={{ width: '100%' }}>
-                <option value="full">Pago total (saldo pendiente)</option>
-                <option value="deposit">Depósito parcial</option>
-              </select>
-            </label>
-            <label>
-              Método
-              <select
-                value={quickPaymentMethod}
-                onChange={(event) => setQuickPaymentMethod(event.target.value as (typeof PAYMENT_METHOD_OPTIONS)[number])}
-                style={{ width: '100%' }}
-              >
-                {PAYMENT_METHOD_OPTIONS.map((method) => (
-                  <option key={method} value={method}>
-                    {method}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Monto (solo depósito)
-              <input
-                type="number"
-                min={0.01}
-                step="0.01"
-                value={quickPaymentAmount}
-                onChange={(event) => setQuickPaymentAmount(event.target.value)}
-                disabled={quickPaymentMode !== 'deposit'}
-                style={{ width: '100%' }}
-              />
-            </label>
-            <label>
-              Notas (opcional)
-              <input value={quickPaymentNotes} onChange={(event) => setQuickPaymentNotes(event.target.value)} style={{ width: '100%' }} />
-            </label>
-            <button type="submit" disabled={!canSubmitQuickPayment} style={{ width: 180, padding: '8px 12px' }}>
-              {quickPaymentLoading ? 'Registrando...' : 'Registrar pago'}
-            </button>
-            {!canSubmitQuickPayment && quickPaymentDisabledReason ? (
-              <div style={{ color: '#666', fontSize: 12 }}>{quickPaymentDisabledReason}</div>
-            ) : null}
-            {!data?.bookings?.length ? (
-              <div style={{ color: '#666', fontSize: 12 }}>Primero carga calendario para seleccionar una reserva.</div>
-            ) : null}
-            <Notice tone="error" message={quickPaymentError} onClose={() => setQuickPaymentError('')} />
-            <Notice tone="success" message={quickPaymentSuccess} onClose={() => setQuickPaymentSuccess('')} />
-          </form>
-
-          <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Historial reciente</strong>
-            <Notice tone="error" message={paymentsError} onClose={() => setPaymentsError('')} />
-            <div style={{ overflowX: 'auto', marginTop: 8 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Fecha</th>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Cliente</th>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Tipo</th>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Monto</th>
-                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map((payment) => (
-                    <tr key={payment.id}>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
-                        {new Date(payment.paidAt ?? payment.createdAt).toLocaleString()}
-                      </td>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{payment.booking.customerName}</td>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{payment.kind}</td>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
-                        {Number(payment.amount).toFixed(2)} {payment.currency}
-                      </td>
-                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void onLoadSaleNote(payment.id);
-                          }}
-                          disabled={saleNoteLoadingId === payment.id}
-                          style={{ padding: '4px 8px' }}
-                        >
-                          {saleNoteLoadingId === payment.id ? 'Cargando...' : 'Nota venta'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {!payments.length ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: 8, color: '#666' }}>
-                        Sin pagos registrados.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <Notice tone="error" message={saleNoteError} withMargin onClose={() => setSaleNoteError('')} />
-        {saleNote ? (
-          <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-            <strong>Nota de venta: {saleNote.folio}</strong>
-            <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
-              <div>Emitida: {new Date(saleNote.issuedAt).toLocaleString()}</div>
-              <div>Negocio: {saleNote.tenant.name}</div>
-              <div>
-                Cliente: {saleNote.booking.customerName} ({saleNote.booking.customerEmail})
-              </div>
-              <div>Servicio: {saleNote.booking.serviceName}</div>
-              <div>Staff: {saleNote.booking.staffName}</div>
-              <div>
-                Pago: {saleNote.payment.amount.toFixed(2)} {saleNote.payment.currency} ({saleNote.payment.method})
-              </div>
-            </div>
-          </article>
-        ) : null}
-      </section>
-
+      {activeSection === 'operations' ? (
+      <>
       <section style={{ marginTop: 28 }}>
         <h2 style={{ marginBottom: 8 }}>Acciones rápidas (MVP)</h2>
         <p style={{ marginTop: 0, color: '#555' }}>Alta rápida de servicios, staff, reservas, reglas y excepciones de disponibilidad.</p>
@@ -2884,202 +2797,51 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section style={{ marginTop: 28 }}>
-        <h2 style={{ marginBottom: 8 }}>Tenant Settings (MVP)</h2>
-        <p style={{ marginTop: 0, color: '#555' }}>
-          Configura los campos del formulario público (`bookingFormFields`) para {tenantSettings?.name ?? 'tu negocio'}.
-        </p>
+      </>
+      ) : null}
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <button
-            type="button"
-            disabled={tenantSettingsLoading || !token.trim()}
-            onClick={() => {
-              void loadTenantSettings();
-            }}
-            style={{ width: 200, padding: '8px 12px' }}
-          >
-            {tenantSettingsLoading ? 'Cargando...' : 'Refresh settings'}
-          </button>
-        </div>
+      {activeSection === 'settings' ? (
+        <SettingsSection
+          tenantSettings={tenantSettings}
+          tenantSettingsLoading={tenantSettingsLoading}
+          token={token}
+          loadTenantSettings={loadTenantSettings}
+          tenantSettingsError={tenantSettingsError}
+          setTenantSettingsError={setTenantSettingsError}
+          tenantSettingsSuccess={tenantSettingsSuccess}
+          setTenantSettingsSuccess={setTenantSettingsSuccess}
+          onApplyBookingFieldPreset={onApplyBookingFieldPreset}
+          onSaveBookingFormFields={onSaveBookingFormFields}
+          refundPolicy={refundPolicy}
+          setRefundPolicy={setRefundPolicy}
+          reminderHoursBeforeText={reminderHoursBeforeText}
+          setReminderHoursBeforeText={setReminderHoursBeforeText}
+          bookingFormFieldsText={bookingFormFieldsText}
+          setBookingFormFieldsText={setBookingFormFieldsText}
+        />
+      ) : null}
 
-        <Notice tone="error" message={tenantSettingsError} withMargin onClose={() => setTenantSettingsError('')} />
-        <Notice tone="success" message={tenantSettingsSuccess} withMargin onClose={() => setTenantSettingsSuccess('')} />
-
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() =>
-              onApplyBookingFieldPreset({
-                key: 'phone',
-                label: 'Teléfono',
-                type: 'tel',
-                required: false,
-                placeholder: 'Ej: +52 55 1234 5678'
-              })
-            }
-            style={{ padding: '6px 10px' }}
-          >
-            Agregar Phone
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              onApplyBookingFieldPreset({
-                key: 'dni',
-                label: 'DNI/Documento',
-                type: 'text',
-                required: false,
-                placeholder: 'Ej: 12345678'
-              })
-            }
-            style={{ padding: '6px 10px' }}
-          >
-            Agregar DNI
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              onApplyBookingFieldPreset({
-                key: 'notes',
-                label: 'Notas adicionales',
-                type: 'textarea',
-                required: false,
-                placeholder: 'Indica cualquier detalle importante para tu cita'
-              })
-            }
-            style={{ padding: '6px 10px' }}
-          >
-            Agregar Notes
-          </button>
-        </div>
-
-        <form onSubmit={onSaveBookingFormFields} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
-          <label>
-            refundPolicy
-            <select value={refundPolicy} onChange={(e) => setRefundPolicy(e.target.value as 'full' | 'credit' | 'none')} style={{ width: 260 }}>
-              <option value="none">Sin devolución</option>
-              <option value="credit">Crédito</option>
-              <option value="full">Reembolso completo</option>
-            </select>
-          </label>
-          <label>
-            reminderHoursBefore (0 desactiva recordatorios)
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={reminderHoursBeforeText}
-              onChange={(e) => setReminderHoursBeforeText(e.target.value)}
-              style={{ width: 220 }}
-            />
-          </label>
-          <label>
-            bookingFormFields (JSON array)
-            <textarea
-              value={bookingFormFieldsText}
-              onChange={(e) => setBookingFormFieldsText(e.target.value)}
-              style={{ width: '100%', minHeight: 180, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
-              placeholder='[{ "key": "phone", "label": "Teléfono", "type": "tel", "required": false }]'
-            />
-          </label>
-          <div style={{ color: '#555', fontSize: 13 }}>
-            Sugerencia: usa objetos con `key`, `label`, `type` (`text|email|tel|textarea`) y `required`. El runner
-            de recordatorios usa `reminderHoursBefore` para enviar emails antes de la cita. `refundPolicy` aplica al
-            cancelar reservas con pagos (`none`, `credit`, `full`).
-          </div>
-          <button type="submit" disabled={tenantSettingsLoading || !token.trim()} style={{ width: 260, padding: '8px 12px' }}>
-            {tenantSettingsLoading ? 'Guardando...' : 'Guardar bookingFormFields'}
-          </button>
-        </form>
-      </section>
-
-      <section style={{ marginTop: 28 }}>
-        <h2 style={{ marginBottom: 8 }}>Auditoría (MVP)</h2>
-        <p style={{ marginTop: 0, color: '#555' }}>Consulta acciones sensibles del tenant autenticado.</p>
-
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void loadAuditLogs();
-          }}
-          style={{ display: 'grid', gap: 12, marginBottom: 14 }}
-        >
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
-            <label>
-              Acción (opcional)
-              <input value={auditAction} onChange={(e) => setAuditAction(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Actor User ID (opcional)
-              <input value={auditActorUserId} onChange={(e) => setAuditActorUserId(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Desde
-              <input type="date" value={auditFrom} onChange={(e) => setAuditFrom(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Hasta
-              <input type="date" value={auditTo} onChange={(e) => setAuditTo(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              Límite
-              <input type="number" min={1} max={200} value={auditLimit} onChange={(e) => setAuditLimit(e.target.value)} style={{ width: '100%' }} />
-            </label>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" disabled={auditLoading || !token.trim()} style={{ width: 180, padding: '8px 12px' }}>
-              {auditLoading ? 'Cargando...' : 'Cargar auditoría'}
-            </button>
-            <button
-              type="button"
-              disabled={auditLoading || !auditCursor}
-              onClick={() => {
-                if (auditCursor) {
-                  void loadAuditLogs(auditCursor);
-                }
-              }}
-              style={{ width: 180, padding: '8px 12px' }}
-            >
-              Siguiente página
-            </button>
-          </div>
-        </form>
-
-        <Notice tone="error" message={auditError} withMargin onClose={() => setAuditError('')} />
-
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Fecha</th>
-                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Acción</th>
-                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Entidad</th>
-                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Entity ID</th>
-                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Actor User ID</th>
-              </tr>
-            </thead>
-            <tbody>
-              {auditLogs.map((entry) => (
-                <tr key={entry.id}>
-                  <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{new Date(entry.createdAt).toLocaleString()}</td>
-                  <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.action}</td>
-                  <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.entity}</td>
-                  <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.entityId ?? '-'}</td>
-                  <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.actorUserId ?? '-'}</td>
-                </tr>
-              ))}
-              {!auditLogs.length ? (
-                <tr>
-                  <td colSpan={5} style={{ padding: 10, color: '#666' }}>
-                    Sin registros para los filtros actuales.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {activeSection === 'audit' ? (
+        <AuditSection
+          auditAction={auditAction}
+          setAuditAction={setAuditAction}
+          auditActorUserId={auditActorUserId}
+          setAuditActorUserId={setAuditActorUserId}
+          auditFrom={auditFrom}
+          setAuditFrom={setAuditFrom}
+          auditTo={auditTo}
+          setAuditTo={setAuditTo}
+          auditLimit={auditLimit}
+          setAuditLimit={setAuditLimit}
+          auditLoading={auditLoading}
+          token={token}
+          loadAuditLogs={loadAuditLogs}
+          auditCursor={auditCursor}
+          auditError={auditError}
+          setAuditError={setAuditError}
+          auditLogs={auditLogs}
+        />
+      ) : null}
     </main>
   );
 }

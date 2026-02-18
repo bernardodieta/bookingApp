@@ -14,6 +14,8 @@ Resumen ejecutivo:
 - Recordatorios NT-04 ejecutándose automáticamente por scheduler en backend.
 - Pagos MVP visibles en dashboard (registro + historial + nota de venta básica).
 - Política de reembolso configurable por tenant aplicada en cancelaciones (`none|credit|full`).
+- Stripe integrado en pagos (`checkout-session` + confirmación de sesión pagada).
+- Dashboard reorganizado por menús de sección (overview/pagos/operación/settings/auditoría).
 - Suite e2e crítica pasando (17/17).
 
 Pendiente inmediato para cierre de go-live MVP:
@@ -104,7 +106,7 @@ Usar estos IDs para historias, PRs y QA.
 
 ### 3.5 Pagos (PG)
 - [x] **PG-01** Pago completo o depósito parcial
-- [ ] **PG-02** Integración Stripe
+- [x] **PG-02** Integración Stripe
 - [ ] **PG-03** Integración MercadoPago
 - [x] **PG-04** Nota de venta/factura básica
 - [x] **PG-05** Política de reembolso configurable

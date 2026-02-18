@@ -3,6 +3,8 @@ import { Request } from 'express';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { AuthUser } from '../common/types/auth-user.type';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { CreateStripeCheckoutDto } from './dto/create-stripe-checkout.dto';
+import { ConfirmStripeSessionDto } from './dto/confirm-stripe-session.dto';
 import { PaymentsQueryDto } from './dto/payments-query.dto';
 import { PaymentsService } from './payments.service';
 
@@ -16,6 +18,16 @@ export class PaymentsController {
   @Post()
   create(@Req() req: RequestWithUser, @Body() body: CreatePaymentDto) {
     return this.paymentsService.create(req.user, body);
+  }
+
+  @Post('stripe/checkout-session')
+  createStripeCheckoutSession(@Req() req: RequestWithUser, @Body() body: CreateStripeCheckoutDto) {
+    return this.paymentsService.createStripeCheckoutSession(req.user, body);
+  }
+
+  @Post('stripe/confirm')
+  confirmStripeSession(@Req() req: RequestWithUser, @Body() body: ConfirmStripeSessionDto) {
+    return this.paymentsService.confirmStripeSession(req.user, body);
   }
 
   @Get()
