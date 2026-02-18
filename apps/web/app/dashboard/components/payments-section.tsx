@@ -1,6 +1,7 @@
 import { Notice } from './notice';
 
 type PaymentsSectionProps = {
+  paymentsView: 'register' | 'history';
   token: string;
   paymentsLoading: boolean;
   loadPayments: () => Promise<void>;
@@ -84,12 +85,18 @@ export function PaymentsSection(props: PaymentsSectionProps) {
   const stripeCheckoutUrl = props.stripeCheckoutUrl ?? '';
   const stripeLoading = props.stripeLoading ?? false;
   const stripeError = props.stripeError ?? '';
-  const stripeSuccess = props.stripeSuccess ?? '';
+
+  const showRegisterPanel = props.paymentsView === 'register';
+  const showHistoryPanel = props.paymentsView === 'history';
 
   return (
     <section className="section-block" style={{ marginTop: 28 }}>
       <h2 className="section-title">Pagos (MVP)</h2>
-      <p className="section-subtitle">Registra pago completo o depósito para una reserva y consulta historial reciente.</p>
+      <p className="section-subtitle">
+        {showRegisterPanel
+          ? 'Registra pago completo o depósito para una reserva.'
+          : 'Consulta historial reciente de pagos y genera nota de venta.'}
+      </p>
 
       <div className="section-actions" style={{ marginBottom: 12 }}>
         <button
@@ -105,6 +112,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
       </div>
 
       <div className="section-grid section-grid-2" style={{ marginBottom: 12 }}>
+        {showRegisterPanel ? (
         <form onSubmit={props.onCreatePayment} className="panel section-form" style={{ gap: 8 }}>
           <strong>Registrar pago</strong>
           <label>
@@ -216,11 +224,11 @@ export function PaymentsSection(props: PaymentsSectionProps) {
           ) : null}
           {!props.data?.bookings?.length ? <div style={{ color: '#666', fontSize: 12 }}>Primero carga calendario para seleccionar una reserva.</div> : null}
           <Notice tone="error" message={props.quickPaymentError} onClose={() => props.setQuickPaymentError('')} />
-          <Notice tone="success" message={props.quickPaymentSuccess} onClose={() => props.setQuickPaymentSuccess('')} />
           <Notice tone="error" message={stripeError} onClose={() => props.setStripeError?.('')} />
-          <Notice tone="success" message={stripeSuccess} onClose={() => props.setStripeSuccess?.('')} />
         </form>
+        ) : null}
 
+        {showHistoryPanel ? (
         <div className="panel">
           <strong>Historial reciente</strong>
           <Notice tone="error" message={props.paymentsError} onClose={() => props.setPaymentsError('')} />
@@ -269,6 +277,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
             </table>
           </div>
         </div>
+        ) : null}
       </div>
 
       <Notice tone="error" message={props.saleNoteError} withMargin onClose={() => props.setSaleNoteError('')} />

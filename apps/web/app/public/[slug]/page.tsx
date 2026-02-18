@@ -163,6 +163,19 @@ function formatDateTime(value: string, timeZone?: string) {
   return date.toLocaleString('es-MX', timeZone ? { timeZone } : undefined);
 }
 
+function formatTime(value: string, timeZone?: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleTimeString('es-MX', {
+    hour: '2-digit',
+    minute: '2-digit',
+    ...(timeZone ? { timeZone } : {})
+  });
+}
+
 function toLocalDateTimeInput(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -174,7 +187,7 @@ function toLocalDateTimeInput(value: string) {
 }
 
 export default function PublicBookingPage({ params }: PublicPageProps) {
-  const [apiBase, setApiBase] = useState(API_BASE);
+  const apiBase = API_BASE;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tenant, setTenant] = useState<TenantProfile | null>(null);
@@ -230,6 +243,32 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
         .filter((field): field is { key: string; label: string; type: string; required: boolean; placeholder: string } => !!field),
     [formFields]
   );
+
+  const slotBuckets = useMemo(() => {
+    const buckets = {
+      morning: [] as PublicSlotsResponse['slots'],
+      afternoon: [] as PublicSlotsResponse['slots'],
+      evening: [] as PublicSlotsResponse['slots']
+    };
+
+    for (const slot of slots) {
+      const hour = new Date(slot.startAt).getHours();
+      if (Number.isNaN(hour)) {
+        buckets.afternoon.push(slot);
+        continue;
+      }
+
+      if (hour < 12) {
+        buckets.morning.push(slot);
+      } else if (hour < 18) {
+        buckets.afternoon.push(slot);
+      } else {
+        buckets.evening.push(slot);
+      }
+    }
+
+    return buckets;
+  }, [slots]);
 
   useEffect(() => {
     let cancelled = false;
@@ -527,82 +566,92 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
         </div>
       </section>
 
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-        }}
-        className="panel"
-        style={{ marginBottom: 16, display: 'grid', gap: 8 }}
-      >
-        <label>
-          API URL
-          <input value={apiBase} onChange={(e) => setApiBase(e.target.value)} style={{ width: '100%' }} />
-        </label>
-      </form>
-
       {loading ? <div>{t.loadingProfile}</div> : null}
       {error ? <div className="status-error">{error}</div> : null}
 
       {!loading && !error ? (
-        <section style={{ display: 'grid', gap: 12 }}>
-          <div className="panel" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-            <label>
-              {t.service}
-              <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} style={{ width: '100%' }}>
-                <option value="">{t.select}</option>
-                {services.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.name} ({entry.durationMinutes} min)
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {t.professional}
-              <select value={staffId} onChange={(e) => setStaffId(e.target.value)} style={{ width: '100%' }}>
-                <option value="">{t.select}</option>
-                {staff.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.fullName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {t.date}
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '100%' }} />
-            </label>
+        <section style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div className="panel" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+              <label>
+                {t.service}
+                <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} style={{ width: '100%' }}>
+                  <option value="">{t.select}</option>
+                  {services.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.name} ({entry.durationMinutes} min)
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t.professional}
+                <select value={staffId} onChange={(e) => setStaffId(e.target.value)} style={{ width: '100%' }}>
+                  <option value="">{t.select}</option>
+                  {staff.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.fullName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t.date}
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '100%' }} />
+              </label>
+            </div>
+
+            <div className="panel" style={{ display: 'grid', gap: 10 }}>
+              <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <Clock3 size={16} /> {t.availableSlots}
+              </strong>
+              {slotsLoading ? <div>{t.loadingSlots}</div> : null}
+              {slotsError ? <div style={{ color: '#900' }}>{slotsError}</div> : null}
+
+              {!slotsLoading && !slotsError ? (
+                <div style={{ display: 'grid', gap: 10, maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
+                  {([
+                    ['morning', 'Mañana', slotBuckets.morning],
+                    ['afternoon', 'Tarde', slotBuckets.afternoon],
+                    ['evening', 'Noche', slotBuckets.evening]
+                  ] as const).map(([key, label, bucketSlots]) => (
+                    <div key={key} style={{ display: 'grid', gap: 6 }}>
+                      <small style={{ color: '#666', fontWeight: 600 }}>{label}</small>
+                      {bucketSlots.length ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          {bucketSlots.map((slot) => (
+                            <button
+                              key={slot.startAt}
+                              type="button"
+                              onClick={() => setSelectedSlot(slot.startAt)}
+                              style={{
+                                minWidth: 78,
+                                padding: '7px 10px',
+                                borderRadius: 8,
+                                border: selectedSlot === slot.startAt ? `2px solid ${brandPrimary}` : '1px solid var(--border)',
+                                background: selectedSlot === slot.startAt ? brandTint : 'var(--surface)',
+                                fontWeight: 600
+                              }}
+                              aria-pressed={selectedSlot === slot.startAt}
+                            >
+                              {formatTime(slot.startAt, tenant?.timeZone)}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <small style={{ color: '#888' }}>Sin horarios</small>
+                      )}
+                    </div>
+                  ))}
+
+                  {!slots.length ? <span style={{ color: '#666' }}>{t.noSlots}</span> : null}
+                </div>
+              ) : null}
+            </div>
           </div>
 
-          <div className="panel">
-            <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <Clock3 size={16} /> {t.availableSlots}
-            </strong>
-            {slotsLoading ? <div style={{ marginTop: 8 }}>{t.loadingSlots}</div> : null}
-            {slotsError ? <div style={{ marginTop: 8, color: '#900' }}>{slotsError}</div> : null}
-            {!slotsLoading && !slotsError ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                {slots.map((slot) => (
-                  <button
-                    key={slot.startAt}
-                    type="button"
-                    onClick={() => setSelectedSlot(slot.startAt)}
-                    style={{
-                      padding: '6px 10px',
-                      borderRadius: 6,
-                      border: selectedSlot === slot.startAt ? `2px solid ${brandPrimary}` : '1px solid #ddd',
-                      background: selectedSlot === slot.startAt ? brandTint : '#fff'
-                    }}
-                  >
-                    {formatDateTime(slot.startAt, tenant?.timeZone)}
-                  </button>
-                ))}
-                {!slots.length ? <span style={{ color: '#666' }}>{t.noSlots}</span> : null}
-              </div>
-            ) : null}
-          </div>
-
-          <form onSubmit={onSubmitBooking} className="panel" style={{ display: 'grid', gap: 10 }}>
+          <div style={{ display: 'grid', gap: 12, alignContent: 'start' }}>
+            <form onSubmit={onSubmitBooking} className="panel" style={{ display: 'grid', gap: 10 }}>
             <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
               <UserRound size={16} /> {t.bookingData}
             </strong>
@@ -670,27 +719,28 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
 
             {submitError ? <div className="status-error">{submitError}</div> : null}
             {submitSuccess ? <div className="status-success">{submitSuccess}</div> : null}
-          </form>
+            </form>
 
-          <form onSubmit={onJoinWaitlist} className="panel" style={{ display: 'grid', gap: 10 }}>
-            <strong>{t.waitlist}</strong>
-            <label>
-              {t.preferredDateTime}
-              <input
-                type="datetime-local"
-                value={preferredStartAt}
-                onChange={(e) => setPreferredStartAt(e.target.value)}
-                style={{ width: '100%' }}
-              />
-            </label>
+            <form onSubmit={onJoinWaitlist} className="panel" style={{ display: 'grid', gap: 10 }}>
+              <strong>{t.waitlist}</strong>
+              <label>
+                {t.preferredDateTime}
+                <input
+                  type="datetime-local"
+                  value={preferredStartAt}
+                  onChange={(e) => setPreferredStartAt(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </label>
 
-            <button type="submit" disabled={waitlistLoading} className="btn btn-ghost" style={{ width: 240 }}>
-              {waitlistLoading ? t.waitlistSubmitting : t.waitlistSubmit}
-            </button>
+              <button type="submit" disabled={waitlistLoading} className="btn btn-ghost" style={{ width: 240 }}>
+                {waitlistLoading ? t.waitlistSubmitting : t.waitlistSubmit}
+              </button>
 
-            {waitlistError ? <div className="status-error">{waitlistError}</div> : null}
-            {waitlistSuccess ? <div className="status-success">{waitlistSuccess}</div> : null}
-          </form>
+              {waitlistError ? <div className="status-error">{waitlistError}</div> : null}
+              {waitlistSuccess ? <div className="status-success">{waitlistSuccess}</div> : null}
+            </form>
+          </div>
         </section>
       ) : null}
     </main>

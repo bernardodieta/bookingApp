@@ -70,7 +70,8 @@ function formatDateTime(value: string) {
 }
 
 export default function CustomerBookingsPage({ params }: PageProps) {
-  const [apiBase, setApiBase] = useState(API_BASE);
+  const apiBase = API_BASE;
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -366,97 +367,122 @@ export default function CustomerBookingsPage({ params }: PageProps) {
         </div>
       </header>
 
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-        }}
-        className="panel"
-        style={{ marginBottom: 16, display: 'grid', gap: 8 }}
-      >
-        <label>
-          API URL
-          <input value={apiBase} onChange={(event) => setApiBase(event.target.value)} style={{ width: '100%' }} />
-        </label>
-      </form>
+      <section style={{ display: 'grid', gap: 12, marginBottom: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+        <section className="panel" style={{ display: 'grid', gap: 10 }}>
+          <h2 style={{ margin: 0, fontSize: 18 }}>1) Acceso de cliente</h2>
+          <p style={{ margin: 0, color: '#666' }}>
+            Inicia sesión si ya tienes cuenta o crea una nueva para gestionar tus reservas.
+          </p>
 
-      <section className="panel" style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>Acceso de cliente</h2>
-        <label>
-          Nombre (solo para registro)
-          <input value={fullName} onChange={(event) => setFullName(event.target.value)} style={{ width: '100%' }} />
-        </label>
-        <label>
-          Email
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} style={{ width: '100%' }} />
-        </label>
-        <label>
-          Contraseña
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            style={{ width: '100%' }}
-            minLength={8}
-          />
-        </label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={authMode === 'login' ? 'btn' : 'btn btn-ghost'}
+              onClick={() => setAuthMode('login')}
+              disabled={loading}
+            >
+              Iniciar sesión
+            </button>
+            <button
+              type="button"
+              className={authMode === 'register' ? 'btn' : 'btn btn-ghost'}
+              onClick={() => setAuthMode('register')}
+              disabled={loading}
+            >
+              Crear cuenta
+            </button>
+          </div>
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={handleRegister} type="button" className="btn" disabled={loading}>
-            {loading ? 'Procesando...' : 'Crear cuenta'}
-          </button>
-          <button onClick={handleLogin} type="button" className="btn btn-ghost" disabled={loading}>
-            {loading ? 'Procesando...' : 'Iniciar sesión'}
-          </button>
-          <button onClick={refreshBookings} type="button" className="btn btn-ghost" disabled={!hasSession || loading}>
-            Recargar citas
-          </button>
-        </div>
+          {authMode === 'register' ? (
+            <label>
+              Nombre
+              <input value={fullName} onChange={(event) => setFullName(event.target.value)} style={{ width: '100%' }} />
+            </label>
+          ) : null}
 
-        <div style={{ display: 'grid', gap: 8 }}>
-          {GOOGLE_CLIENT_ID ? (
-            <>
-              <div ref={googleButtonRef} />
-              {!googleReady ? <small style={{ color: '#666' }}>Cargando botón de Google...</small> : null}
-            </>
-          ) : (
-            <small style={{ color: '#666' }}>Google SSO no configurado en entorno (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`).</small>
-          )}
-          {googleLoading ? <small style={{ color: '#666' }}>Validando sesión de Google...</small> : null}
-        </div>
+          <label>
+            Email
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} style={{ width: '100%' }} />
+          </label>
+          <label>
+            Contraseña
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              style={{ width: '100%' }}
+              minLength={8}
+            />
+          </label>
 
-        {error ? <div className="status-error">{error}</div> : null}
-        {success ? <div className="status-success">{success}</div> : null}
-      </section>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {authMode === 'register' ? (
+              <button onClick={handleRegister} type="button" className="btn" disabled={loading}>
+                {loading ? 'Procesando...' : 'Crear cuenta'}
+              </button>
+            ) : (
+              <button onClick={handleLogin} type="button" className="btn" disabled={loading}>
+                {loading ? 'Procesando...' : 'Iniciar sesión'}
+              </button>
+            )}
 
-      <section className="panel" style={{ display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>Vincular historial (claim)</h2>
-        <p style={{ margin: 0, color: '#666' }}>
-          Solicita un código por email para vincular automáticamente citas históricas a tu cuenta.
-        </p>
+            <button onClick={refreshBookings} type="button" className="btn btn-ghost" disabled={!hasSession || loading}>
+              Recargar citas
+            </button>
+          </div>
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" className="btn btn-ghost" onClick={requestClaimCode} disabled={!hasSession || claimLoading}>
-            {claimLoading ? 'Procesando...' : 'Solicitar código'}
-          </button>
-        </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {GOOGLE_CLIENT_ID ? (
+              <>
+                <div ref={googleButtonRef} />
+                {!googleReady ? <small style={{ color: '#666' }}>Cargando botón de Google...</small> : null}
+              </>
+            ) : (
+              <small style={{ color: '#666' }}>Google SSO no configurado en entorno (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`).</small>
+            )}
+            {googleLoading ? <small style={{ color: '#666' }}>Validando sesión de Google...</small> : null}
+          </div>
 
-        <label>
-          Código de 6 dígitos
-          <input
-            value={claimCode}
-            onChange={(event) => setClaimCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-            style={{ width: '100%' }}
-            placeholder="123456"
-          />
-        </label>
+          {error ? <div className="status-error">{error}</div> : null}
+          {success ? <div className="status-success">{success}</div> : null}
+        </section>
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" className="btn" onClick={confirmClaimCode} disabled={!hasSession || claimLoading}>
-            {claimLoading ? 'Procesando...' : 'Confirmar claim'}
-          </button>
-        </div>
+        <section className="panel" style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
+          <h2 style={{ margin: 0, fontSize: 18 }}>2) Vincular historial previo</h2>
+          <p style={{ margin: 0, color: '#666' }}>
+            Si ya reservabas antes sin cuenta, vincula ese historial con un código enviado por email.
+          </p>
 
-        {claimMessage ? <div className="status-success">{claimMessage}</div> : null}
+          {!hasSession ? (
+            <div style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', color: '#666' }}>
+              Primero inicia sesión o crea tu cuenta para habilitar esta sección.
+            </div>
+          ) : null}
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-ghost" onClick={requestClaimCode} disabled={!hasSession || claimLoading}>
+              {claimLoading ? 'Procesando...' : 'Solicitar código'}
+            </button>
+          </div>
+
+          <label>
+            Código de 6 dígitos
+            <input
+              value={claimCode}
+              onChange={(event) => setClaimCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              style={{ width: '100%' }}
+              placeholder="123456"
+            />
+          </label>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn" onClick={confirmClaimCode} disabled={!hasSession || claimLoading}>
+              {claimLoading ? 'Procesando...' : 'Confirmar claim'}
+            </button>
+          </div>
+
+          {claimMessage ? <div className="status-success">{claimMessage}</div> : null}
+        </section>
       </section>
 
       <section className="panel" style={{ display: 'grid', gap: 10 }}>

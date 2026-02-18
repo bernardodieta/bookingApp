@@ -13,6 +13,7 @@ type BookingFieldDraft = {
 
 type SettingsSectionProps = {
   settingsView: 'branding' | 'widget' | 'rules' | 'form';
+  onGlobalToast?: (message: string, tone?: 'success' | 'error') => void;
   apiUrl: string;
   tenantSettings: { name: string; slug: string } | null;
   tenantSettingsLoading: boolean;
@@ -111,6 +112,8 @@ export function SettingsSection(props: SettingsSectionProps) {
   const [showAdvancedJson, setShowAdvancedJson] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null);
+  const [portalLinkCopied, setPortalLinkCopied] = useState(false);
+  const [portalSnippetCopied, setPortalSnippetCopied] = useState(false);
 
   const parsedFieldsState = useMemo(() => parseBookingFields(props.bookingFormFieldsText), [props.bookingFormFieldsText]);
   const customFields = parsedFieldsState.fields;
@@ -208,6 +211,54 @@ export function SettingsSection(props: SettingsSectionProps) {
   const widgetScriptTagSnippet = widgetScriptSrc
     ? `<script src="${widgetScriptSrc}" defer></script>\n<button data-apoint-book type="button">Reservar cita</button>`
     : '';
+  const customerPortalPath = props.tenantSettings?.slug ? `/public/${props.tenantSettings.slug}/mis-citas` : '';
+  const customerPortalUrl =
+    props.tenantSettings?.slug && typeof window !== 'undefined'
+      ? `${window.location.origin}${customerPortalPath}`
+      : customerPortalPath;
+  const customerPortalLinkSnippet = customerPortalUrl
+    ? `<a href="${customerPortalUrl}" target="_blank" rel="noopener noreferrer">Ver mis citas</a>`
+    : '';
+
+  async function copyCustomerPortalUrl() {
+    if (!customerPortalUrl) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(customerPortalUrl);
+      setPortalLinkCopied(true);
+      props.onGlobalToast?.('Enlace del portal cliente copiado.', 'success');
+      window.setTimeout(() => setPortalLinkCopied(false), 1800);
+    } catch {
+      setPortalLinkCopied(false);
+      props.onGlobalToast?.('No se pudo copiar el enlace del portal cliente.', 'error');
+    }
+  }
+
+  async function copyCustomerPortalSnippet() {
+    if (!customerPortalLinkSnippet) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(customerPortalLinkSnippet);
+      setPortalSnippetCopied(true);
+      props.onGlobalToast?.('Snippet del portal cliente copiado.', 'success');
+      window.setTimeout(() => setPortalSnippetCopied(false), 1800);
+    } catch {
+      setPortalSnippetCopied(false);
+      props.onGlobalToast?.('No se pudo copiar el snippet del portal cliente.', 'error');
+    }
+  }
+
+  function openCustomerPortalUrl() {
+    if (!customerPortalUrl) {
+      return;
+    }
+
+    window.open(customerPortalUrl, '_blank', 'noopener,noreferrer');
+  }
 
   return (
     <section className="section-block" style={{ marginTop: 28 }}>
@@ -362,6 +413,38 @@ export function SettingsSection(props: SettingsSectionProps) {
                 Snippet script src (recomendado)
                 <textarea readOnly value={widgetScriptTagSnippet} style={{ minHeight: 120, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} />
               </label>
+
+              <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+
+              <strong>Portal cliente (login/registro/Google)</strong>
+              <p className="section-subtitle" style={{ fontSize: 13 }}>
+                Comparte este enlace para que clientes gestionen su historial y acceso a mis citas.
+              </p>
+
+              <label>
+                URL portal cliente
+                <input value={customerPortalUrl} readOnly className="w-full" />
+              </label>
+
+              <div className="section-actions" style={{ gap: 8 }}>
+                <button type="button" className="btn btn-ghost" onClick={openCustomerPortalUrl} disabled={!customerPortalUrl}>
+                  Abrir portal cliente
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={() => void copyCustomerPortalUrl()} disabled={!customerPortalUrl}>
+                  {portalLinkCopied ? 'Copiado' : 'Copiar enlace'}
+                </button>
+              </div>
+
+              <label>
+                Snippet enlace portal cliente
+                <textarea readOnly value={customerPortalLinkSnippet} style={{ minHeight: 80, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} />
+              </label>
+
+              <div className="section-actions" style={{ gap: 8 }}>
+                <button type="button" className="btn btn-ghost" onClick={() => void copyCustomerPortalSnippet()} disabled={!customerPortalLinkSnippet}>
+                  {portalSnippetCopied ? 'Snippet copiado' : 'Copiar snippet'}
+                </button>
+              </div>
             </>
           ) : (
             <div className="table-empty">Necesitas un slug o dominio custom para generar snippets.</div>

@@ -228,7 +228,6 @@ export function OperationsSection(props: OperationsSectionProps) {
                 </button>
                 {!props.canSubmitQuickService && props.quickServiceDisabledReason ? <div style={{ color: '#666', fontSize: 12 }}>{props.quickServiceDisabledReason}</div> : null}
                 <Notice tone="error" message={props.quickServiceError} onClose={() => props.setQuickServiceError('')} />
-                <Notice tone="success" message={props.quickServiceSuccess} onClose={() => props.setQuickServiceSuccess('')} />
               </form>
             ) : null}
 
@@ -248,7 +247,6 @@ export function OperationsSection(props: OperationsSectionProps) {
                 </button>
                 {!props.canSubmitQuickStaff && props.quickStaffDisabledReason ? <div style={{ color: '#666', fontSize: 12 }}>{props.quickStaffDisabledReason}</div> : null}
                 <Notice tone="error" message={props.quickStaffError} onClose={() => props.setQuickStaffError('')} />
-                <Notice tone="success" message={props.quickStaffSuccess} onClose={() => props.setQuickStaffSuccess('')} />
               </form>
             ) : null}
 
@@ -298,7 +296,6 @@ export function OperationsSection(props: OperationsSectionProps) {
                 </button>
                 {!props.canSubmitQuickBooking && props.quickBookingDisabledReason ? <div style={{ color: '#666', fontSize: 12 }}>{props.quickBookingDisabledReason}</div> : null}
                 <Notice tone="error" message={props.quickBookingError} onClose={() => props.setQuickBookingError('')} />
-                <Notice tone="success" message={props.quickBookingSuccess} onClose={() => props.setQuickBookingSuccess('')} />
               </form>
             ) : null}
 
@@ -348,7 +345,6 @@ export function OperationsSection(props: OperationsSectionProps) {
                 </button>
                 {!props.canSubmitQuickWaitlist && props.quickWaitlistDisabledReason ? <div style={{ color: '#666', fontSize: 12 }}>{props.quickWaitlistDisabledReason}</div> : null}
                 <Notice tone="error" message={props.quickWaitlistError} onClose={() => props.setQuickWaitlistError('')} />
-                <Notice tone="success" message={props.quickWaitlistSuccess} onClose={() => props.setQuickWaitlistSuccess('')} />
               </form>
             ) : null}
           </div>
@@ -400,7 +396,6 @@ export function OperationsSection(props: OperationsSectionProps) {
               </button>
               {!props.canSubmitQuickRule && props.quickRuleDisabledReason ? <div style={{ color: '#666', fontSize: 12 }}>{props.quickRuleDisabledReason}</div> : null}
               <Notice tone="error" message={props.quickRuleError} onClose={() => props.setQuickRuleError('')} />
-              <Notice tone="success" message={props.quickRuleSuccess} onClose={() => props.setQuickRuleSuccess('')} />
             </form>
           ) : null}
 
@@ -443,7 +438,6 @@ export function OperationsSection(props: OperationsSectionProps) {
               </button>
               {!props.canSubmitQuickException && props.quickExceptionDisabledReason ? <div style={{ color: '#666', fontSize: 12 }}>{props.quickExceptionDisabledReason}</div> : null}
               <Notice tone="error" message={props.quickExceptionError} onClose={() => props.setQuickExceptionError('')} />
-              <Notice tone="success" message={props.quickExceptionSuccess} onClose={() => props.setQuickExceptionSuccess('')} />
             </form>
           ) : null}
         </div>
@@ -463,7 +457,6 @@ export function OperationsSection(props: OperationsSectionProps) {
 
         <Notice tone="error" message={props.availabilityError} withMargin onClose={() => props.setAvailabilityError('')} />
         <Notice tone="error" message={props.availabilityActionError} withMargin onClose={() => props.setAvailabilityActionError('')} />
-        <Notice tone="success" message={props.availabilityActionSuccess} withMargin onClose={() => props.setAvailabilityActionSuccess('')} />
 
         <div className="section-grid section-grid-2">
           {showRulesPanel ? (

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Building2, ChevronDown, ChevronRight, ClipboardList, CreditCard, LayoutDashboard, LogOut, Settings, UserCircle2, Wrench } from 'lucide-react';
 import { OverviewSection } from './components/overview-section';
@@ -59,6 +59,13 @@ type OperationsView =
   | 'availability-overview';
 
 type SettingsView = 'branding' | 'widget' | 'rules' | 'form';
+type PaymentsView = 'register' | 'history';
+type GlobalToastTone = 'success' | 'error';
+type GlobalToastItem = { message: string; tone: GlobalToastTone };
+
+function isSameToast(a: GlobalToastItem | null | undefined, b: GlobalToastItem) {
+  return !!a && a.message === b.message && a.tone === b.tone;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -70,8 +77,12 @@ export default function DashboardPage() {
   const [operationsQuickOpen, setOperationsQuickOpen] = useState(true);
   const [operationsAvailabilityOpen, setOperationsAvailabilityOpen] = useState(true);
   const [operationsView, setOperationsView] = useState<OperationsView>('quick-service');
+  const [paymentsOpen, setPaymentsOpen] = useState(true);
+  const [paymentsView, setPaymentsView] = useState<PaymentsView>('register');
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [settingsView, setSettingsView] = useState<SettingsView>('branding');
+  const [globalToast, setGlobalToast] = useState<GlobalToastItem | null>(null);
+  const [globalToastQueue, setGlobalToastQueue] = useState<GlobalToastItem[]>([]);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [date, setDate] = useState(today);
   const [staffId, setStaffId] = useState('');
@@ -187,6 +198,45 @@ export default function DashboardPage() {
   const [availabilityExceptionNoteDrafts, setAvailabilityExceptionNoteDrafts] = useState<Record<string, string>>({});
   const [availabilityExceptionUnavailableDrafts, setAvailabilityExceptionUnavailableDrafts] = useState<Record<string, boolean>>({});
 
+  const showGlobalToast = useCallback((message: string, tone: GlobalToastTone = 'success') => {
+    const normalizedMessage = message.trim();
+    if (!normalizedMessage) {
+      return;
+    }
+
+    const nextToast: GlobalToastItem = { message: normalizedMessage, tone };
+    setGlobalToastQueue((currentQueue) => {
+      if (isSameToast(globalToast, nextToast)) {
+        return currentQueue;
+      }
+
+      if (tone === 'error') {
+        const nextQueueHead = currentQueue[0];
+        if (isSameToast(nextQueueHead, nextToast)) {
+          return currentQueue;
+        }
+        return [nextToast, ...currentQueue];
+      }
+
+      const nextQueueTail = currentQueue.length ? currentQueue[currentQueue.length - 1] : null;
+      if (isSameToast(nextQueueTail, nextToast)) {
+        return currentQueue;
+      }
+
+      return [...currentQueue, nextToast];
+    });
+  }, [globalToast]);
+
+  useEffect(() => {
+    if (globalToast || globalToastQueue.length === 0) {
+      return;
+    }
+
+    const [nextToast, ...remainingQueue] = globalToastQueue;
+    setGlobalToast(nextToast);
+    setGlobalToastQueue(remainingQueue);
+  }, [globalToast, globalToastQueue]);
+
   useAutoDismissSuccess(quickServiceSuccess, () => setQuickServiceSuccess(''));
   useAutoDismissSuccess(quickStaffSuccess, () => setQuickStaffSuccess(''));
   useAutoDismissSuccess(quickBookingSuccess, () => setQuickBookingSuccess(''));
@@ -198,55 +248,64 @@ export default function DashboardPage() {
   useAutoDismissSuccess(bookingActionSuccess, () => setBookingActionSuccess(''));
   useAutoDismissSuccess(availabilityActionSuccess, () => setAvailabilityActionSuccess(''));
   useAutoDismissSuccess(tenantSettingsSuccess, () => setTenantSettingsSuccess(''));
+  useAutoDismissSuccess(globalToast?.message ?? '', () => setGlobalToast(null));
 
   useEffect(() => {
     if (quickServiceSuccess) {
       setQuickServiceError('');
+      showGlobalToast(quickServiceSuccess);
     }
-  }, [quickServiceSuccess]);
+  }, [quickServiceSuccess, showGlobalToast]);
 
   useEffect(() => {
     if (quickStaffSuccess) {
       setQuickStaffError('');
+      showGlobalToast(quickStaffSuccess);
     }
-  }, [quickStaffSuccess]);
+  }, [quickStaffSuccess, showGlobalToast]);
 
   useEffect(() => {
     if (quickBookingSuccess) {
       setQuickBookingError('');
+      showGlobalToast(quickBookingSuccess);
     }
-  }, [quickBookingSuccess]);
+  }, [quickBookingSuccess, showGlobalToast]);
 
   useEffect(() => {
     if (quickRuleSuccess) {
       setQuickRuleError('');
+      showGlobalToast(quickRuleSuccess);
     }
-  }, [quickRuleSuccess]);
+  }, [quickRuleSuccess, showGlobalToast]);
 
   useEffect(() => {
     if (quickExceptionSuccess) {
       setQuickExceptionError('');
+      showGlobalToast(quickExceptionSuccess);
     }
-  }, [quickExceptionSuccess]);
+  }, [quickExceptionSuccess, showGlobalToast]);
 
   useEffect(() => {
     if (quickWaitlistSuccess) {
       setQuickWaitlistError('');
+      showGlobalToast(quickWaitlistSuccess);
     }
-  }, [quickWaitlistSuccess]);
+  }, [quickWaitlistSuccess, showGlobalToast]);
 
   useEffect(() => {
     if (quickPaymentSuccess) {
       setQuickPaymentError('');
       setPaymentsError('');
+      showGlobalToast(quickPaymentSuccess);
     }
-  }, [quickPaymentSuccess]);
+  }, [quickPaymentSuccess, showGlobalToast]);
 
   useEffect(() => {
     if (stripeSuccess) {
       setStripeError('');
+      showGlobalToast(stripeSuccess);
     }
-  }, [stripeSuccess]);
+  }, [stripeSuccess, showGlobalToast]);
 
   useEffect(() => {
     if (bookingActionSuccess) {
@@ -258,8 +317,9 @@ export default function DashboardPage() {
     if (availabilityActionSuccess) {
       setAvailabilityActionError('');
       setAvailabilityError('');
+      showGlobalToast(availabilityActionSuccess);
     }
-  }, [availabilityActionSuccess]);
+  }, [availabilityActionSuccess, showGlobalToast]);
 
   useEffect(() => {
     if (tenantSettingsSuccess) {
@@ -609,6 +669,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo cargar disponibilidad';
       setAvailabilityError(message);
+      showGlobalToast(message, 'error');
       setAvailabilityRules([]);
       setAvailabilityExceptions([]);
     } finally {
@@ -695,6 +756,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudieron cargar pagos';
       setPaymentsError(message);
+      showGlobalToast(message, 'error');
       setPayments([]);
     } finally {
       setPaymentsLoading(false);
@@ -830,6 +892,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo actualizar regla';
       setAvailabilityActionError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setAvailabilityActionLoadingId('');
     }
@@ -869,6 +932,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo eliminar regla';
       setAvailabilityActionError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setAvailabilityActionLoadingId('');
     }
@@ -919,6 +983,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo actualizar excepción';
       setAvailabilityActionError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setAvailabilityActionLoadingId('');
     }
@@ -958,6 +1023,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo eliminar excepción';
       setAvailabilityActionError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setAvailabilityActionLoadingId('');
     }
@@ -1108,6 +1174,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo crear servicio';
       setQuickServiceError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setQuickServiceLoading(false);
     }
@@ -1178,6 +1245,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo crear staff';
       setQuickStaffError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setQuickStaffLoading(false);
     }
@@ -1242,6 +1310,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo crear reserva';
       setQuickBookingError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setQuickBookingLoading(false);
     }
@@ -1304,6 +1373,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo registrar pago';
       setQuickPaymentError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setQuickPaymentLoading(false);
     }
@@ -1341,6 +1411,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo cargar nota de venta';
       setSaleNoteError(message);
+      showGlobalToast(message, 'error');
       setSaleNote(null);
     } finally {
       setSaleNoteLoadingId('');
@@ -1402,6 +1473,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo crear checkout Stripe';
       setStripeError(message);
+      showGlobalToast(message, 'error');
       setStripeCheckoutUrl('');
     } finally {
       setStripeLoading(false);
@@ -1448,6 +1520,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo confirmar la sesión Stripe';
       setStripeError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setStripeLoading(false);
     }
@@ -1505,6 +1578,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo crear regla de disponibilidad';
       setQuickRuleError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setQuickRuleLoading(false);
     }
@@ -1572,6 +1646,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo crear excepción de disponibilidad';
       setQuickExceptionError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setQuickExceptionLoading(false);
     }
@@ -1636,6 +1711,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo agregar a waitlist';
       setQuickWaitlistError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setQuickWaitlistLoading(false);
     }
@@ -1694,6 +1770,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo cancelar booking';
       setBookingActionError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setBookingActionLoadingId('');
     }
@@ -1769,6 +1846,7 @@ export default function DashboardPage() {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo reprogramar booking';
       setBookingActionError(message);
+      showGlobalToast(message, 'error');
     } finally {
       setBookingActionLoadingId('');
     }
@@ -1784,6 +1862,12 @@ export default function DashboardPage() {
     setActiveSection('settings');
     setSettingsOpen(true);
     setSettingsView(view);
+  }
+
+  function openPaymentsView(view: PaymentsView) {
+    setActiveSection('payments');
+    setPaymentsOpen(true);
+    setPaymentsView(view);
   }
 
   const brandPrimary = /^#[0-9a-fA-F]{6}$/.test(primaryColor.trim()) ? primaryColor.trim() : '#2563eb';
@@ -1808,10 +1892,37 @@ export default function DashboardPage() {
             <span>Resumen</span>
           </button>
 
-          <button type="button" className={`sidebar-item ${activeSection === 'payments' ? 'active' : ''}`} onClick={() => setActiveSection('payments')}>
+          <button
+            type="button"
+            className={`sidebar-item ${activeSection === 'payments' ? 'active' : ''}`}
+            onClick={() => {
+              setPaymentsOpen((current) => !current);
+              setActiveSection('payments');
+            }}
+          >
             <CreditCard size={16} />
-            <span>Pagos</span>
+            <span style={{ flex: 1, textAlign: 'left' }}>Pagos</span>
+            {paymentsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
+
+          {paymentsOpen ? (
+            <div className="sidebar-submenu">
+              <button
+                type="button"
+                className={`sidebar-subitem ${paymentsView === 'register' ? 'active' : ''}`}
+                onClick={() => openPaymentsView('register')}
+              >
+                Registrar pago
+              </button>
+              <button
+                type="button"
+                className={`sidebar-subitem ${paymentsView === 'history' ? 'active' : ''}`}
+                onClick={() => openPaymentsView('history')}
+              >
+                Historial reciente
+              </button>
+            </div>
+          ) : null}
 
           <button
             type="button"
@@ -1987,6 +2098,27 @@ export default function DashboardPage() {
         </header>
 
         <div className="dashboard-content">
+      {globalToast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            right: 20,
+            bottom: 20,
+            zIndex: 50,
+            background: globalToast.tone === 'error' ? '#7f1d1d' : '#0f172a',
+            color: '#fff',
+            borderRadius: 10,
+            padding: '10px 14px',
+            fontSize: 13,
+            boxShadow: globalToast.tone === 'error' ? '0 8px 24px rgba(127,29,29,0.35)' : '0 8px 24px rgba(15,23,42,0.25)'
+          }}
+        >
+          {globalToast.message}
+        </div>
+      ) : null}
+
       {activeSection === 'overview' ? (
         <OverviewSection
           onSubmit={onSubmit}
@@ -2029,6 +2161,7 @@ export default function DashboardPage() {
 
       {activeSection === 'payments' ? (
         <PaymentsSection
+          paymentsView={paymentsView}
           token={token}
           paymentsLoading={paymentsLoading}
           loadPayments={loadPayments}
@@ -2208,6 +2341,7 @@ export default function DashboardPage() {
       {activeSection === 'settings' ? (
         <SettingsSection
           settingsView={settingsView}
+          onGlobalToast={showGlobalToast}
           apiUrl={apiUrl}
           tenantSettings={tenantSettings}
           tenantSettingsLoading={tenantSettingsLoading}
