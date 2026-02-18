@@ -74,6 +74,16 @@ function looksDefaultSecret(value) {
   );
 }
 
+function looksPlaceholderUrl(value) {
+  const normalized = value.toLowerCase();
+  return (
+    normalized.includes('example.com') ||
+    normalized.includes('placeholder') ||
+    normalized.includes('change_me') ||
+    normalized.includes('changeme')
+  );
+}
+
 function parseEnvTarget() {
   const arg = process.argv.find((entry) => entry.startsWith('--env='));
   if (arg) {
@@ -137,13 +147,68 @@ function run() {
     if ((target === 'staging' || target === 'prod') && !isHttps) {
       pushIssue(issues, target === 'prod' ? 'error' : 'warn', 'NON_HTTPS_API_URL', 'NEXT_PUBLIC_API_URL debería usar HTTPS fuera de dev.');
     }
+    if ((target === 'staging' || target === 'prod') && looksPlaceholderUrl(apiUrl)) {
+      pushIssue(issues, target === 'prod' ? 'error' : 'warn', 'PLACEHOLDER_PUBLIC_API_URL', 'NEXT_PUBLIC_API_URL parece placeholder.');
+    }
+  }
+
+  if (target === 'staging') {
+    const stagingApiUrl = getValue(envValues, 'STAGING_API_URL');
+    if (!stagingApiUrl) {
+      pushIssue(issues, 'error', 'MISSING_STAGING_API_URL', 'Falta STAGING_API_URL para smoke/gate de staging.');
+    } else {
+      if (!stagingApiUrl.startsWith('https://')) {
+        pushIssue(issues, 'warn', 'NON_HTTPS_STAGING_API_URL', 'STAGING_API_URL debería usar HTTPS.');
+      }
+      if (looksPlaceholderUrl(stagingApiUrl)) {
+        pushIssue(issues, 'warn', 'PLACEHOLDER_STAGING_API_URL', 'STAGING_API_URL parece placeholder.');
+      }
+      if (stagingApiUrl.includes('localhost') || stagingApiUrl.includes('127.0.0.1')) {
+        pushIssue(issues, 'warn', 'LOCAL_STAGING_API_URL', 'STAGING_API_URL apunta a localhost.');
+      }
+    }
+  }
+
+  if (target === 'prod') {
+    const prodApiUrl = getValue(envValues, 'PROD_API_URL');
+    if (!prodApiUrl) {
+      pushIssue(issues, 'error', 'MISSING_PROD_API_URL', 'Falta PROD_API_URL para smoke/gate de prod.');
+    } else {
+      if (!prodApiUrl.startsWith('https://')) {
+        pushIssue(issues, 'error', 'NON_HTTPS_PROD_API_URL', 'PROD_API_URL debe usar HTTPS.');
+      }
+      if (looksPlaceholderUrl(prodApiUrl)) {
+        pushIssue(issues, 'error', 'PLACEHOLDER_PROD_API_URL', 'PROD_API_URL parece placeholder.');
+      }
+      if (prodApiUrl.includes('localhost') || prodApiUrl.includes('127.0.0.1')) {
+        pushIssue(issues, 'error', 'LOCAL_PROD_API_URL', 'PROD_API_URL no puede apuntar a localhost.');
+      }
+    }
   }
 
   const dbUrl = getValue(envValues, 'DATABASE_URL');
   if (dbUrl && (target === 'staging' || target === 'prod')) {
+    if (looksPlaceholderUrl(dbUrl)) {
+      pushIssue(
+        issues,
+        target === 'prod' ? 'error' : 'warn',
+        'PLACEHOLDER_DB_URL',
+        'DATABASE_URL parece placeholder (ej. example.com/changeme).'
+      );
+    }
     if (dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1')) {
       pushIssue(issues, target === 'prod' ? 'error' : 'warn', 'LOCAL_DB_URL', 'DATABASE_URL apunta a localhost fuera de dev.');
     }
+  }
+
+  const redisUrl = getValue(envValues, 'REDIS_URL');
+  if (redisUrl && (target === 'staging' || target === 'prod') && looksPlaceholderUrl(redisUrl)) {
+    pushIssue(
+      issues,
+      target === 'prod' ? 'error' : 'warn',
+      'PLACEHOLDER_REDIS_URL',
+      'REDIS_URL parece placeholder (ej. example.com/changeme).'
+    );
   }
 
   const sendgridReady = hasValue(envValues, 'SENDGRID_API_KEY') && hasValue(envValues, 'SENDGRID_FROM_EMAIL');

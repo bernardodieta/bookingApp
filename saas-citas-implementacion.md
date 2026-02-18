@@ -378,7 +378,17 @@ Evidencia DEV (última ejecución automática):
 - [ ] Migraciones Prisma aplicadas (`prisma migrate deploy`).
 - [ ] Smoke de flujos críticos: auth, dashboard, reserva pública, cancelación, waitlist.
 - [ ] Verificación de auditoría en acciones sensibles (`BOOKING_*`, `TENANT_SETTINGS_UPDATED`).
-- [x] `npm run qa:staging:gate:strict` en verde (sin warnings).
+- [ ] `npm run qa:staging:gate:strict` en verde (sin warnings).
+- [x] Simulación local strict sin migraciones: `node scripts/mvp-env-gate.js --env=staging --strict --skip-migrate --smoke-api-url=http://localhost:3001`.
+
+Evidencia STAGING local (última ejecución):
+- Fecha: 2026-02-17
+- `npm run qa:staging:gate:local`: ✅ completado
+- `node scripts/mvp-env-gate.js --env=staging --strict --skip-migrate --smoke-api-url=http://localhost:3001`: ✅ completado
+- Estado de preflight staging:
+  - `qa:preflight:staging`: ✅ pasa con warnings si `DATABASE_URL`/`REDIS_URL` están en placeholder.
+  - `qa:preflight:staging:strict`: ❌ bloquea hasta reemplazar placeholders por valores reales.
+- Bloqueo actual para `qa:staging:gate:strict` real: `.env.staging` aún tiene placeholders en `NEXT_PUBLIC_API_URL`, `STAGING_API_URL`, `DATABASE_URL` y `REDIS_URL`; strict no permite avanzar hasta reemplazarlos.
 
 ### PROD
 - [ ] Secretos productivos validados (sin defaults, rotación definida).

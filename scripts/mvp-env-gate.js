@@ -1,4 +1,6 @@
 const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -45,8 +47,88 @@ function runCommand(command, args, label, extraEnv) {
   }
 }
 
-function run() {
+function parseDotEnv(content) {
+  const result = {};
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    const eq = line.indexOf('=');
+    if (eq <= 0) {
+      continue;
+    }
+
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+
+    result[key] = value;
+  }
+  return result;
+}
+
+function readEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return {};
+  }
+  return parseDotEnv(fs.readFileSync(filePath, 'utf8'));
+}
+
+function getTargetEnvFileName(target) {
+  if (target === 'staging') {
+    return '.env.staging';
+  }
+  if (target === 'prod' || target === 'production') {
+    return '.env.prod';
+  }
+  return '.env';
+}
+
+function resolveGateEnv(target) {
+  const root = process.cwd();
+  const baseEnv = readEnvFile(path.join(root, '.env'));
+  const targetEnv = readEnvFile(path.join(root, getTargetEnvFileName(target)));
+
+  return {
+    ...baseEnv,
+    ...targetEnv,
+    ...process.env
+  };
+}
+
+async function ensureSmokeApiReachable(smokeApiUrl) {
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(smokeApiUrl);
+  } catch {
+    throw new Error(`[SMOKE_OVERRIDE_URL] URL inválida: ${smokeApiUrl}`);
+  }
+
+  const healthUrl = new URL('/health', parsedUrl).toString();
+  try {
+    const response = await fetch(healthUrl);
+    if (!response.ok) {
+      const body = await response.text();
+      const diagnostic = `[SMOKE_HEALTH] status=${response.status} body=${body}`;
+      throw new Error(diagnostic);
+    }
+  } catch (error) {
+    const diagnostic = error instanceof Error ? error.message : String(error);
+    const suffix = diagnostic ? ` Detalle: ${diagnostic}` : '';
+    throw new Error(
+      `[SMOKE_OVERRIDE_URL] API no alcanzable en ${healthUrl}. ` +
+      `Levanta la API primero (ej. npm run start:dev -w @apoint/api).${suffix}`
+    );
+  }
+}
+
+async function run() {
   const options = parseArgs();
+  const gateEnv = resolveGateEnv(options.envTarget);
   const preflightScript = options.envTarget === 'staging'
     ? options.strict
       ? 'qa:preflight:staging:strict'
@@ -58,23 +140,25 @@ function run() {
 
   console.log(`[MVP-GATE] entorno=${options.envTarget} strict=${options.strict ? 'on' : 'off'}`);
 
-  runCommand('npm', ['run', preflightScript], 'PREFLIGHT');
+  runCommand('npm', ['run', preflightScript], 'PREFLIGHT', gateEnv);
 
   if (!options.skipMigrate) {
-    runCommand('npm', ['run', 'prisma:deploy', '-w', '@apoint/api'], 'MIGRATE');
+    runCommand('npm', ['run', 'prisma:deploy', '-w', '@apoint/api'], 'MIGRATE', gateEnv);
   } else {
     console.log('\n[MIGRATE] omitido por --skip-migrate');
   }
 
   if (!options.skipSmoke) {
     if (options.smokeApiUrl) {
+      await ensureSmokeApiReachable(options.smokeApiUrl);
       runCommand(
         'node',
         ['scripts/mvp-go-live-smoke.js', `--env=${options.envTarget}`, `--api-url=${options.smokeApiUrl}`],
-        'SMOKE_OVERRIDE_URL'
+        'SMOKE_OVERRIDE_URL',
+        gateEnv
       );
     } else {
-      runCommand('npm', ['run', smokeScript], 'SMOKE');
+      runCommand('npm', ['run', smokeScript], 'SMOKE', gateEnv);
     }
   } else {
     console.log('\n[SMOKE] omitido por --skip-smoke');
@@ -83,10 +167,8 @@ function run() {
   console.log('\n✅ MVP gate completado correctamente.');
 }
 
-try {
-  run();
-} catch (error) {
+run().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`\n❌ MVP gate falló: ${message}`);
   process.exit(1);
-}
+});
