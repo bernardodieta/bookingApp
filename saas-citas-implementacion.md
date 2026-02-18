@@ -367,6 +367,7 @@ Evidencia DEV (última ejecución automática):
 - [ ] Variables `DATABASE_URL`, `REDIS_URL`, `JWT_*`, `NEXT_PUBLIC_API_URL` configuradas.
 - [ ] `node scripts/mvp-preflight.js --env=staging` en verde.
 - [ ] `npm run qa:smoke:staging` en verde.
+- [ ] `npm run qa:staging:gate` en verde.
 - [ ] Credenciales SendGrid/SMTP de staging cargadas.
 - [ ] Migraciones Prisma aplicadas (`prisma migrate deploy`).
 - [ ] Smoke de flujos críticos: auth, dashboard, reserva pública, cancelación, waitlist.
@@ -376,6 +377,7 @@ Evidencia DEV (última ejecución automática):
 - [ ] Secretos productivos validados (sin defaults, rotación definida).
 - [ ] `node scripts/mvp-preflight.js --env=prod` en verde.
 - [ ] `npm run qa:smoke:prod` en verde.
+- [ ] `npm run qa:prod:gate` en verde.
 - [ ] HTTPS + dominio(s) operativos y redirecciones correctas.
 - [ ] Monitoreo/logs y alertas mínimas habilitadas.
 - [ ] Backup/restore de base de datos validado.

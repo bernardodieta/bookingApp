@@ -30,6 +30,8 @@ npm run qa:preflight:prod
 npm run qa:smoke:mvp
 npm run qa:smoke:staging
 npm run qa:smoke:prod
+npm run qa:staging:gate
+npm run qa:prod:gate
 npm run test:e2e -w @apoint/api
 ```
 
@@ -97,6 +99,11 @@ Smoke multi-entorno:
 - `npm run qa:smoke:staging` usa `STAGING_API_URL`
 - `npm run qa:smoke:prod` usa `PROD_API_URL`
 - override opcional: `node scripts/mvp-go-live-smoke.js --api-url=https://tu-api`
+
+Gate por entorno (preflight + migrate + smoke):
+- `npm run qa:staging:gate`
+- `npm run qa:prod:gate`
+- flags opcionales: `node scripts/mvp-env-gate.js --env=staging --skip-migrate --skip-smoke`
 
 ## API disponible (Sprint 1 base)
 

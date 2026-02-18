@@ -19,6 +19,8 @@
     "qa:smoke:mvp": "node scripts/mvp-go-live-smoke.js",
     "qa:smoke:staging": "node scripts/mvp-go-live-smoke.js --env=staging",
     "qa:smoke:prod": "node scripts/mvp-go-live-smoke.js --env=prod",
+    "qa:staging:gate": "node scripts/mvp-env-gate.js --env=staging",
+    "qa:prod:gate": "node scripts/mvp-env-gate.js --env=prod",
     "dev:web": "npm run dev -w @apoint/web",
     "dev:api": "npm run start:dev -w @apoint/api",
     "build": "npm run build -w @apoint/web && npm run build -w @apoint/api",
