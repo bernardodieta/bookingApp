@@ -58,6 +58,8 @@ type OperationsView =
   | 'availability-exceptions'
   | 'availability-overview';
 
+type SettingsView = 'branding' | 'widget' | 'rules' | 'form';
+
 export default function DashboardPage() {
   const router = useRouter();
   const [apiUrl, setApiUrl] = useState('http://localhost:3001');
@@ -68,6 +70,8 @@ export default function DashboardPage() {
   const [operationsQuickOpen, setOperationsQuickOpen] = useState(true);
   const [operationsAvailabilityOpen, setOperationsAvailabilityOpen] = useState(true);
   const [operationsView, setOperationsView] = useState<OperationsView>('quick-service');
+  const [settingsOpen, setSettingsOpen] = useState(true);
+  const [settingsView, setSettingsView] = useState<SettingsView>('branding');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [date, setDate] = useState(today);
   const [staffId, setStaffId] = useState('');
@@ -1776,6 +1780,12 @@ export default function DashboardPage() {
     setOperationsView(view);
   }
 
+  function openSettingsView(view: SettingsView) {
+    setActiveSection('settings');
+    setSettingsOpen(true);
+    setSettingsView(view);
+  }
+
   const brandPrimary = /^#[0-9a-fA-F]{6}$/.test(primaryColor.trim()) ? primaryColor.trim() : '#2563eb';
   const brandTint = `${brandPrimary}1A`;
 
@@ -1889,10 +1899,51 @@ export default function DashboardPage() {
             </div>
           ) : null}
 
-          <button type="button" className={`sidebar-item ${activeSection === 'settings' ? 'active' : ''}`} onClick={() => setActiveSection('settings')}>
+          <button
+            type="button"
+            className={`sidebar-item ${activeSection === 'settings' ? 'active' : ''}`}
+            onClick={() => {
+              setSettingsOpen((current) => !current);
+              setActiveSection('settings');
+            }}
+          >
             <Settings size={16} />
-            <span>Settings</span>
+            <span style={{ flex: 1, textAlign: 'left' }}>Settings</span>
+            {settingsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
+
+          {settingsOpen ? (
+            <div className="sidebar-submenu">
+              <button
+                type="button"
+                className={`sidebar-subitem ${settingsView === 'branding' ? 'active' : ''}`}
+                onClick={() => openSettingsView('branding')}
+              >
+                Branding
+              </button>
+              <button
+                type="button"
+                className={`sidebar-subitem ${settingsView === 'widget' ? 'active' : ''}`}
+                onClick={() => openSettingsView('widget')}
+              >
+                Widget
+              </button>
+              <button
+                type="button"
+                className={`sidebar-subitem ${settingsView === 'rules' ? 'active' : ''}`}
+                onClick={() => openSettingsView('rules')}
+              >
+                Reglas
+              </button>
+              <button
+                type="button"
+                className={`sidebar-subitem ${settingsView === 'form' ? 'active' : ''}`}
+                onClick={() => openSettingsView('form')}
+              >
+                Formulario público
+              </button>
+            </div>
+          ) : null}
 
           <button type="button" className={`sidebar-item ${activeSection === 'audit' ? 'active' : ''}`} onClick={() => setActiveSection('audit')}>
             <ClipboardList size={16} />
@@ -2156,6 +2207,7 @@ export default function DashboardPage() {
 
       {activeSection === 'settings' ? (
         <SettingsSection
+          settingsView={settingsView}
           apiUrl={apiUrl}
           tenantSettings={tenantSettings}
           tenantSettingsLoading={tenantSettingsLoading}

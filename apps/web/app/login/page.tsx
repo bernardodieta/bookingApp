@@ -135,6 +135,12 @@ export default function LoginPage() {
           </div>
         </header>
 
+      <div className="panel" style={{ marginBottom: 12, background: 'var(--surface-muted)' }}>
+        <div style={{ fontSize: 13, color: '#555' }}>
+          Este acceso es para negocio/partners (dashboard). Si eres cliente final, ingresa desde la página pública del negocio y abre <strong>“Portal cliente / Mis citas”</strong>.
+        </div>
+      </div>
+
       <div className="toolbar" style={{ marginBottom: 14 }}>
         <button
           type="button"

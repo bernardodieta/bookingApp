@@ -12,6 +12,7 @@ type BookingFieldDraft = {
 };
 
 type SettingsSectionProps = {
+  settingsView: 'branding' | 'widget' | 'rules' | 'form';
   apiUrl: string;
   tenantSettings: { name: string; slug: string } | null;
   tenantSettingsLoading: boolean;
@@ -113,6 +114,10 @@ export function SettingsSection(props: SettingsSectionProps) {
 
   const parsedFieldsState = useMemo(() => parseBookingFields(props.bookingFormFieldsText), [props.bookingFormFieldsText]);
   const customFields = parsedFieldsState.fields;
+  const showBrandingPanel = props.settingsView === 'branding';
+  const showWidgetPanel = props.settingsView === 'widget';
+  const showRulesPanel = props.settingsView === 'rules';
+  const showFormPanel = props.settingsView === 'form';
 
   function updateFields(nextFields: BookingFieldDraft[]) {
     props.setBookingFormFieldsText(stringifyBookingFields(nextFields));
@@ -235,6 +240,7 @@ export function SettingsSection(props: SettingsSectionProps) {
       <Notice tone="success" message={props.tenantSettingsSuccess} withMargin onClose={() => props.setTenantSettingsSuccess('')} />
 
       <form onSubmit={props.onSaveBookingFormFields} className="section-form" style={{ gap: 12 }}>
+        {showBrandingPanel ? (
         <div className="panel section-form" style={{ gap: 8 }}>
           <strong>Branding del negocio</strong>
           <p className="section-subtitle" style={{ fontSize: 13 }}>
@@ -321,7 +327,9 @@ export function SettingsSection(props: SettingsSectionProps) {
             </button>
           </div>
         </div>
+        ) : null}
 
+        {showWidgetPanel ? (
         <div className="panel section-form" style={{ gap: 8 }}>
           <strong>Widget embebible</strong>
           <p className="section-subtitle" style={{ fontSize: 13 }}>
@@ -363,7 +371,9 @@ export function SettingsSection(props: SettingsSectionProps) {
             <div style={{ color: '#555', fontSize: 13 }}>Activa “Habilitar widget embebible” y guarda para dejarlo disponible oficialmente.</div>
           ) : null}
         </div>
+        ) : null}
 
+        {showRulesPanel ? (
         <div className="panel section-form" style={{ gap: 8 }}>
           <strong>Reglas del negocio</strong>
           <p className="section-subtitle" style={{ fontSize: 13 }}>
@@ -389,7 +399,10 @@ export function SettingsSection(props: SettingsSectionProps) {
           />
         </label>
         </div>
+        ) : null}
 
+        {showFormPanel ? (
+        <>
         <div className="section-grid section-grid-2">
           <div className="panel section-form" style={{ gap: 10 }}>
             <div className="section-actions" style={{ justifyContent: 'space-between' }}>
@@ -564,6 +577,8 @@ export function SettingsSection(props: SettingsSectionProps) {
             Campos soportados hoy por la UI pública: `text`, `email`, `tel`, `textarea`.
           </div>
         </div>
+        </>
+        ) : null}
 
         <button type="submit" disabled={props.tenantSettingsLoading || !props.token.trim()} className="btn btn-primary section-button-lg">
           {props.tenantSettingsLoading ? 'Guardando...' : 'Guardar configuración del formulario'}

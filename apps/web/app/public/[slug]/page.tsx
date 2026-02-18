@@ -504,9 +504,6 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
         <div>
           <h1 className="page-title">{tenant?.name ? `Reservas · ${tenant.name}` : t.titleFallback}</h1>
           <p className="page-subtitle">{t.subtitle}</p>
-          <a href={`/public/${params.slug}/mis-citas`} style={{ fontSize: 14 }}>
-            Ver mis citas
-          </a>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {tenant?.logoUrl ? (
@@ -517,6 +514,18 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
           </div>
         </div>
       </header>
+
+      <section className="panel" style={{ marginBottom: 12, display: 'grid', gap: 8 }}>
+        <strong>Portal cliente</strong>
+        <p style={{ margin: 0, color: '#555' }}>
+          ¿Ya reservaste antes? Entra para ver historial, registrarte o iniciar con Google.
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <a className="btn btn-ghost" href={`/public/${params.slug}/mis-citas`}>
+            Ir a mis citas
+          </a>
+        </div>
+      </section>
 
       <form
         onSubmit={(event) => {
