@@ -302,6 +302,93 @@ button:disabled {
   min-width: 0;
 }
 
+.section-block {
+  display: grid;
+  gap: 12px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1.08rem;
+  letter-spacing: -0.01em;
+}
+
+.section-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.section-form {
+  display: grid;
+  gap: 12px;
+}
+
+.section-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.section-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.section-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.section-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.section-grid-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.section-button-md {
+  min-width: 180px;
+}
+
+.section-button-lg {
+  min-width: 220px;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table-base {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-base th,
+.table-base td {
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  padding: 8px;
+  vertical-align: top;
+}
+
+.table-base tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table-empty {
+  padding: 10px;
+  color: var(--text-muted);
+}
+
 @media (max-width: 1024px) {
   .dashboard-layout {
     grid-template-columns: 1fr;
@@ -319,5 +406,12 @@ button:disabled {
 
   .topbar-right {
     justify-content: flex-end;
+  }
+
+  .section-grid-5,
+  .section-grid-4,
+  .section-grid-3,
+  .section-grid-2 {
+    grid-template-columns: 1fr;
   }
 }

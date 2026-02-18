@@ -81,15 +81,15 @@ export function OverviewSection(props: OverviewSectionProps) {
 
   return (
     <>
-      <form onSubmit={props.onSubmit} style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
+      <form onSubmit={props.onSubmit} className="section-form" style={{ marginBottom: 20 }}>
         <label>
           API URL
-          <input value={props.apiUrl} onChange={(e) => props.setApiUrl(e.target.value)} style={{ width: '100%' }} />
+          <input value={props.apiUrl} onChange={(e) => props.setApiUrl(e.target.value)} className="w-full" />
         </label>
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+        <div className="section-grid section-grid-4">
           <label>
             Rango
-            <select value={props.range} onChange={(e) => props.setRange(e.target.value as 'day' | 'week' | 'month')} style={{ width: '100%' }}>
+            <select value={props.range} onChange={(e) => props.setRange(e.target.value as 'day' | 'week' | 'month')} className="w-full">
               <option value="day">Día</option>
               <option value="week">Semana</option>
               <option value="month">Mes</option>
@@ -97,11 +97,11 @@ export function OverviewSection(props: OverviewSectionProps) {
           </label>
           <label>
             Fecha base
-            <input type="date" value={props.date} onChange={(e) => props.setDate(e.target.value)} style={{ width: '100%' }} />
+            <input type="date" value={props.date} onChange={(e) => props.setDate(e.target.value)} className="w-full" />
           </label>
           <label>
             Staff (opcional)
-            <select value={props.staffId} onChange={(e) => props.setStaffId(e.target.value)} style={{ width: '100%' }} disabled={props.staffLoading}>
+            <select value={props.staffId} onChange={(e) => props.setStaffId(e.target.value)} className="w-full" disabled={props.staffLoading}>
               <option value="">Todos</option>
               {props.staffOptions.map((staff) => (
                 <option key={staff.id} value={staff.id}>
@@ -112,7 +112,7 @@ export function OverviewSection(props: OverviewSectionProps) {
           </label>
           <label>
             Estado (opcional)
-            <select value={props.status} onChange={(e) => props.setStatus(e.target.value)} style={{ width: '100%' }}>
+            <select value={props.status} onChange={(e) => props.setStatus(e.target.value)} className="w-full">
               <option value="">Todos</option>
               {props.statusOptions.map((entry) => (
                 <option key={entry} value={entry}>
@@ -124,7 +124,7 @@ export function OverviewSection(props: OverviewSectionProps) {
         </div>
         <Notice tone="warning" message={props.staffError} onClose={() => props.setStaffError('')} />
         <Notice tone="warning" message={props.serviceError} onClose={() => props.setServiceError('')} />
-        <button type="submit" disabled={props.loading || !props.token.trim()} style={{ width: 220, padding: '8px 12px' }}>
+        <button type="submit" disabled={props.loading || !props.token.trim()} className="btn btn-primary section-button-md">
           {props.loading ? 'Consultando...' : 'Cargar calendario'}
         </button>
       </form>
@@ -135,58 +135,58 @@ export function OverviewSection(props: OverviewSectionProps) {
       <Notice tone="success" message={props.bookingActionSuccess} withMargin onClose={() => props.setBookingActionSuccess('')} />
 
       {props.data ? (
-        <section>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+        <section className="section-block">
+          <div className="section-grid section-grid-3" style={{ marginBottom: 16 }}>
+            <article className="panel">
               <strong>Total citas</strong>
               <div>{props.data.summary.totalAppointments}</div>
             </article>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <article className="panel">
               <strong>Minutos agendados</strong>
               <div>{props.data.summary.totalScheduledMinutes}</div>
             </article>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <article className="panel">
               <strong>Período</strong>
               <div>{new Date(props.data.period.start).toLocaleString()} → {new Date(props.data.period.end).toLocaleString()}</div>
             </article>
           </div>
 
-          <div style={{ marginBottom: 16 }}>
+          <div className="panel" style={{ marginBottom: 16 }}>
             <strong>Estados:</strong>{' '}
             {summaryStatus.length ? summaryStatus.map(([key, value]) => `${key}: ${value}`).join(' | ') : 'Sin datos'}
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="table-wrap panel" style={{ padding: 0 }}>
+            <table className="table-base">
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Inicio</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Fin</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Cliente</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Servicio</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Staff</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Estado</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Acciones</th>
+                  <th>Inicio</th>
+                  <th>Fin</th>
+                  <th>Cliente</th>
+                  <th>Servicio</th>
+                  <th>Staff</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {props.data.bookings.map((booking) => (
                   <tr key={booking.id}>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{new Date(booking.startAt).toLocaleString()}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{new Date(booking.endAt).toLocaleString()}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{booking.customerName}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{booking.service.name}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{booking.staff.fullName}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{booking.status}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>
-                      <div style={{ display: 'grid', gap: 6 }}>
+                    <td>{new Date(booking.startAt).toLocaleString()}</td>
+                    <td>{new Date(booking.endAt).toLocaleString()}</td>
+                    <td>{booking.customerName}</td>
+                    <td>{booking.service.name}</td>
+                    <td>{booking.staff.fullName}</td>
+                    <td>{booking.status}</td>
+                    <td>
+                      <div className="section-form" style={{ gap: 6 }}>
                         <button
                           type="button"
                           onClick={() => {
                             void props.onCancelBooking(booking.id);
                           }}
                           disabled={props.bookingActionLoadingId === booking.id || booking.status === 'cancelled'}
-                          style={{ width: 120, padding: '6px 8px' }}
+                          className="btn btn-ghost"
                         >
                           {props.bookingActionLoadingId === booking.id ? 'Procesando...' : 'Cancelar'}
                         </button>
@@ -199,7 +199,7 @@ export function OverviewSection(props: OverviewSectionProps) {
                               [booking.id]: e.target.value
                             }))
                           }
-                          style={{ width: '100%' }}
+                          className="w-full"
                         />
                         <button
                           type="button"
@@ -207,7 +207,7 @@ export function OverviewSection(props: OverviewSectionProps) {
                             void props.onRescheduleBooking(booking.id);
                           }}
                           disabled={props.bookingActionLoadingId === booking.id || booking.status === 'cancelled'}
-                          style={{ width: 120, padding: '6px 8px' }}
+                          className="btn btn-primary"
                         >
                           {props.bookingActionLoadingId === booking.id ? 'Procesando...' : 'Reprogramar'}
                         </button>
@@ -222,29 +222,29 @@ export function OverviewSection(props: OverviewSectionProps) {
       ) : null}
 
       {props.reports ? (
-        <section style={{ marginTop: 20 }}>
-          <h2 style={{ marginBottom: 8 }}>Reportes de negocio (MVP)</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+        <section className="section-block" style={{ marginTop: 20 }}>
+          <h2 className="section-title">Reportes de negocio (MVP)</h2>
+          <div className="section-grid section-grid-4" style={{ marginBottom: 16 }}>
+            <article className="panel">
               <strong>Ingresos netos</strong>
               <div>${props.reports.totals.netRevenue.toFixed(2)} MXN</div>
             </article>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <article className="panel">
               <strong>Canceladas</strong>
               <div>{props.reports.totals.cancelledAppointments}</div>
             </article>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <article className="panel">
               <strong>Tasa cancelación</strong>
               <div>{props.reports.totals.cancellationRate}%</div>
             </article>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <article className="panel">
               <strong>Total citas</strong>
               <div>{props.reports.totals.totalAppointments}</div>
             </article>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+          <div className="section-grid section-grid-3">
+            <article className="panel">
               <strong>Clientes frecuentes</strong>
               <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
                 {props.reports.topCustomers.length ? (
@@ -259,7 +259,7 @@ export function OverviewSection(props: OverviewSectionProps) {
               </ul>
             </article>
 
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <article className="panel">
               <strong>Servicios más demandados</strong>
               <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
                 {props.reports.topServices.length ? (
@@ -274,7 +274,7 @@ export function OverviewSection(props: OverviewSectionProps) {
               </ul>
             </article>
 
-            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <article className="panel">
               <strong>Horas pico (UTC)</strong>
               <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
                 {props.reports.peakHours.length ? (

@@ -29,41 +29,42 @@ type AuditSectionProps = {
 
 export function AuditSection(props: AuditSectionProps) {
   return (
-    <section style={{ marginTop: 28 }}>
-      <h2 style={{ marginBottom: 8 }}>Auditoría (MVP)</h2>
-      <p style={{ marginTop: 0, color: '#555' }}>Consulta acciones sensibles del tenant autenticado.</p>
+    <section className="section-block" style={{ marginTop: 28 }}>
+      <h2 className="section-title">Auditoría (MVP)</h2>
+      <p className="section-subtitle">Consulta acciones sensibles del tenant autenticado.</p>
 
       <form
         onSubmit={(event) => {
           event.preventDefault();
           void props.loadAuditLogs();
         }}
-        style={{ display: 'grid', gap: 12, marginBottom: 14 }}
+        className="section-form"
+        style={{ marginBottom: 14 }}
       >
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+        <div className="section-grid section-grid-5">
           <label>
             Acción (opcional)
-            <input value={props.auditAction} onChange={(e) => props.setAuditAction(e.target.value)} style={{ width: '100%' }} />
+            <input value={props.auditAction} onChange={(e) => props.setAuditAction(e.target.value)} className="w-full" />
           </label>
           <label>
             Actor User ID (opcional)
-            <input value={props.auditActorUserId} onChange={(e) => props.setAuditActorUserId(e.target.value)} style={{ width: '100%' }} />
+            <input value={props.auditActorUserId} onChange={(e) => props.setAuditActorUserId(e.target.value)} className="w-full" />
           </label>
           <label>
             Desde
-            <input type="date" value={props.auditFrom} onChange={(e) => props.setAuditFrom(e.target.value)} style={{ width: '100%' }} />
+            <input type="date" value={props.auditFrom} onChange={(e) => props.setAuditFrom(e.target.value)} className="w-full" />
           </label>
           <label>
             Hasta
-            <input type="date" value={props.auditTo} onChange={(e) => props.setAuditTo(e.target.value)} style={{ width: '100%' }} />
+            <input type="date" value={props.auditTo} onChange={(e) => props.setAuditTo(e.target.value)} className="w-full" />
           </label>
           <label>
             Límite
-            <input type="number" min={1} max={200} value={props.auditLimit} onChange={(e) => props.setAuditLimit(e.target.value)} style={{ width: '100%' }} />
+            <input type="number" min={1} max={200} value={props.auditLimit} onChange={(e) => props.setAuditLimit(e.target.value)} className="w-full" />
           </label>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="submit" disabled={props.auditLoading || !props.token.trim()} style={{ width: 180, padding: '8px 12px' }}>
+        <div className="section-actions">
+          <button type="submit" disabled={props.auditLoading || !props.token.trim()} className="btn btn-primary section-button-md">
             {props.auditLoading ? 'Cargando...' : 'Cargar auditoría'}
           </button>
           <button
@@ -74,7 +75,7 @@ export function AuditSection(props: AuditSectionProps) {
                 void props.loadAuditLogs(props.auditCursor);
               }
             }}
-            style={{ width: 180, padding: '8px 12px' }}
+            className="btn btn-ghost section-button-md"
           >
             Siguiente página
           </button>
@@ -83,30 +84,30 @@ export function AuditSection(props: AuditSectionProps) {
 
       <Notice tone="error" message={props.auditError} withMargin onClose={() => props.setAuditError('')} />
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div className="table-wrap panel" style={{ padding: 0 }}>
+        <table className="table-base">
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Fecha</th>
-              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Acción</th>
-              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Entidad</th>
-              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Entity ID</th>
-              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Actor User ID</th>
+              <th>Fecha</th>
+              <th>Acción</th>
+              <th>Entidad</th>
+              <th>Entity ID</th>
+              <th>Actor User ID</th>
             </tr>
           </thead>
           <tbody>
             {props.auditLogs.map((entry) => (
               <tr key={entry.id}>
-                <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{new Date(entry.createdAt).toLocaleString()}</td>
-                <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.action}</td>
-                <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.entity}</td>
-                <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.entityId ?? '-'}</td>
-                <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.actorUserId ?? '-'}</td>
+                <td>{new Date(entry.createdAt).toLocaleString()}</td>
+                <td>{entry.action}</td>
+                <td>{entry.entity}</td>
+                <td>{entry.entityId ?? '-'}</td>
+                <td>{entry.actorUserId ?? '-'}</td>
               </tr>
             ))}
             {!props.auditLogs.length ? (
               <tr>
-                <td colSpan={5} style={{ padding: 10, color: '#666' }}>
+                <td colSpan={5} className="table-empty">
                   Sin registros para los filtros actuales.
                 </td>
               </tr>

@@ -27,27 +27,27 @@ export function SettingsSection(props: SettingsSectionProps) {
       : publicPath;
 
   return (
-    <section style={{ marginTop: 28 }}>
-      <h2 style={{ marginBottom: 8 }}>Tenant Settings (MVP)</h2>
-      <p style={{ marginTop: 0, color: '#555' }}>
+    <section className="section-block" style={{ marginTop: 28 }}>
+      <h2 className="section-title">Tenant Settings (MVP)</h2>
+      <p className="section-subtitle">
         Configura los campos del formulario público (`bookingFormFields`) para {props.tenantSettings?.name ?? 'tu negocio'}.
       </p>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      <div className="section-actions" style={{ marginBottom: 12 }}>
         <button
           type="button"
           disabled={props.tenantSettingsLoading || !props.token.trim()}
           onClick={() => {
             void props.loadTenantSettings();
           }}
-          style={{ width: 200, padding: '8px 12px' }}
+          className="btn btn-ghost section-button-md"
         >
           {props.tenantSettingsLoading ? 'Cargando...' : 'Refresh settings'}
         </button>
       </div>
 
       {props.tenantSettings?.slug ? (
-        <div style={{ marginBottom: 12, padding: 10, borderRadius: 6, border: '1px solid #ddd', background: '#fafafa' }}>
+        <div className="panel" style={{ marginBottom: 12, background: 'var(--surface-muted)' }}>
           <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>URL pública para clientes</div>
           <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', wordBreak: 'break-all' }}>{publicUrl}</div>
         </div>
@@ -56,7 +56,7 @@ export function SettingsSection(props: SettingsSectionProps) {
       <Notice tone="error" message={props.tenantSettingsError} withMargin onClose={() => props.setTenantSettingsError('')} />
       <Notice tone="success" message={props.tenantSettingsSuccess} withMargin onClose={() => props.setTenantSettingsSuccess('')} />
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+      <div className="section-actions" style={{ marginBottom: 12 }}>
         <button
           type="button"
           onClick={() =>
@@ -68,7 +68,7 @@ export function SettingsSection(props: SettingsSectionProps) {
               placeholder: 'Ej: +52 55 1234 5678'
             })
           }
-          style={{ padding: '6px 10px' }}
+          className="btn btn-ghost"
         >
           Agregar Phone
         </button>
@@ -83,7 +83,7 @@ export function SettingsSection(props: SettingsSectionProps) {
               placeholder: 'Ej: 12345678'
             })
           }
-          style={{ padding: '6px 10px' }}
+          className="btn btn-ghost"
         >
           Agregar DNI
         </button>
@@ -98,16 +98,16 @@ export function SettingsSection(props: SettingsSectionProps) {
               placeholder: 'Indica cualquier detalle importante para tu cita'
             })
           }
-          style={{ padding: '6px 10px' }}
+          className="btn btn-ghost"
         >
           Agregar Notes
         </button>
       </div>
 
-      <form onSubmit={props.onSaveBookingFormFields} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+      <form onSubmit={props.onSaveBookingFormFields} className="panel section-form" style={{ gap: 8 }}>
         <label>
           refundPolicy
-          <select value={props.refundPolicy} onChange={(e) => props.setRefundPolicy(e.target.value as 'full' | 'credit' | 'none')} style={{ width: 260 }}>
+          <select value={props.refundPolicy} onChange={(e) => props.setRefundPolicy(e.target.value as 'full' | 'credit' | 'none')}>
             <option value="none">Sin devolución</option>
             <option value="credit">Crédito</option>
             <option value="full">Reembolso completo</option>
@@ -121,7 +121,6 @@ export function SettingsSection(props: SettingsSectionProps) {
             step={1}
             value={props.reminderHoursBeforeText}
             onChange={(e) => props.setReminderHoursBeforeText(e.target.value)}
-            style={{ width: 220 }}
           />
         </label>
         <label>
@@ -129,7 +128,7 @@ export function SettingsSection(props: SettingsSectionProps) {
           <textarea
             value={props.bookingFormFieldsText}
             onChange={(e) => props.setBookingFormFieldsText(e.target.value)}
-            style={{ width: '100%', minHeight: 180, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+            style={{ minHeight: 180, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
             placeholder='[{ "key": "phone", "label": "Teléfono", "type": "tel", "required": false }]'
           />
         </label>
@@ -138,7 +137,7 @@ export function SettingsSection(props: SettingsSectionProps) {
           recordatorios usa `reminderHoursBefore` para enviar emails antes de la cita. `refundPolicy` aplica al
           cancelar reservas con pagos (`none`, `credit`, `full`).
         </div>
-        <button type="submit" disabled={props.tenantSettingsLoading || !props.token.trim()} style={{ width: 260, padding: '8px 12px' }}>
+        <button type="submit" disabled={props.tenantSettingsLoading || !props.token.trim()} className="btn btn-primary section-button-lg">
           {props.tenantSettingsLoading ? 'Guardando...' : 'Guardar bookingFormFields'}
         </button>
       </form>

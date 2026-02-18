@@ -87,32 +87,32 @@ export function PaymentsSection(props: PaymentsSectionProps) {
   const stripeSuccess = props.stripeSuccess ?? '';
 
   return (
-    <section style={{ marginTop: 28 }}>
-      <h2 style={{ marginBottom: 8 }}>Pagos (MVP)</h2>
-      <p style={{ marginTop: 0, color: '#555' }}>Registra pago completo o depósito para una reserva y consulta historial reciente.</p>
+    <section className="section-block" style={{ marginTop: 28 }}>
+      <h2 className="section-title">Pagos (MVP)</h2>
+      <p className="section-subtitle">Registra pago completo o depósito para una reserva y consulta historial reciente.</p>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      <div className="section-actions" style={{ marginBottom: 12 }}>
         <button
           type="button"
           disabled={props.paymentsLoading || !props.token.trim()}
           onClick={() => {
             void props.loadPayments();
           }}
-          style={{ width: 180, padding: '8px 12px' }}
+          className="btn btn-ghost section-button-md"
         >
           {props.paymentsLoading ? 'Cargando...' : 'Refresh pagos'}
         </button>
       </div>
 
-      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', marginBottom: 12 }}>
-        <form onSubmit={props.onCreatePayment} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+      <div className="section-grid section-grid-2" style={{ marginBottom: 12 }}>
+        <form onSubmit={props.onCreatePayment} className="panel section-form" style={{ gap: 8 }}>
           <strong>Registrar pago</strong>
           <label>
             Reserva
             <select
               value={props.quickPaymentBookingId}
               onChange={(event) => props.setQuickPaymentBookingId(event.target.value)}
-              style={{ width: '100%' }}
+              className="w-full"
               disabled={!props.data?.bookings?.length}
             >
               <option value="">Seleccionar</option>
@@ -125,7 +125,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
           </label>
           <label>
             Tipo
-            <select value={props.quickPaymentMode} onChange={(event) => props.setQuickPaymentMode(event.target.value as 'full' | 'deposit')} style={{ width: '100%' }}>
+            <select value={props.quickPaymentMode} onChange={(event) => props.setQuickPaymentMode(event.target.value as 'full' | 'deposit')} className="w-full">
               <option value="full">Pago total (saldo pendiente)</option>
               <option value="deposit">Depósito parcial</option>
             </select>
@@ -135,7 +135,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
             <select
               value={props.quickPaymentMethod}
               onChange={(event) => props.setQuickPaymentMethod(event.target.value as 'cash' | 'card' | 'transfer' | 'link' | 'stripe')}
-              style={{ width: '100%' }}
+              className="w-full"
             >
               {props.paymentMethodOptions.map((method) => (
                 <option key={method} value={method}>
@@ -153,20 +153,20 @@ export function PaymentsSection(props: PaymentsSectionProps) {
               value={props.quickPaymentAmount}
               onChange={(event) => props.setQuickPaymentAmount(event.target.value)}
               disabled={props.quickPaymentMode !== 'deposit'}
-              style={{ width: '100%' }}
+              className="w-full"
             />
           </label>
           <label>
             Notas (opcional)
-            <input value={props.quickPaymentNotes} onChange={(event) => props.setQuickPaymentNotes(event.target.value)} style={{ width: '100%' }} />
+            <input value={props.quickPaymentNotes} onChange={(event) => props.setQuickPaymentNotes(event.target.value)} className="w-full" />
           </label>
-          <button type="submit" disabled={!props.canSubmitQuickPayment} style={{ width: 180, padding: '8px 12px' }}>
+          <button type="submit" disabled={!props.canSubmitQuickPayment} className="btn btn-primary section-button-md">
             {props.quickPaymentLoading ? 'Registrando...' : 'Registrar pago'}
           </button>
           {canUseStripe ? (
-            <div style={{ display: 'grid', gap: 6, borderTop: '1px solid #eee', paddingTop: 8 }}>
+            <div className="section-form" style={{ gap: 6, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
               <strong style={{ fontSize: 13 }}>Stripe</strong>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div className="section-actions">
                 <button
                   type="button"
                   onClick={() => {
@@ -175,7 +175,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
                     }
                   }}
                   disabled={stripeLoading || !props.quickPaymentBookingId}
-                  style={{ width: 220, padding: '8px 12px' }}
+                  className="btn btn-primary section-button-lg"
                 >
                   {stripeLoading ? 'Procesando...' : 'Crear checkout Stripe'}
                 </button>
@@ -194,7 +194,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
                       props.setStripeSessionId(event.target.value);
                     }
                   }}
-                  style={{ width: '100%' }}
+                  className="w-full"
                 />
               </label>
               <button
@@ -205,7 +205,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
                   }
                 }}
                 disabled={stripeLoading || !stripeSessionId.trim()}
-                style={{ width: 220, padding: '8px 12px' }}
+                  className="btn btn-ghost section-button-lg"
               >
                 Confirmar sesión Stripe
               </button>
@@ -221,37 +221,37 @@ export function PaymentsSection(props: PaymentsSectionProps) {
           <Notice tone="success" message={stripeSuccess} onClose={() => props.setStripeSuccess?.('')} />
         </form>
 
-        <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+        <div className="panel">
           <strong>Historial reciente</strong>
           <Notice tone="error" message={props.paymentsError} onClose={() => props.setPaymentsError('')} />
-          <div style={{ overflowX: 'auto', marginTop: 8 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="table-wrap" style={{ marginTop: 8 }}>
+            <table className="table-base">
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Fecha</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Cliente</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Tipo</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Monto</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Acciones</th>
+                  <th>Fecha</th>
+                  <th>Cliente</th>
+                  <th>Tipo</th>
+                  <th>Monto</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {props.payments.map((payment) => (
                   <tr key={payment.id}>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{new Date(payment.paidAt ?? payment.createdAt).toLocaleString()}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{payment.booking.customerName}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{payment.kind}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
+                    <td>{new Date(payment.paidAt ?? payment.createdAt).toLocaleString()}</td>
+                    <td>{payment.booking.customerName}</td>
+                    <td>{payment.kind}</td>
+                    <td>
                       {Number(payment.amount).toFixed(2)} {payment.currency}
                     </td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
+                    <td>
                       <button
                         type="button"
                         onClick={() => {
                           void props.onLoadSaleNote(payment.id);
                         }}
                         disabled={props.saleNoteLoadingId === payment.id}
-                        style={{ padding: '4px 8px' }}
+                        className="btn btn-ghost"
                       >
                         {props.saleNoteLoadingId === payment.id ? 'Cargando...' : 'Nota venta'}
                       </button>
@@ -260,7 +260,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
                 ))}
                 {!props.payments.length ? (
                   <tr>
-                    <td colSpan={5} style={{ padding: 8, color: '#666' }}>
+                    <td colSpan={5} className="table-empty">
                       Sin pagos registrados.
                     </td>
                   </tr>
@@ -273,9 +273,9 @@ export function PaymentsSection(props: PaymentsSectionProps) {
 
       <Notice tone="error" message={props.saleNoteError} withMargin onClose={() => props.setSaleNoteError('')} />
       {props.saleNote ? (
-        <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+        <article className="panel">
           <strong>Nota de venta: {props.saleNote.folio}</strong>
-          <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
+          <div className="section-form" style={{ marginTop: 8, gap: 4 }}>
             <div>Emitida: {new Date(props.saleNote.issuedAt).toLocaleString()}</div>
             <div>Negocio: {props.saleNote.tenant.name}</div>
             <div>
