@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "prestart:dev": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "start:dev": "nest start --watch",
+    "prebuild": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "nest build",
     "start": "node dist/main.js",
     "seed:demo": "ts-node scripts/seed-demo.ts",
