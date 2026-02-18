@@ -298,6 +298,14 @@ Precondiciones:
 2. API + Web levantadas: `npm run dev`
 3. Usuario de pruebas creado (o usar registro en UI).
 
+Atajo automatizado (evidencia técnica rápida):
+- Ejecutar `npm run qa:smoke:mvp` para validar por API:
+  - registro tenant,
+  - creación servicio/staff/disponibilidad,
+  - configuración `bookingFormFields`,
+  - rechazo por campo requerido faltante,
+  - creación de reserva pública válida.
+
 Pasos:
 1. Login en `/login`.
 2. En dashboard, crear/confirmar al menos 1 servicio y 1 staff.
@@ -338,11 +346,27 @@ Checklist previo a liberar:
 - [x] `docker compose up -d postgres redis` operativo.
 - [x] `npm run build` sin errores en `web` y `api`.
 - [x] `npm run test:e2e -w @apoint/api -- critical-rules.e2e-spec.ts` en verde.
-- [ ] `npm run dev` estable sin locks de `.next` ni procesos huérfanos.
-- [ ] Runbook manual integrada (sección 10.1) completado y evidenciado.
+- [x] `npm run dev` estable sin locks de `.next` ni procesos huérfanos.
+- [x] `npm run qa:secrets:local` ejecutado (JWT locales seguros).
+- [x] `npm run qa:email:local` ejecutado (fallback SMTP local).
+- [x] `npm run qa:preflight:mvp` ejecutado (sin errores bloqueantes).
+- [x] `npm run qa:smoke:mvp` ejecutado y evidencia guardada.
+- [x] Runbook manual integrada (sección 10.1) completado y evidenciado.
+
+Evidencia DEV (última ejecución automática):
+- Fecha: 2026-02-17
+- Comando: `npm run qa:smoke:mvp`
+- Resultado: ✅ completado
+- Tenant slug: `smoke-tenant-1771382492547`
+- Owner: `owner.smoke.1771382492547@example.com`
+- Staff: `staff.smoke.1771382492547@example.com`
+- Customer: `customer.smoke.1771382492547@example.com`
+- Nota: warnings de email esperados por falta de credenciales SendGrid/SMTP en entorno local.
 
 ### STAGING
 - [ ] Variables `DATABASE_URL`, `REDIS_URL`, `JWT_*`, `NEXT_PUBLIC_API_URL` configuradas.
+- [ ] `node scripts/mvp-preflight.js --env=staging` en verde.
+- [ ] `npm run qa:smoke:staging` en verde.
 - [ ] Credenciales SendGrid/SMTP de staging cargadas.
 - [ ] Migraciones Prisma aplicadas (`prisma migrate deploy`).
 - [ ] Smoke de flujos críticos: auth, dashboard, reserva pública, cancelación, waitlist.
@@ -350,6 +374,8 @@ Checklist previo a liberar:
 
 ### PROD
 - [ ] Secretos productivos validados (sin defaults, rotación definida).
+- [ ] `node scripts/mvp-preflight.js --env=prod` en verde.
+- [ ] `npm run qa:smoke:prod` en verde.
 - [ ] HTTPS + dominio(s) operativos y redirecciones correctas.
 - [ ] Monitoreo/logs y alertas mínimas habilitadas.
 - [ ] Backup/restore de base de datos validado.

@@ -22,6 +22,14 @@ npm run dev:web
 npm run dev:api
 npm run dev:prep
 npm run dev:reset:win
+npm run qa:email:local
+npm run qa:secrets:local
+npm run qa:preflight:mvp
+npm run qa:preflight:staging
+npm run qa:preflight:prod
+npm run qa:smoke:mvp
+npm run qa:smoke:staging
+npm run qa:smoke:prod
 npm run test:e2e -w @apoint/api
 ```
 
@@ -36,6 +44,15 @@ Levantar infraestructura local:
 ```bash
 docker compose up -d postgres redis
 ```
+
+SMTP local (sin SendGrid):
+
+```bash
+npm run qa:email:local
+docker compose up -d mailpit
+```
+
+Mailpit UI: `http://localhost:8025`
 
 Apagar infraestructura local:
 
@@ -67,6 +84,19 @@ Notificaciones email (MVP):
 - Proveedor principal: `SendGrid` (`SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`)
 - Fallback automático: `Nodemailer SMTP` si SendGrid falla (`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL`)
 - Destinatario opcional para alertas al negocio: `NOTIFICATIONS_BUSINESS_EMAIL`
+
+Preflight de configuración MVP:
+- `npm run qa:secrets:local` genera/rota secretos JWT locales en `.env` (sin exponer valores)
+- `npm run qa:email:local` configura fallback SMTP local para pruebas de email sin SendGrid
+- `npm run qa:preflight:mvp` valida variables mínimas y setup de email
+- `npm run qa:preflight:staging` valida configuración para staging
+- `npm run qa:preflight:prod` valida configuración para producción
+
+Smoke multi-entorno:
+- `npm run qa:smoke:mvp` usa `API_URL` o `http://localhost:3001`
+- `npm run qa:smoke:staging` usa `STAGING_API_URL`
+- `npm run qa:smoke:prod` usa `PROD_API_URL`
+- override opcional: `node scripts/mvp-go-live-smoke.js --api-url=https://tu-api`
 
 ## API disponible (Sprint 1 base)
 

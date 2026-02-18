@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import sendgridMail from '@sendgrid/mail';
-import nodemailer, { Transporter } from 'nodemailer';
+import * as nodemailer from 'nodemailer';
+import { Transporter } from 'nodemailer';
 
 type EmailPayload = {
   to: string;
