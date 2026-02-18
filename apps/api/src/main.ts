@@ -26,7 +26,7 @@ function loadEnvironment() {
 loadEnvironment();
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

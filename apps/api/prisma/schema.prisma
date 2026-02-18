@@ -335,4 +335,5 @@ model Payment {
   @@index([bookingId])
   @@index([customerId])
   @@index([tenantId, createdAt])
+  @@unique([tenantId, provider, providerReference])
 }

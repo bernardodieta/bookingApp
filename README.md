@@ -34,6 +34,9 @@ npm run qa:preflight:prod:strict
 npm run qa:smoke:mvp
 npm run qa:smoke:staging
 npm run qa:smoke:prod
+npm run qa:smoke:stripe
+npm run qa:smoke:stripe:staging
+npm run qa:smoke:stripe:prod
 npm run qa:smoke:widget
 npm run qa:smoke:widget:staging
 npm run qa:smoke:widget:prod
@@ -135,8 +138,11 @@ Bootstrap de entorno remoto:
 
 Smoke multi-entorno:
 - `npm run qa:smoke:mvp` usa `API_URL` o `http://localhost:3001`
+- `npm run qa:smoke:stripe` valida checkout + webhook firmado + idempotencia (`STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET` requeridas)
 - `npm run qa:smoke:staging` usa `STAGING_API_URL`
 - `npm run qa:smoke:prod` usa `PROD_API_URL`
+- `npm run qa:smoke:stripe:staging` usa `STAGING_API_URL` para smoke Stripe
+- `npm run qa:smoke:stripe:prod` usa `PROD_API_URL` para smoke Stripe
 - `npm run qa:smoke:widget` valida específicamente dominio custom + `widget-config` + `widget.js`
 - `npm run qa:smoke:widget:staging` usa `STAGING_API_URL` en modo widget-only
 - `npm run qa:smoke:widget:prod` usa `PROD_API_URL` en modo widget-only
@@ -267,7 +273,8 @@ Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
 - `POST /payments` (registro manual de `full` o `deposit`)
 	- body base: `{ "bookingId": "...", "mode": "full|deposit", "amount?": 40, "method?": "cash|card|transfer|link|stripe" }`
 - `POST /payments/stripe/checkout-session` (crea sesión Checkout de Stripe)
-- `POST /payments/stripe/confirm` (confirma sesión pagada y registra el pago en sistema)
+- `POST /payments/stripe/confirm` (confirmación manual/idempotente de sesión pagada)
+- `POST /payments/stripe/webhook` (confirmación automática por webhook firmado `Stripe-Signature`)
 - `GET /payments?bookingId=...&customerId=...&status=...&kind=...`
 - `GET /payments/:id/sale-note` (nota de venta/factura básica)
 - Política de reembolso configurable en `PATCH /tenant/settings` con `refundPolicy: "none" | "credit" | "full"`
@@ -278,6 +285,7 @@ Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
 
 Variables para Stripe:
 - `STRIPE_SECRET_KEY` (obligatoria para crear/confirmar sesiones)
+- `STRIPE_WEBHOOK_SECRET` (obligatoria para validar firma del webhook)
 - `NEXT_PUBLIC_APP_URL` o `WEB_BASE_URL` (opcional, para construir URLs de success/cancel)
 
 Nota de roadmap de pagos:

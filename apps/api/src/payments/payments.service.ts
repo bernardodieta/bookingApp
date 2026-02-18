@@ -19,7 +19,7 @@ export class PaymentsService {
   ) {}
 
   async create(user: AuthUser, payload: CreatePaymentDto) {
-    const context = await this.resolveBookingPaymentContext(user, payload.bookingId, payload.mode, payload.amount);
+    const context = await this.resolveBookingPaymentContext(user.tenantId, payload.bookingId, payload.mode, payload.amount);
 
     const payment = await this.prisma.payment.create({
       data: {
@@ -77,7 +77,7 @@ export class PaymentsService {
 
   async createStripeCheckoutSession(user: AuthUser, payload: CreateStripeCheckoutDto) {
     const stripe = this.getStripeClient();
-    const context = await this.resolveBookingPaymentContext(user, payload.bookingId, payload.mode, payload.amount);
+    const context = await this.resolveBookingPaymentContext(user.tenantId, payload.bookingId, payload.mode, payload.amount);
     const webUrl = (process.env.NEXT_PUBLIC_APP_URL ?? process.env.WEB_BASE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 
     const session = await stripe.checkout.sessions.create({
@@ -129,80 +129,48 @@ export class PaymentsService {
     const stripe = this.getStripeClient();
     const session = await stripe.checkout.sessions.retrieve(payload.sessionId);
 
-    if (session.payment_status !== 'paid') {
-      throw new BadRequestException('La sesión de Stripe aún no está pagada.');
-    }
-
-    const tenantId = session.metadata?.tenantId;
-    const bookingId = session.metadata?.bookingId;
-    const mode = session.metadata?.mode;
-
-    if (!tenantId || !bookingId || !mode) {
-      throw new BadRequestException('La sesión de Stripe no tiene metadata suficiente.');
-    }
-
-    if (tenantId !== user.tenantId) {
-      throw new NotFoundException('Sesión de Stripe no encontrada para este tenant.');
-    }
-
-    if (mode !== 'full' && mode !== 'deposit') {
-      throw new BadRequestException('Modo de pago inválido en sesión de Stripe.');
-    }
-
-    const existing = await this.prisma.payment.findFirst({
-      where: {
-        tenantId: user.tenantId,
-        provider: 'stripe',
-        providerReference: session.id
-      },
-      select: { id: true }
+    return this.recordStripePaidSession({
+      session,
+      expectedTenantId: user.tenantId,
+      actorUserId: user.sub,
+      source: 'manual-confirm'
     });
+  }
 
-    if (existing) {
+  async handleStripeWebhook(input: { signature?: string; rawBody: Buffer }) {
+    const stripe = this.getStripeClient();
+    const webhookSecret = this.getStripeWebhookSecret();
+
+    if (!input.signature) {
+      throw new BadRequestException('Falta Stripe-Signature en webhook.');
+    }
+
+    let event: Stripe.Event;
+    try {
+      event = stripe.webhooks.constructEvent(input.rawBody, input.signature, webhookSecret);
+    } catch {
+      throw new BadRequestException('Firma de webhook Stripe inválida.');
+    }
+
+    if (event.type !== 'checkout.session.completed') {
       return {
-        alreadyConfirmed: true,
-        paymentId: existing.id
+        received: true,
+        handled: false,
+        eventType: event.type
       };
     }
 
-    const amount = Number((session.amount_total ?? 0) / 100);
-    const context = await this.resolveBookingPaymentContext(user, bookingId, mode, amount);
-
-    const payment = await this.prisma.payment.create({
-      data: {
-        tenantId: user.tenantId,
-        bookingId: context.booking.id,
-        customerId: context.booking.customerId,
-        kind: mode,
-        status: PaymentStatus.paid,
-        method: PaymentMethod.stripe,
-        provider: 'stripe',
-        providerReference: session.id,
-        amount: context.amount,
-        currency: String(session.currency ?? 'mxn').toUpperCase(),
-        paidAt: new Date()
-      }
-    });
-
-    await this.auditService.log({
-      tenantId: user.tenantId,
-      actorUserId: user.sub,
-      action: 'PAYMENT_STRIPE_CONFIRMED',
-      entity: 'payment',
-      entityId: payment.id,
-      metadata: {
-        sessionId: session.id,
-        bookingId: context.booking.id,
-        amount: context.amount,
-        mode
-      } as Prisma.InputJsonValue
+    const session = event.data.object as Stripe.Checkout.Session;
+    await this.recordStripePaidSession({
+      session,
+      source: 'webhook'
     });
 
     return {
-      alreadyConfirmed: false,
-      paymentId: payment.id,
-      amount: context.amount,
-      currency: payment.currency
+      received: true,
+      handled: true,
+      eventType: event.type,
+      sessionId: session.id
     };
   }
 
@@ -297,13 +265,13 @@ export class PaymentsService {
   }
 
   private async resolveBookingPaymentContext(
-    user: AuthUser,
+    tenantId: string,
     bookingId: string,
     mode: 'full' | 'deposit',
     requestedAmount?: number
   ) {
     const booking = await this.prisma.booking.findFirst({
-      where: { id: bookingId, tenantId: user.tenantId },
+      where: { id: bookingId, tenantId },
       include: {
         service: {
           select: {
@@ -365,6 +333,136 @@ export class PaymentsService {
     };
   }
 
+  private async recordStripePaidSession(input: {
+    session: Stripe.Checkout.Session;
+    source: 'manual-confirm' | 'webhook';
+    expectedTenantId?: string;
+    actorUserId?: string;
+  }) {
+    if (input.session.payment_status !== 'paid') {
+      throw new BadRequestException('La sesión de Stripe aún no está pagada.');
+    }
+
+    const tenantId = input.session.metadata?.tenantId;
+    const bookingId = input.session.metadata?.bookingId;
+    const mode = input.session.metadata?.mode;
+
+    if (!tenantId || !bookingId || !mode) {
+      throw new BadRequestException('La sesión de Stripe no tiene metadata suficiente.');
+    }
+
+    if (input.expectedTenantId && tenantId !== input.expectedTenantId) {
+      throw new NotFoundException('Sesión de Stripe no encontrada para este tenant.');
+    }
+
+    if (mode !== 'full' && mode !== 'deposit') {
+      throw new BadRequestException('Modo de pago inválido en sesión de Stripe.');
+    }
+
+    const existing = await this.prisma.payment.findFirst({
+      where: {
+        tenantId,
+        provider: 'stripe',
+        providerReference: input.session.id
+      },
+      select: {
+        id: true,
+        amount: true,
+        currency: true
+      }
+    });
+
+    if (existing) {
+      return {
+        alreadyConfirmed: true,
+        paymentId: existing.id,
+        amount: Number(existing.amount),
+        currency: existing.currency
+      };
+    }
+
+    const amount = Number((input.session.amount_total ?? 0) / 100);
+    const context = await this.resolveBookingPaymentContext(tenantId, bookingId, mode, amount);
+
+    let payment:
+      | {
+          id: string;
+          currency: string;
+        }
+      | undefined;
+
+    try {
+      payment = await this.prisma.payment.create({
+        data: {
+          tenantId,
+          bookingId: context.booking.id,
+          customerId: context.booking.customerId,
+          kind: mode,
+          status: PaymentStatus.paid,
+          method: PaymentMethod.stripe,
+          provider: 'stripe',
+          providerReference: input.session.id,
+          amount: context.amount,
+          currency: String(input.session.currency ?? 'mxn').toUpperCase(),
+          paidAt: new Date()
+        },
+        select: {
+          id: true,
+          currency: true
+        }
+      });
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        const duplicated = await this.prisma.payment.findFirst({
+          where: {
+            tenantId,
+            provider: 'stripe',
+            providerReference: input.session.id
+          },
+          select: {
+            id: true,
+            amount: true,
+            currency: true
+          }
+        });
+
+        if (!duplicated) {
+          throw error;
+        }
+
+        return {
+          alreadyConfirmed: true,
+          paymentId: duplicated.id,
+          amount: Number(duplicated.amount),
+          currency: duplicated.currency
+        };
+      }
+      throw error;
+    }
+
+    await this.auditService.log({
+      tenantId,
+      actorUserId: input.actorUserId,
+      action: input.source === 'webhook' ? 'PAYMENT_STRIPE_WEBHOOK_CONFIRMED' : 'PAYMENT_STRIPE_CONFIRMED',
+      entity: 'payment',
+      entityId: payment.id,
+      metadata: {
+        source: input.source,
+        sessionId: input.session.id,
+        bookingId: context.booking.id,
+        amount: context.amount,
+        mode
+      } as Prisma.InputJsonValue
+    });
+
+    return {
+      alreadyConfirmed: false,
+      paymentId: payment.id,
+      amount: context.amount,
+      currency: payment.currency
+    };
+  }
+
   private getStripeClient() {
     if (this.stripeClient) {
       return this.stripeClient;
@@ -380,5 +478,18 @@ export class PaymentsService {
     });
 
     return this.stripeClient;
+  }
+
+  private getStripeWebhookSecret() {
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      throw new BadRequestException('STRIPE_WEBHOOK_SECRET no configurada.');
+    }
+
+    return webhookSecret;
+  }
+
+  private isUniqueConstraintError(error: unknown) {
+    return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === 'P2002';
   }
 }
