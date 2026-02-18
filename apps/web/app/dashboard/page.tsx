@@ -57,6 +57,34 @@ type DashboardResponse = {
   }>;
 };
 
+type DashboardReportsResponse = {
+  range: 'day' | 'week' | 'month';
+  period: {
+    start: string;
+    end: string;
+  };
+  totals: {
+    totalAppointments: number;
+    cancelledAppointments: number;
+    cancellationRate: number;
+    netRevenue: number;
+  };
+  topCustomers: Array<{
+    customerName: string;
+    customerEmail: string;
+    totalBookings: number;
+  }>;
+  topServices: Array<{
+    serviceId: string;
+    serviceName: string;
+    totalBookings: number;
+  }>;
+  peakHours: Array<{
+    hour: number;
+    total: number;
+  }>;
+};
+
 type AuditLogEntry = {
   id: string;
   action: string;
@@ -82,13 +110,65 @@ type TenantSettingsResponse = {
   cancellationNoticeHours: number;
   rescheduleNoticeHours: number;
   reminderHoursBefore: number;
+  refundPolicy: 'full' | 'credit' | 'none';
   bookingFormFields: Array<Record<string, unknown>> | null;
+};
+
+type PaymentRecord = {
+  id: string;
+  kind: 'full' | 'deposit' | 'refund';
+  status: 'pending' | 'paid' | 'failed' | 'refunded';
+  method: 'cash' | 'card' | 'transfer' | 'link' | 'stripe' | 'mercadopago';
+  amount: string;
+  currency: string;
+  notes: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  booking: {
+    id: string;
+    customerName: string;
+    customerEmail: string;
+    startAt: string;
+    service: {
+      id: string;
+      name: string;
+      price: string;
+    };
+  };
+};
+
+type SaleNoteResponse = {
+  folio: string;
+  issuedAt: string;
+  tenant: {
+    name: string;
+    slug: string;
+  };
+  payment: {
+    id: string;
+    kind: string;
+    status: string;
+    method: string;
+    amount: number;
+    currency: string;
+    notes: string | null;
+  };
+  booking: {
+    id: string;
+    customerName: string;
+    customerEmail: string;
+    startAt: string;
+    serviceName: string;
+    servicePrice: number;
+    staffName: string;
+  };
 };
 
 const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
 const today = new Date().toISOString().slice(0, 10);
 const STATUS_OPTIONS = ['pending', 'confirmed', 'cancelled', 'rescheduled', 'no_show', 'completed'] as const;
+const PAYMENT_METHOD_OPTIONS = ['cash', 'card', 'transfer', 'link', 'stripe', 'mercadopago'] as const;
 
 const dashboardFilterSchema = z.object({
   apiUrl: z.string().url('API URL inválida.'),
@@ -182,6 +262,31 @@ const quickJoinWaitlistSchema = z.object({
   customerName: z.string().trim().min(1, 'Nombre de cliente requerido.'),
   customerEmail: z.string().trim().email('Email de cliente inválido.'),
   notes: z.string().optional()
+});
+
+const quickCreatePaymentSchema = z
+  .object({
+    apiUrl: z.string().url('API URL inválida.'),
+    token: z.string().min(1, 'Token de sesión inválido.'),
+    bookingId: z.string().trim().min(1, 'Selecciona una reserva para registrar el pago.'),
+    mode: z.enum(['full', 'deposit']),
+    amount: z.coerce.number().positive('Monto inválido para depósito.').optional(),
+    method: z.enum(PAYMENT_METHOD_OPTIONS),
+    notes: z.string().optional()
+  })
+  .superRefine((value, context) => {
+    if (value.mode === 'deposit' && (typeof value.amount !== 'number' || Number.isNaN(value.amount))) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Para depósito debes indicar un monto válido.',
+        path: ['amount']
+      });
+    }
+  });
+
+const paymentsQuerySchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  token: z.string().min(1, 'Token de sesión inválido.')
 });
 
 const availabilityListSchema = z.object({
@@ -308,6 +413,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState<DashboardResponse | null>(null);
+  const [reports, setReports] = useState<DashboardReportsResponse | null>(null);
+  const [reportsError, setReportsError] = useState('');
   const [auditAction, setAuditAction] = useState('');
   const [auditActorUserId, setAuditActorUserId] = useState('');
   const [auditFrom, setAuditFrom] = useState(today);
@@ -323,6 +430,7 @@ export default function DashboardPage() {
   const [tenantSettings, setTenantSettings] = useState<TenantSettingsResponse | null>(null);
   const [bookingFormFieldsText, setBookingFormFieldsText] = useState('[]');
   const [reminderHoursBeforeText, setReminderHoursBeforeText] = useState('24');
+  const [refundPolicy, setRefundPolicy] = useState<'full' | 'credit' | 'none'>('none');
   const [quickServiceName, setQuickServiceName] = useState('');
   const [quickServiceDuration, setQuickServiceDuration] = useState('30');
   const [quickServicePrice, setQuickServicePrice] = useState('100');
@@ -372,6 +480,20 @@ export default function DashboardPage() {
   const [quickWaitlistLoading, setQuickWaitlistLoading] = useState(false);
   const [quickWaitlistError, setQuickWaitlistError] = useState('');
   const [quickWaitlistSuccess, setQuickWaitlistSuccess] = useState('');
+  const [quickPaymentBookingId, setQuickPaymentBookingId] = useState('');
+  const [quickPaymentMode, setQuickPaymentMode] = useState<'full' | 'deposit'>('full');
+  const [quickPaymentAmount, setQuickPaymentAmount] = useState('');
+  const [quickPaymentMethod, setQuickPaymentMethod] = useState<(typeof PAYMENT_METHOD_OPTIONS)[number]>('cash');
+  const [quickPaymentNotes, setQuickPaymentNotes] = useState('');
+  const [quickPaymentLoading, setQuickPaymentLoading] = useState(false);
+  const [quickPaymentError, setQuickPaymentError] = useState('');
+  const [quickPaymentSuccess, setQuickPaymentSuccess] = useState('');
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsError, setPaymentsError] = useState('');
+  const [saleNoteLoadingId, setSaleNoteLoadingId] = useState('');
+  const [saleNote, setSaleNote] = useState<SaleNoteResponse | null>(null);
+  const [saleNoteError, setSaleNoteError] = useState('');
   const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRuleItem[]>([]);
   const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityExceptionItem[]>([]);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
@@ -388,6 +510,7 @@ export default function DashboardPage() {
   useAutoDismissSuccess(quickRuleSuccess, () => setQuickRuleSuccess(''));
   useAutoDismissSuccess(quickExceptionSuccess, () => setQuickExceptionSuccess(''));
   useAutoDismissSuccess(quickWaitlistSuccess, () => setQuickWaitlistSuccess(''));
+  useAutoDismissSuccess(quickPaymentSuccess, () => setQuickPaymentSuccess(''));
   useAutoDismissSuccess(bookingActionSuccess, () => setBookingActionSuccess(''));
   useAutoDismissSuccess(availabilityActionSuccess, () => setAvailabilityActionSuccess(''));
   useAutoDismissSuccess(tenantSettingsSuccess, () => setTenantSettingsSuccess(''));
@@ -427,6 +550,13 @@ export default function DashboardPage() {
       setQuickWaitlistError('');
     }
   }, [quickWaitlistSuccess]);
+
+  useEffect(() => {
+    if (quickPaymentSuccess) {
+      setQuickPaymentError('');
+      setPaymentsError('');
+    }
+  }, [quickPaymentSuccess]);
 
   useEffect(() => {
     if (bookingActionSuccess) {
@@ -505,6 +635,13 @@ export default function DashboardPage() {
     !Number.isNaN(new Date(quickWaitlistPreferredStartAt).getTime()) &&
     !!quickWaitlistCustomerName.trim() &&
     looksLikeEmail(quickWaitlistCustomerEmail);
+
+  const quickPaymentAmountNumber = Number(quickPaymentAmount);
+  const canSubmitQuickPayment =
+    !!token.trim() &&
+    !quickPaymentLoading &&
+    !!quickPaymentBookingId &&
+    (quickPaymentMode === 'full' || (Number.isFinite(quickPaymentAmountNumber) && quickPaymentAmountNumber > 0));
 
   const quickServiceDisabledReason = !token.trim()
     ? 'Inicia sesión para crear servicios.'
@@ -586,6 +723,16 @@ export default function DashboardPage() {
               : !looksLikeEmail(quickWaitlistCustomerEmail)
                 ? 'Ingresa un email de cliente válido.'
                 : '';
+
+  const quickPaymentDisabledReason = !token.trim()
+    ? 'Inicia sesión para registrar pagos.'
+    : quickPaymentLoading
+      ? ''
+      : !quickPaymentBookingId
+        ? 'Carga calendario y selecciona una reserva.'
+        : quickPaymentMode === 'deposit' && (!Number.isFinite(quickPaymentAmountNumber) || quickPaymentAmountNumber <= 0)
+          ? 'Para depósito indica un monto mayor a 0.'
+          : '';
 
   useEffect(() => {
     const storedToken = localStorage.getItem(TOKEN_KEY);
@@ -710,17 +857,33 @@ export default function DashboardPage() {
     if (!token.trim()) {
       setAvailabilityRules([]);
       setAvailabilityExceptions([]);
+      setPayments([]);
+      setSaleNote(null);
       setAvailabilityError('');
       return;
     }
 
     void loadAvailabilityData();
     void loadTenantSettings();
+    void loadPayments();
   }, [apiUrl, token]);
+
+  useEffect(() => {
+    if (!data?.bookings?.length) {
+      return;
+    }
+
+    if (!data.bookings.some((entry) => entry.id === quickPaymentBookingId)) {
+      setQuickPaymentBookingId(data.bookings[0].id);
+    }
+  }, [data, quickPaymentBookingId]);
 
   function onLogout() {
     localStorage.removeItem(TOKEN_KEY);
     setData(null);
+    setReports(null);
+    setPayments([]);
+    setSaleNote(null);
     setAuditLogs([]);
     setAuditCursor(null);
     router.replace('/login');
@@ -888,12 +1051,51 @@ export default function DashboardPage() {
       setTenantSettings(payload);
       setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
       setReminderHoursBeforeText(String(payload.reminderHoursBefore ?? 24));
+      setRefundPolicy(payload.refundPolicy ?? 'none');
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudo cargar tenant settings';
       setTenantSettingsError(message);
       setTenantSettings(null);
     } finally {
       setTenantSettingsLoading(false);
+    }
+  }
+
+  async function loadPayments() {
+    setPaymentsError('');
+
+    const parsed = paymentsQuerySchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim()
+    });
+
+    if (!parsed.success) {
+      setPaymentsError(parsed.error.issues[0]?.message ?? 'No se pudieron cargar pagos.');
+      return;
+    }
+
+    setPaymentsLoading(true);
+
+    try {
+      const response = await fetch(new URL('/payments', parsed.data.apiUrl).toString(), {
+        headers: {
+          Authorization: `Bearer ${parsed.data.token}`
+        }
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      const payload = (await response.json()) as PaymentRecord[];
+      setPayments(payload ?? []);
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudieron cargar pagos';
+      setPaymentsError(message);
+      setPayments([]);
+    } finally {
+      setPaymentsLoading(false);
     }
   }
 
@@ -942,7 +1144,8 @@ export default function DashboardPage() {
         },
         body: JSON.stringify({
           bookingFormFields: fieldsPayload,
-          reminderHoursBefore: reminderHoursBeforeNumber
+          reminderHoursBefore: reminderHoursBeforeNumber,
+          refundPolicy
         })
       });
 
@@ -955,6 +1158,7 @@ export default function DashboardPage() {
       setTenantSettings(payload);
       setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
       setReminderHoursBeforeText(String(payload.reminderHoursBefore ?? reminderHoursBeforeNumber));
+      setRefundPolicy(payload.refundPolicy ?? refundPolicy);
       setTenantSettingsSuccess('Booking form fields actualizados correctamente.');
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudieron guardar bookingFormFields';
@@ -1175,6 +1379,7 @@ export default function DashboardPage() {
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError('');
+    setReportsError('');
 
     const parsed = dashboardFilterSchema.safeParse({
       apiUrl: apiUrl.trim(),
@@ -1188,6 +1393,7 @@ export default function DashboardPage() {
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Filtros inválidos.');
       setData(null);
+      setReports(null);
       return;
     }
 
@@ -1204,19 +1410,37 @@ export default function DashboardPage() {
         url.searchParams.set('status', parsed.data.status);
       }
 
-      const response = await fetch(url.toString(), {
-        headers: {
-          Authorization: `Bearer ${parsed.data.token}`
-        }
-      });
+      const reportsUrl = new URL('/dashboard/reports', parsed.data.apiUrl);
+      reportsUrl.searchParams.set('range', parsed.data.range);
+      reportsUrl.searchParams.set('date', parsed.data.date);
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+      const [appointmentsResponse, reportsResponse] = await Promise.all([
+        fetch(url.toString(), {
+          headers: {
+            Authorization: `Bearer ${parsed.data.token}`
+          }
+        }),
+        fetch(reportsUrl.toString(), {
+          headers: {
+            Authorization: `Bearer ${parsed.data.token}`
+          }
+        })
+      ]);
+
+      if (!appointmentsResponse.ok) {
+        const text = await appointmentsResponse.text();
+        throw new Error(text || `Error ${appointmentsResponse.status}`);
       }
 
-      const payload = (await response.json()) as DashboardResponse;
+      if (!reportsResponse.ok) {
+        const text = await reportsResponse.text();
+        throw new Error(text || `Error ${reportsResponse.status}`);
+      }
+
+      const payload = (await appointmentsResponse.json()) as DashboardResponse;
+      const reportsPayload = (await reportsResponse.json()) as DashboardReportsResponse;
       setData(payload);
+      setReports(reportsPayload);
       setRescheduleDrafts((current) => {
         const next = { ...current };
         for (const booking of payload.bookings) {
@@ -1230,6 +1454,8 @@ export default function DashboardPage() {
       const message = requestError instanceof Error ? requestError.message : 'Error inesperado';
       setError(message);
       setData(null);
+      setReports(null);
+      setReportsError(message);
     } finally {
       setLoading(false);
     }
@@ -1431,6 +1657,106 @@ export default function DashboardPage() {
       setQuickBookingError(message);
     } finally {
       setQuickBookingLoading(false);
+    }
+  }
+
+  async function onCreatePayment(event: FormEvent) {
+    event.preventDefault();
+    setQuickPaymentError('');
+    setQuickPaymentSuccess('');
+
+    const parsed = quickCreatePaymentSchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim(),
+      bookingId: quickPaymentBookingId,
+      mode: quickPaymentMode,
+      amount: quickPaymentMode === 'deposit' ? quickPaymentAmount : undefined,
+      method: quickPaymentMethod,
+      notes: quickPaymentNotes.trim() || undefined
+    });
+
+    if (!parsed.success) {
+      setQuickPaymentError(parsed.error.issues[0]?.message ?? 'Datos de pago inválidos.');
+      return;
+    }
+
+    setQuickPaymentLoading(true);
+
+    try {
+      const response = await fetch(new URL('/payments', parsed.data.apiUrl).toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${parsed.data.token}`
+        },
+        body: JSON.stringify({
+          bookingId: parsed.data.bookingId,
+          mode: parsed.data.mode,
+          amount: parsed.data.mode === 'deposit' ? parsed.data.amount : undefined,
+          method: parsed.data.method,
+          notes: parsed.data.notes
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      const payload = (await response.json()) as { summary?: { outstanding?: number } };
+      const outstanding = payload.summary?.outstanding;
+      if (typeof outstanding === 'number') {
+        setQuickPaymentSuccess(`Pago registrado. Saldo pendiente: ${outstanding.toFixed(2)} MXN.`);
+      } else {
+        setQuickPaymentSuccess('Pago registrado correctamente.');
+      }
+
+      setQuickPaymentAmount('');
+      setQuickPaymentNotes('');
+      await loadPayments();
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo registrar pago';
+      setQuickPaymentError(message);
+    } finally {
+      setQuickPaymentLoading(false);
+    }
+  }
+
+  async function onLoadSaleNote(paymentId: string) {
+    setSaleNoteError('');
+
+    const parsed = paymentsQuerySchema.safeParse({
+      apiUrl: apiUrl.trim(),
+      token: token.trim()
+    });
+
+    if (!parsed.success) {
+      setSaleNoteError(parsed.error.issues[0]?.message ?? 'Sesión inválida para nota de venta.');
+      return;
+    }
+
+    setSaleNoteLoadingId(paymentId);
+
+    try {
+      const response = await fetch(new URL(`/payments/${paymentId}/sale-note`, parsed.data.apiUrl).toString(), {
+        headers: {
+          Authorization: `Bearer ${parsed.data.token}`
+        }
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Error ${response.status}`);
+      }
+
+      const payload = (await response.json()) as SaleNoteResponse;
+      setSaleNote(payload);
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo cargar nota de venta';
+      setSaleNoteError(message);
+      setSaleNote(null);
+    } finally {
+      setSaleNoteLoadingId('');
     }
   }
 
@@ -1815,6 +2141,7 @@ export default function DashboardPage() {
       </form>
 
       <Notice tone="error" message={error} withMargin onClose={() => setError('')} />
+      <Notice tone="error" message={reportsError} withMargin onClose={() => setReportsError('')} />
       <Notice tone="error" message={bookingActionError} withMargin onClose={() => setBookingActionError('')} />
       <Notice tone="success" message={bookingActionSuccess} withMargin onClose={() => setBookingActionSuccess('')} />
 
@@ -1904,6 +2231,237 @@ export default function DashboardPage() {
           </div>
         </section>
       ) : null}
+
+      {reports ? (
+        <section style={{ marginTop: 20 }}>
+          <h2 style={{ marginBottom: 8 }}>Reportes de negocio (MVP)</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
+            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+              <strong>Ingresos netos</strong>
+              <div>${reports.totals.netRevenue.toFixed(2)} MXN</div>
+            </article>
+            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+              <strong>Canceladas</strong>
+              <div>{reports.totals.cancelledAppointments}</div>
+            </article>
+            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+              <strong>Tasa cancelación</strong>
+              <div>{reports.totals.cancellationRate}%</div>
+            </article>
+            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+              <strong>Total citas</strong>
+              <div>{reports.totals.totalAppointments}</div>
+            </article>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+              <strong>Clientes frecuentes</strong>
+              <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                {reports.topCustomers.length ? (
+                  reports.topCustomers.map((entry) => (
+                    <li key={entry.customerEmail}>
+                      {entry.customerName} ({entry.totalBookings})
+                    </li>
+                  ))
+                ) : (
+                  <li>Sin datos</li>
+                )}
+              </ul>
+            </article>
+
+            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+              <strong>Servicios más demandados</strong>
+              <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                {reports.topServices.length ? (
+                  reports.topServices.map((entry) => (
+                    <li key={entry.serviceId}>
+                      {entry.serviceName} ({entry.totalBookings})
+                    </li>
+                  ))
+                ) : (
+                  <li>Sin datos</li>
+                )}
+              </ul>
+            </article>
+
+            <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+              <strong>Horas pico (UTC)</strong>
+              <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                {reports.peakHours.length ? (
+                  reports.peakHours.map((entry) => (
+                    <li key={entry.hour}>
+                      {String(entry.hour).padStart(2, '0')}:00 ({entry.total})
+                    </li>
+                  ))
+                ) : (
+                  <li>Sin datos</li>
+                )}
+              </ul>
+            </article>
+          </div>
+        </section>
+      ) : null}
+
+      <section style={{ marginTop: 28 }}>
+        <h2 style={{ marginBottom: 8 }}>Pagos (MVP)</h2>
+        <p style={{ marginTop: 0, color: '#555' }}>
+          Registra pago completo o depósito para una reserva y consulta historial reciente.
+        </p>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <button
+            type="button"
+            disabled={paymentsLoading || !token.trim()}
+            onClick={() => {
+              void loadPayments();
+            }}
+            style={{ width: 180, padding: '8px 12px' }}
+          >
+            {paymentsLoading ? 'Cargando...' : 'Refresh pagos'}
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', marginBottom: 12 }}>
+          <form onSubmit={onCreatePayment} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <strong>Registrar pago</strong>
+            <label>
+              Reserva
+              <select
+                value={quickPaymentBookingId}
+                onChange={(event) => setQuickPaymentBookingId(event.target.value)}
+                style={{ width: '100%' }}
+                disabled={!data?.bookings?.length}
+              >
+                <option value="">Seleccionar</option>
+                {(data?.bookings ?? []).map((booking) => (
+                  <option key={booking.id} value={booking.id}>
+                    {booking.customerName} · {booking.service.name} · {new Date(booking.startAt).toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Tipo
+              <select value={quickPaymentMode} onChange={(event) => setQuickPaymentMode(event.target.value as 'full' | 'deposit')} style={{ width: '100%' }}>
+                <option value="full">Pago total (saldo pendiente)</option>
+                <option value="deposit">Depósito parcial</option>
+              </select>
+            </label>
+            <label>
+              Método
+              <select
+                value={quickPaymentMethod}
+                onChange={(event) => setQuickPaymentMethod(event.target.value as (typeof PAYMENT_METHOD_OPTIONS)[number])}
+                style={{ width: '100%' }}
+              >
+                {PAYMENT_METHOD_OPTIONS.map((method) => (
+                  <option key={method} value={method}>
+                    {method}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Monto (solo depósito)
+              <input
+                type="number"
+                min={0.01}
+                step="0.01"
+                value={quickPaymentAmount}
+                onChange={(event) => setQuickPaymentAmount(event.target.value)}
+                disabled={quickPaymentMode !== 'deposit'}
+                style={{ width: '100%' }}
+              />
+            </label>
+            <label>
+              Notas (opcional)
+              <input value={quickPaymentNotes} onChange={(event) => setQuickPaymentNotes(event.target.value)} style={{ width: '100%' }} />
+            </label>
+            <button type="submit" disabled={!canSubmitQuickPayment} style={{ width: 180, padding: '8px 12px' }}>
+              {quickPaymentLoading ? 'Registrando...' : 'Registrar pago'}
+            </button>
+            {!canSubmitQuickPayment && quickPaymentDisabledReason ? (
+              <div style={{ color: '#666', fontSize: 12 }}>{quickPaymentDisabledReason}</div>
+            ) : null}
+            {!data?.bookings?.length ? (
+              <div style={{ color: '#666', fontSize: 12 }}>Primero carga calendario para seleccionar una reserva.</div>
+            ) : null}
+            <Notice tone="error" message={quickPaymentError} onClose={() => setQuickPaymentError('')} />
+            <Notice tone="success" message={quickPaymentSuccess} onClose={() => setQuickPaymentSuccess('')} />
+          </form>
+
+          <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <strong>Historial reciente</strong>
+            <Notice tone="error" message={paymentsError} onClose={() => setPaymentsError('')} />
+            <div style={{ overflowX: 'auto', marginTop: 8 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Fecha</th>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Cliente</th>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Tipo</th>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Monto</th>
+                    <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 6 }}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((payment) => (
+                    <tr key={payment.id}>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
+                        {new Date(payment.paidAt ?? payment.createdAt).toLocaleString()}
+                      </td>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{payment.booking.customerName}</td>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>{payment.kind}</td>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
+                        {Number(payment.amount).toFixed(2)} {payment.currency}
+                      </td>
+                      <td style={{ borderBottom: '1px solid #eee', padding: 6 }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void onLoadSaleNote(payment.id);
+                          }}
+                          disabled={saleNoteLoadingId === payment.id}
+                          style={{ padding: '4px 8px' }}
+                        >
+                          {saleNoteLoadingId === payment.id ? 'Cargando...' : 'Nota venta'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!payments.length ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: 8, color: '#666' }}>
+                        Sin pagos registrados.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <Notice tone="error" message={saleNoteError} withMargin onClose={() => setSaleNoteError('')} />
+        {saleNote ? (
+          <article style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
+            <strong>Nota de venta: {saleNote.folio}</strong>
+            <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
+              <div>Emitida: {new Date(saleNote.issuedAt).toLocaleString()}</div>
+              <div>Negocio: {saleNote.tenant.name}</div>
+              <div>
+                Cliente: {saleNote.booking.customerName} ({saleNote.booking.customerEmail})
+              </div>
+              <div>Servicio: {saleNote.booking.serviceName}</div>
+              <div>Staff: {saleNote.booking.staffName}</div>
+              <div>
+                Pago: {saleNote.payment.amount.toFixed(2)} {saleNote.payment.currency} ({saleNote.payment.method})
+              </div>
+            </div>
+          </article>
+        ) : null}
+      </section>
 
       <section style={{ marginTop: 28 }}>
         <h2 style={{ marginBottom: 8 }}>Acciones rápidas (MVP)</h2>
@@ -2398,6 +2956,14 @@ export default function DashboardPage() {
 
         <form onSubmit={onSaveBookingFormFields} style={{ display: 'grid', gap: 8, border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
           <label>
+            refundPolicy
+            <select value={refundPolicy} onChange={(e) => setRefundPolicy(e.target.value as 'full' | 'credit' | 'none')} style={{ width: 260 }}>
+              <option value="none">Sin devolución</option>
+              <option value="credit">Crédito</option>
+              <option value="full">Reembolso completo</option>
+            </select>
+          </label>
+          <label>
             reminderHoursBefore (0 desactiva recordatorios)
             <input
               type="number"
@@ -2419,7 +2985,8 @@ export default function DashboardPage() {
           </label>
           <div style={{ color: '#555', fontSize: 13 }}>
             Sugerencia: usa objetos con `key`, `label`, `type` (`text|email|tel|textarea`) y `required`. El runner
-            de recordatorios usa `reminderHoursBefore` para enviar emails antes de la cita.
+            de recordatorios usa `reminderHoursBefore` para enviar emails antes de la cita. `refundPolicy` aplica al
+            cancelar reservas con pagos (`none`, `credit`, `full`).
           </div>
           <button type="submit" disabled={tenantSettingsLoading || !token.trim()} style={{ width: 260, padding: '8px 12px' }}>
             {tenantSettingsLoading ? 'Guardando...' : 'Guardar bookingFormFields'}

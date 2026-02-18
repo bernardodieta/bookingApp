@@ -60,6 +60,7 @@ async function resetDatabase() {
   await prisma.$transaction([
     prisma.auditLog.deleteMany(),
     prisma.waitlistEntry.deleteMany(),
+    prisma.payment.deleteMany(),
     prisma.booking.deleteMany(),
     prisma.availabilityException.deleteMany(),
     prisma.availabilityRule.deleteMany(),
@@ -373,6 +374,123 @@ describe('Critical MVP rules (e2e)', () => {
 
     expect(secondRun.body.sent).toBe(0);
     expect(secondRun.body.skippedAlreadySent).toBeGreaterThanOrEqual(1);
+  });
+
+  it('registra depósito + pago total y refleja ingresos en reportes', async () => {
+    const seed = await registerAndSeed(app, 'paymentsreports');
+
+    const bookingResponse = await request(app.getHttpServer())
+      .post('/bookings')
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({
+        serviceId: seed.service.id,
+        staffId: seed.staff.id,
+        startAt: seed.startAt.toISOString(),
+        customerName: 'Cliente Pagos',
+        customerEmail: 'cliente.pagos@example.com'
+      })
+      .expect(201);
+
+    const depositResponse = await request(app.getHttpServer())
+      .post('/payments')
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({
+        bookingId: bookingResponse.body.id,
+        mode: 'deposit',
+        amount: 40,
+        method: 'cash'
+      })
+      .expect(201);
+
+    expect(depositResponse.body.summary.outstanding).toBe(60);
+
+    const fullResponse = await request(app.getHttpServer())
+      .post('/payments')
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({
+        bookingId: bookingResponse.body.id,
+        mode: 'full',
+        method: 'card'
+      })
+      .expect(201);
+
+    expect(fullResponse.body.summary.outstanding).toBe(0);
+
+    const paymentList = await request(app.getHttpServer())
+      .get(`/payments?bookingId=${bookingResponse.body.id}`)
+      .set('Authorization', authHeader(seed.auth.token))
+      .expect(200);
+
+    expect(paymentList.body.length).toBe(2);
+
+    const saleNote = await request(app.getHttpServer())
+      .get(`/payments/${paymentList.body[0].id}/sale-note`)
+      .set('Authorization', authHeader(seed.auth.token))
+      .expect(200);
+
+    expect(String(saleNote.body.folio)).toContain('NV-');
+
+    const reportsResponse = await request(app.getHttpServer())
+      .get(`/dashboard/reports?range=week&date=${seed.startAt.toISOString().slice(0, 10)}`)
+      .set('Authorization', authHeader(seed.auth.token))
+      .expect(200);
+
+    expect(reportsResponse.body.totals.netRevenue).toBe(100);
+    expect(Array.isArray(reportsResponse.body.topServices)).toBe(true);
+    expect(Array.isArray(reportsResponse.body.topCustomers)).toBe(true);
+    expect(Array.isArray(reportsResponse.body.peakHours)).toBe(true);
+  });
+
+  it('aplica refundPolicy=full al cancelar reserva pagada y crea payment refund', async () => {
+    const seed = await registerAndSeed(app, 'refundpolicy');
+
+    await request(app.getHttpServer())
+      .patch('/tenant/settings')
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({ refundPolicy: 'full' })
+      .expect(200);
+
+    const bookingResponse = await request(app.getHttpServer())
+      .post('/bookings')
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({
+        serviceId: seed.service.id,
+        staffId: seed.staff.id,
+        startAt: seed.startAt.toISOString(),
+        customerName: 'Cliente Refund',
+        customerEmail: 'cliente.refund@example.com'
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/payments')
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({
+        bookingId: bookingResponse.body.id,
+        mode: 'full',
+        method: 'card'
+      })
+      .expect(201);
+
+    const cancelResponse = await request(app.getHttpServer())
+      .patch(`/bookings/${bookingResponse.body.id}/cancel`)
+      .set('Authorization', authHeader(seed.auth.token))
+      .send({ reason: 'Cancelación con política full' })
+      .expect(200);
+
+    expect(cancelResponse.body.refundResolution?.action).toBe('refund');
+    expect(cancelResponse.body.refundResolution?.amount).toBe(100);
+
+    const refundPayment = await prisma.payment.findFirst({
+      where: {
+        tenantId: seed.auth.tenantId,
+        bookingId: bookingResponse.body.id,
+        kind: 'refund'
+      }
+    });
+
+    expect(refundPayment).toBeTruthy();
+    expect(Number(refundPayment?.amount ?? 0)).toBe(100);
   });
 });
 

@@ -63,6 +63,12 @@ enum PaymentProvider {
   mercadopago
 }
 
+enum RefundPolicy {
+  full
+  credit
+  none
+}
+
 model Tenant {
   id                     String                  @id @default(cuid())
   name                   String
@@ -74,6 +80,7 @@ model Tenant {
   cancellationNoticeHours Int                    @default(0)
   rescheduleNoticeHours   Int                    @default(0)
   reminderHoursBefore     Int                    @default(24)
+  refundPolicy            RefundPolicy           @default(none)
   bookingFormFields       Json?
   users                  User[]
   services               Service[]

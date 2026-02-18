@@ -46,7 +46,8 @@ function defaultTenantSettings(plan: Plan = 'free') {
     maxBookingsPerDay: null,
     maxBookingsPerWeek: null,
     cancellationNoticeHours: 0,
-    rescheduleNoticeHours: 0
+    rescheduleNoticeHours: 0,
+    refundPolicy: 'none'
   };
 }
 

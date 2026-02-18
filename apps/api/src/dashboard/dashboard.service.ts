@@ -46,6 +46,125 @@ export class DashboardService {
     };
   }
 
+  async getReports(user: AuthUser, query: DashboardQueryDto) {
+    const range = query.range ?? 'day';
+    const baseDate = query.date ? new Date(query.date) : new Date();
+    const { start, end } = this.resolvePeriod(baseDate, range);
+
+    const bookings = await this.prisma.booking.findMany({
+      where: {
+        tenantId: user.tenantId,
+        startAt: { gte: start, lt: end }
+      },
+      include: {
+        service: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    const paidPayments = await this.prisma.payment.findMany({
+      where: {
+        tenantId: user.tenantId,
+        status: 'paid'
+      },
+      select: {
+        kind: true,
+        amount: true,
+        booking: {
+          select: {
+            startAt: true
+          }
+        }
+      }
+    });
+
+    const netRevenue = paidPayments.reduce((acc, payment) => {
+      const bookingStart = payment.booking.startAt;
+      if (bookingStart < start || bookingStart >= end) {
+        return acc;
+      }
+
+      const amount = Number(payment.amount);
+      if (payment.kind === 'refund') {
+        return acc - amount;
+      }
+      return acc + amount;
+    }, 0);
+
+    const totalAppointments = bookings.length;
+    const cancelledAppointments = bookings.filter((booking) => booking.status === BookingStatus.cancelled).length;
+    const cancellationRate = totalAppointments > 0 ? Number(((cancelledAppointments / totalAppointments) * 100).toFixed(2)) : 0;
+
+    const customerMap = new Map<string, { customerName: string; customerEmail: string; totalBookings: number }>();
+    for (const booking of bookings) {
+      const key = booking.customerEmail.toLowerCase();
+      const existing = customerMap.get(key);
+      if (existing) {
+        existing.totalBookings += 1;
+      } else {
+        customerMap.set(key, {
+          customerName: booking.customerName,
+          customerEmail: booking.customerEmail,
+          totalBookings: 1
+        });
+      }
+    }
+
+    const topCustomers = Array.from(customerMap.values())
+      .sort((a, b) => b.totalBookings - a.totalBookings)
+      .slice(0, 5);
+
+    const servicesMap = new Map<string, { serviceId: string; serviceName: string; totalBookings: number }>();
+    for (const booking of bookings) {
+      const existing = servicesMap.get(booking.serviceId);
+      if (existing) {
+        existing.totalBookings += 1;
+      } else {
+        servicesMap.set(booking.serviceId, {
+          serviceId: booking.serviceId,
+          serviceName: booking.service.name,
+          totalBookings: 1
+        });
+      }
+    }
+
+    const topServices = Array.from(servicesMap.values())
+      .sort((a, b) => b.totalBookings - a.totalBookings)
+      .slice(0, 5);
+
+    const peakHoursMap = new Map<number, number>();
+    for (const booking of bookings) {
+      const hour = booking.startAt.getUTCHours();
+      peakHoursMap.set(hour, (peakHoursMap.get(hour) ?? 0) + 1);
+    }
+
+    const peakHours = Array.from(peakHoursMap.entries())
+      .map(([hour, total]) => ({ hour, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+
+    return {
+      range,
+      period: {
+        start: start.toISOString(),
+        end: end.toISOString()
+      },
+      totals: {
+        totalAppointments,
+        cancelledAppointments,
+        cancellationRate,
+        netRevenue
+      },
+      topCustomers,
+      topServices,
+      peakHours
+    };
+  }
+
   private buildSummary(
     bookings: Array<{ status: BookingStatus; staffId: string; startAt: Date; endAt: Date }>
   ) {

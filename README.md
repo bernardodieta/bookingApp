@@ -199,9 +199,22 @@ Pruebas unitarias disponibles en API (`npm run test:unit -w @apoint/api`):
 	- `REMINDERS_RUN_INTERVAL_MS=300000` para ajustar intervalo (mínimo 15000)
 - `POST /bookings` soporta `customFields` (objeto JSON)
 
+### Payments (protegido con Bearer)
+- `POST /payments` (registro manual de `full` o `deposit`)
+	- body base: `{ "bookingId": "...", "mode": "full|deposit", "amount?": 40, "method?": "cash|card|transfer|link|stripe|mercadopago" }`
+- `GET /payments?bookingId=...&customerId=...&status=...&kind=...`
+- `GET /payments/:id/sale-note` (nota de venta/factura básica)
+- Política de reembolso configurable en `PATCH /tenant/settings` con `refundPolicy: "none" | "credit" | "full"`
+	- Al cancelar una reserva pagada:
+		- `full`: genera un `payment` de tipo `refund`
+		- `credit`: registra crédito para próxima cita en auditoría
+		- `none`: no genera devolución
+
 ### Dashboard (protegido con Bearer)
 - `GET /dashboard/appointments?range=day|week|month&date=YYYY-MM-DD&staffId=...&status=...`
 	- Devuelve citas del período + resumen (`totalAppointments`, `totalScheduledMinutes`, `byStatus`, `byStaff`)
+- `GET /dashboard/reports?range=day|week|month&date=YYYY-MM-DD`
+	- Devuelve KPIs comerciales: ingresos netos, cancelaciones, clientes frecuentes, servicios más demandados y horas pico
 
 ### Auditoría (protegido con Bearer)
 - `GET /audit/logs?action=...&actorUserId=...&from=...&to=...&limit=...&cursor=...`

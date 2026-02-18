@@ -26,6 +26,7 @@ export class TenantSettingsService {
         cancellationNoticeHours: true,
         rescheduleNoticeHours: true,
         reminderHoursBefore: true,
+        refundPolicy: true,
         bookingFormFields: true
       }
     });
@@ -47,6 +48,7 @@ export class TenantSettingsService {
       cancellationNoticeHours: payload.cancellationNoticeHours,
       rescheduleNoticeHours: payload.rescheduleNoticeHours,
       reminderHoursBefore: payload.reminderHoursBefore,
+      refundPolicy: payload.refundPolicy,
       bookingFormFields: payload.bookingFormFields as Prisma.InputJsonValue | undefined
     };
 
@@ -64,6 +66,7 @@ export class TenantSettingsService {
         cancellationNoticeHours: true,
         rescheduleNoticeHours: true,
         reminderHoursBefore: true,
+        refundPolicy: true,
         bookingFormFields: true
       }
     });

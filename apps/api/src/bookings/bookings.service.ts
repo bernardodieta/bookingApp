@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { BookingStatus, Plan, Prisma, WaitlistStatus } from '@prisma/client';
+import { BookingStatus, PaymentMethod, PaymentStatus, Plan, Prisma, RefundPolicy, WaitlistStatus } from '@prisma/client';
 import { AuthUser } from '../common/types/auth-user.type';
 import { minutesFromDate, minutesFromTime, overlaps } from '../common/utils/time.util';
 import { PrismaService } from '../prisma/prisma.service';
@@ -478,6 +478,8 @@ export class BookingsService {
       }
     });
 
+    const refundResolution = await this.applyRefundPolicyOnCancellation(user, booking.id, tenantSettings.refundPolicy);
+
     await this.auditService.log({
       tenantId: user.tenantId,
       actorUserId: user.sub,
@@ -486,12 +488,130 @@ export class BookingsService {
       entityId: booking.id,
       metadata: {
         reason: payload.reason ?? null,
-        previousStatus: booking.status
+        previousStatus: booking.status,
+        refundPolicy: tenantSettings.refundPolicy,
+        refundResolution
       } as Prisma.InputJsonValue
     });
 
     await this.notifyNextWaitlistOnCancellation(cancelled);
-    return cancelled;
+    return {
+      ...cancelled,
+      refundResolution
+    };
+  }
+
+  private async applyRefundPolicyOnCancellation(user: AuthUser, bookingId: string, refundPolicy: RefundPolicy) {
+    const paidPayments = await this.prisma.payment.findMany({
+      where: {
+        tenantId: user.tenantId,
+        bookingId,
+        status: PaymentStatus.paid
+      },
+      select: {
+        kind: true,
+        amount: true,
+        currency: true,
+        customerId: true
+      }
+    });
+
+    if (!paidPayments.length) {
+      return {
+        policy: refundPolicy,
+        paidAmount: 0,
+        action: 'none',
+        amount: 0
+      };
+    }
+
+    const paidAmount = paidPayments.reduce((acc, payment) => {
+      const amount = Number(payment.amount);
+      if (payment.kind === 'refund') {
+        return acc - amount;
+      }
+      return acc + amount;
+    }, 0);
+
+    const refundableAmount = Math.max(paidAmount, 0);
+
+    if (refundableAmount <= 0) {
+      return {
+        policy: refundPolicy,
+        paidAmount,
+        action: 'none',
+        amount: 0
+      };
+    }
+
+    if (refundPolicy === RefundPolicy.full) {
+      const referencePayment = paidPayments.find((entry) => !!entry.customerId) ?? paidPayments[0];
+      const createdRefund = await this.prisma.payment.create({
+        data: {
+          tenantId: user.tenantId,
+          bookingId,
+          customerId: referencePayment.customerId ?? null,
+          kind: 'refund',
+          status: 'paid',
+          method: PaymentMethod.transfer,
+          provider: 'manual',
+          amount: refundableAmount,
+          currency: referencePayment.currency,
+          paidAt: new Date(),
+          notes: 'Reembolso automático por cancelación según política del tenant.'
+        }
+      });
+
+      await this.auditService.log({
+        tenantId: user.tenantId,
+        actorUserId: user.sub,
+        action: 'BOOKING_REFUND_ISSUED',
+        entity: 'payment',
+        entityId: createdRefund.id,
+        metadata: {
+          bookingId,
+          amount: refundableAmount,
+          policy: refundPolicy
+        } as Prisma.InputJsonValue
+      });
+
+      return {
+        policy: refundPolicy,
+        paidAmount,
+        action: 'refund',
+        amount: refundableAmount,
+        paymentId: createdRefund.id
+      };
+    }
+
+    if (refundPolicy === RefundPolicy.credit) {
+      await this.auditService.log({
+        tenantId: user.tenantId,
+        actorUserId: user.sub,
+        action: 'BOOKING_CREDIT_ISSUED',
+        entity: 'booking',
+        entityId: bookingId,
+        metadata: {
+          bookingId,
+          amount: refundableAmount,
+          policy: refundPolicy
+        } as Prisma.InputJsonValue
+      });
+
+      return {
+        policy: refundPolicy,
+        paidAmount,
+        action: 'credit',
+        amount: refundableAmount
+      };
+    }
+
+    return {
+      policy: refundPolicy,
+      paidAmount,
+      action: 'none',
+      amount: 0
+    };
   }
 
   async reschedule(user: AuthUser, bookingId: string, payload: RescheduleBookingDto) {
@@ -651,6 +771,7 @@ export class BookingsService {
         cancellationNoticeHours: true,
         rescheduleNoticeHours: true,
         reminderHoursBefore: true,
+        refundPolicy: true,
         bookingFormFields: true
       }
     });

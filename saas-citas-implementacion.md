@@ -12,7 +12,9 @@ Resumen ejecutivo:
 - Validación de campos requeridos aplicada tanto en frontend como en backend.
 - Notificaciones email implementadas con fallback SendGrid → Nodemailer.
 - Recordatorios NT-04 ejecutándose automáticamente por scheduler en backend.
-- Suite e2e crítica pasando (15/15).
+- Pagos MVP visibles en dashboard (registro + historial + nota de venta básica).
+- Política de reembolso configurable por tenant aplicada en cancelaciones (`none|credit|full`).
+- Suite e2e crítica pasando (17/17).
 
 Pendiente inmediato para cierre de go-live MVP:
 - Prueba manual integrada dashboard → public/:slug → reserva (checklist abajo).
@@ -101,20 +103,20 @@ Usar estos IDs para historias, PRs y QA.
 - [ ] **GN-05** Multi-sede (Business)
 
 ### 3.5 Pagos (PG)
-- [ ] **PG-01** Pago completo o depósito parcial
+- [x] **PG-01** Pago completo o depósito parcial
 - [ ] **PG-02** Integración Stripe
 - [ ] **PG-03** Integración MercadoPago
-- [ ] **PG-04** Nota de venta/factura básica
-- [ ] **PG-05** Política de reembolso configurable
-- [ ] **PG-06** Historial de pagos por cliente
+- [x] **PG-04** Nota de venta/factura básica
+- [x] **PG-05** Política de reembolso configurable
+- [x] **PG-06** Historial de pagos por cliente
 
 ### 3.6 Reportes (RP)
-- [ ] **RP-01** Dashboard: citas por período
-- [ ] **RP-02** Dashboard: ingresos
-- [ ] **RP-03** Dashboard: tasa de cancelación
-- [ ] **RP-04** Clientes frecuentes
-- [ ] **RP-05** Servicios más demandados
-- [ ] **RP-06** Horas pico
+- [x] **RP-01** Dashboard: citas por período
+- [x] **RP-02** Dashboard: ingresos
+- [x] **RP-03** Dashboard: tasa de cancelación
+- [x] **RP-04** Clientes frecuentes
+- [x] **RP-05** Servicios más demandados
+- [x] **RP-06** Horas pico
 - [ ] **RP-07** Exportación Excel/PDF (Business)
 
 ### 3.7 Personalización (PZ)
@@ -135,7 +137,7 @@ Usar estos IDs para historias, PRs y QA.
 - [ ] **IN-07** Zapier
 
 ### 3.9 Diferenciadores (DF)
-- [ ] **DF-01** Lista de espera automática
+- [x] **DF-01** Lista de espera automática
 - [ ] **DF-02** Reserva por WhatsApp
 - [ ] **DF-03** Widget embebible con 1 línea
 - [ ] **DF-04** Multi-empleado real (agenda y servicios por empleado)

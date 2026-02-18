@@ -1,4 +1,5 @@
-import { IsArray, IsInt, IsObject, IsOptional, Min } from 'class-validator';
+import { RefundPolicy } from '@prisma/client';
+import { IsArray, IsEnum, IsInt, IsObject, IsOptional, Min } from 'class-validator';
 
 export class UpdateTenantSettingsDto {
   @IsOptional()
@@ -30,6 +31,10 @@ export class UpdateTenantSettingsDto {
   @IsInt()
   @Min(0)
   reminderHoursBefore?: number;
+
+  @IsOptional()
+  @IsEnum(RefundPolicy)
+  refundPolicy?: RefundPolicy;
 
   @IsOptional()
   @IsArray()
