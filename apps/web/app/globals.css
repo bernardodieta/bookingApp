@@ -197,3 +197,127 @@ button:disabled {
   border-radius: 10px;
   padding: 10px 12px;
 }
+
+.dashboard-layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 18px;
+  padding: 18px;
+}
+
+.dashboard-sidebar {
+  padding: 14px;
+  position: sticky;
+  top: 14px;
+  height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-logo,
+.topbar-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #1d4ed8;
+  background: #eaf1ff;
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 6px;
+}
+
+.sidebar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.sidebar-item:hover {
+  background: var(--surface-muted);
+  box-shadow: none;
+  transform: none;
+}
+
+.sidebar-item.active {
+  border-color: #c7d8ff;
+  background: #eaf1ff;
+  color: #1d4ed8;
+}
+
+.sidebar-submenu {
+  display: grid;
+  gap: 6px;
+  margin: 2px 0 6px;
+  padding-left: 28px;
+}
+
+.sidebar-subitem {
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 13px;
+}
+
+.dashboard-main {
+  min-width: 0;
+}
+
+.dashboard-topbar {
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.topbar-left,
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-content {
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-sidebar {
+    position: static;
+    height: auto;
+  }
+
+  .dashboard-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbar-right {
+    justify-content: flex-end;
+  }
+}

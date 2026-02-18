@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, ClipboardList, CreditCard, LayoutDashboard, LogOut, Settings, Wrench } from 'lucide-react';
+import { Building2, ChevronDown, ChevronRight, ClipboardList, CreditCard, LayoutDashboard, LogOut, Settings, UserCircle2, Wrench } from 'lucide-react';
 import { OverviewSection } from './components/overview-section';
 import { PaymentsSection } from './components/payments-section';
 import { OperationsSection } from './components/operations-section';
@@ -55,6 +55,8 @@ export default function DashboardPage() {
   const [token, setToken] = useState('');
   const [range, setRange] = useState<'day' | 'week' | 'month'>('day');
   const [activeSection, setActiveSection] = useState<'overview' | 'payments' | 'operations' | 'settings' | 'audit'>('overview');
+  const [operationsOpen, setOperationsOpen] = useState(true);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [date, setDate] = useState(today);
   const [staffId, setStaffId] = useState('');
   const [status, setStatus] = useState('');
@@ -1760,43 +1762,100 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="app-shell">
-      <header className="page-header">
-        <div>
-          <h1 className="page-title">Apoint Dashboard</h1>
-          <p className="page-subtitle">Panel operativo con agenda, pagos, settings y auditoría en tiempo real.</p>
+    <main className="dashboard-layout">
+      <aside className="dashboard-sidebar surface">
+        <div className="sidebar-brand">
+          <div className="sidebar-logo">
+            <Building2 size={18} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 700 }}>{tenantSettings?.name ?? 'Apoint'}</div>
+            <div style={{ fontSize: 12, color: '#64748b' }}>Panel de gestión</div>
+          </div>
         </div>
-        <button type="button" onClick={onLogout} className="btn btn-ghost">
-          <LogOut size={16} />
-          Cerrar sesión
-        </button>
-      </header>
 
-      <nav className="tabbar">
-        {[
-          { key: 'overview' as const, label: 'Resumen', icon: <LayoutDashboard size={16} /> },
-          { key: 'payments' as const, label: 'Pagos', icon: <CreditCard size={16} /> },
-          { key: 'operations' as const, label: 'Operación', icon: <Wrench size={16} /> },
-          { key: 'settings' as const, label: 'Settings', icon: <Settings size={16} /> },
-          { key: 'audit' as const, label: 'Auditoría', icon: <ClipboardList size={16} /> }
-        ].map((section) => (
-          <button
-            key={section.key}
-            type="button"
-            onClick={() => setActiveSection(section.key)}
-            className={`tab-btn ${activeSection === section.key ? 'active' : ''}`}
-          >
-            {section.icon}
-            {section.label}
+        <nav className="sidebar-nav">
+          <button type="button" className={`sidebar-item ${activeSection === 'overview' ? 'active' : ''}`} onClick={() => setActiveSection('overview')}>
+            <LayoutDashboard size={16} />
+            <span>Resumen</span>
           </button>
-        ))}
-      </nav>
 
-      <div className="panel" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, color: '#475569' }}>
-        <Bell size={16} />
-        <span>Tip: usa cada sección por pestaña para operar más rápido y evitar errores.</span>
-      </div>
+          <button type="button" className={`sidebar-item ${activeSection === 'payments' ? 'active' : ''}`} onClick={() => setActiveSection('payments')}>
+            <CreditCard size={16} />
+            <span>Pagos</span>
+          </button>
 
+          <button
+            type="button"
+            className={`sidebar-item ${activeSection === 'operations' ? 'active' : ''}`}
+            onClick={() => {
+              setOperationsOpen((current) => !current);
+              setActiveSection('operations');
+            }}
+          >
+            <Wrench size={16} />
+            <span style={{ flex: 1, textAlign: 'left' }}>Operaciones</span>
+            {operationsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+
+          {operationsOpen ? (
+            <div className="sidebar-submenu">
+              <button type="button" className="sidebar-subitem" onClick={() => setActiveSection('operations')}>
+                Acciones rápidas
+              </button>
+              <button type="button" className="sidebar-subitem" onClick={() => setActiveSection('operations')}>
+                Disponibilidad
+              </button>
+            </div>
+          ) : null}
+
+          <button type="button" className={`sidebar-item ${activeSection === 'settings' ? 'active' : ''}`} onClick={() => setActiveSection('settings')}>
+            <Settings size={16} />
+            <span>Settings</span>
+          </button>
+
+          <button type="button" className={`sidebar-item ${activeSection === 'audit' ? 'active' : ''}`} onClick={() => setActiveSection('audit')}>
+            <ClipboardList size={16} />
+            <span>Auditoría</span>
+          </button>
+        </nav>
+      </aside>
+
+      <section className="dashboard-main">
+        <header className="dashboard-topbar surface">
+          <div className="topbar-left">
+            <div className="topbar-logo">
+              <Building2 size={16} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700 }}>{tenantSettings?.name ?? 'Apoint'}</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>Calendario, pagos y operación</div>
+            </div>
+          </div>
+
+          <div className="topbar-right">
+            <div style={{ position: 'relative' }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setUserMenuOpen((current) => !current)}>
+                <UserCircle2 size={16} />
+                Usuario
+              </button>
+              {userMenuOpen ? (
+                <div className="panel" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: 220, zIndex: 10 }}>
+                  <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Sesión activa</div>
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>{tenantSettings?.name ?? 'Negocio'}</div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>API: {apiUrl}</div>
+                </div>
+              ) : null}
+            </div>
+
+            <button type="button" onClick={onLogout} className="btn btn-ghost">
+              <LogOut size={16} />
+              Logout
+            </button>
+          </div>
+        </header>
+
+        <div className="dashboard-content">
       {activeSection === 'overview' ? (
         <OverviewSection
           onSubmit={onSubmit}
@@ -2056,6 +2115,8 @@ export default function DashboardPage() {
           auditLogs={auditLogs}
         />
       ) : null}
+        </div>
+      </section>
     </main>
   );
 }
