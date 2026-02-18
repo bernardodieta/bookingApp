@@ -427,6 +427,12 @@ button:disabled {
   padding: 10px;
   display: grid;
   gap: 10px;
+  cursor: grab;
+}
+
+.settings-field-item.dragging {
+  opacity: 0.75;
+  border-color: #93c5fd;
 }
 
 .settings-field-grid {

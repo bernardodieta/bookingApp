@@ -754,43 +754,6 @@ export default function DashboardPage() {
     }
   }
 
-  function parseBookingFormFieldsDraft() {
-    const parsedJson = JSON.parse(bookingFormFieldsText || '[]') as unknown;
-    if (!Array.isArray(parsedJson) || parsedJson.some((entry) => typeof entry !== 'object' || entry === null)) {
-      throw new Error('bookingFormFields debe ser un array de objetos.');
-    }
-    return parsedJson as Array<Record<string, unknown>>;
-  }
-
-  function onApplyBookingFieldPreset(preset: Record<string, unknown>) {
-    setTenantSettingsError('');
-    setTenantSettingsSuccess('');
-
-    try {
-      const fields = parseBookingFormFieldsDraft();
-      const presetKey = String(preset.key ?? '').trim();
-      if (!presetKey) {
-        throw new Error('Preset inválido: falta key.');
-      }
-
-      const existingIndex = fields.findIndex((entry) => String(entry.key ?? '').trim() === presetKey);
-      if (existingIndex >= 0) {
-        fields[existingIndex] = {
-          ...fields[existingIndex],
-          ...preset
-        };
-      } else {
-        fields.push(preset);
-      }
-
-      setBookingFormFieldsText(JSON.stringify(fields, null, 2));
-      setTenantSettingsSuccess(`Preset aplicado: ${presetKey}`);
-    } catch (presetError) {
-      const message = presetError instanceof Error ? presetError.message : 'No se pudo aplicar preset.';
-      setTenantSettingsError(message);
-    }
-  }
-
   async function onToggleAvailabilityRule(rule: AvailabilityRuleItem) {
     setAvailabilityActionError('');
     setAvailabilityActionSuccess('');
@@ -2164,7 +2127,6 @@ export default function DashboardPage() {
           setTenantSettingsError={setTenantSettingsError}
           tenantSettingsSuccess={tenantSettingsSuccess}
           setTenantSettingsSuccess={setTenantSettingsSuccess}
-          onApplyBookingFieldPreset={onApplyBookingFieldPreset}
           onSaveBookingFormFields={onSaveBookingFormFields}
           refundPolicy={refundPolicy}
           setRefundPolicy={setRefundPolicy}

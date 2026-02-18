@@ -20,7 +20,6 @@ type SettingsSectionProps = {
   setTenantSettingsError: (value: string) => void;
   tenantSettingsSuccess: string;
   setTenantSettingsSuccess: (value: string) => void;
-  onApplyBookingFieldPreset: (preset: Record<string, unknown>) => void;
   onSaveBookingFormFields: (event: React.FormEvent) => Promise<void>;
   refundPolicy: 'full' | 'credit' | 'none';
   setRefundPolicy: (value: 'full' | 'credit' | 'none') => void;
@@ -96,6 +95,7 @@ function stringifyBookingFields(fields: BookingFieldDraft[]) {
 
 export function SettingsSection(props: SettingsSectionProps) {
   const [showAdvancedJson, setShowAdvancedJson] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   const parsedFieldsState = useMemo(() => parseBookingFields(props.bookingFormFieldsText), [props.bookingFormFieldsText]);
   const customFields = parsedFieldsState.fields;
@@ -127,6 +127,10 @@ export function SettingsSection(props: SettingsSectionProps) {
     ]);
   }
 
+  function addPreset(key: string, label: string, type: BookingFieldType, placeholder: string, required = false) {
+    addField({ key, label, type, placeholder, required });
+  }
+
   function updateField(index: number, patch: Partial<BookingFieldDraft>) {
     const nextFields = [...customFields];
     const current = nextFields[index];
@@ -139,15 +143,22 @@ export function SettingsSection(props: SettingsSectionProps) {
       ...patch
     };
 
-    if (patch.key !== undefined) {
-      nextFields[index].key = toSafeKey(patch.key);
-    }
-
     updateFields(nextFields);
   }
 
   function removeField(index: number) {
     updateFields(customFields.filter((_, fieldIndex) => fieldIndex !== index));
+  }
+
+  function moveField(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= customFields.length || toIndex >= customFields.length) {
+      return;
+    }
+
+    const nextFields = [...customFields];
+    const [moved] = nextFields.splice(fromIndex, 1);
+    nextFields.splice(toIndex, 0, moved);
+    updateFields(nextFields);
   }
 
   const publicPath = props.tenantSettings?.slug ? `/public/${props.tenantSettings.slug}` : '';
@@ -226,29 +237,40 @@ export function SettingsSection(props: SettingsSectionProps) {
               </button>
             </div>
 
+            <p className="section-subtitle" style={{ fontSize: 13 }}>
+              Arrastra los campos para reordenarlos. El `key` técnico se gestiona automáticamente.
+            </p>
+
             <div className="section-actions">
               <button
                 type="button"
                 className="btn btn-ghost"
-                onClick={() => addField({ key: 'phone', label: 'Teléfono', type: 'tel', placeholder: 'Ej: +52 55 1234 5678' })}
+                onClick={() => addPreset('phone', 'Teléfono', 'tel', 'Ej: +52 55 1234 5678')}
               >
                 Preset: Teléfono
               </button>
               <button
                 type="button"
                 className="btn btn-ghost"
-                onClick={() => addField({ key: 'dni', label: 'DNI/Documento', type: 'text', placeholder: 'Ej: 12345678' })}
+                onClick={() => addPreset('document', 'DNI/Documento', 'text', 'Ej: 12345678')}
               >
                 Preset: Documento
               </button>
               <button
                 type="button"
                 className="btn btn-ghost"
-                onClick={() =>
-                  addField({ key: 'notes', label: 'Notas adicionales', type: 'textarea', placeholder: 'Indica detalles importantes' })
-                }
+                onClick={() => addPreset('notes', 'Notas adicionales', 'textarea', 'Indica detalles importantes')}
               >
                 Preset: Notas
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={() => addPreset('birth_date', 'Fecha de nacimiento', 'text', 'Ej: 1990-04-22')}>
+                Preset: Fecha nac.
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={() => addPreset('contact_channel', 'Canal preferido', 'text', 'WhatsApp / Email / Llamada')}>
+                Preset: Canal contacto
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={() => addPreset('allergies', 'Alergias / condiciones', 'textarea', 'Ej: sensible a fragancias')}>
+                Preset: Alergias
               </button>
             </div>
 
@@ -261,20 +283,29 @@ export function SettingsSection(props: SettingsSectionProps) {
             {customFields.length ? (
               <div className="settings-field-list">
                 {customFields.map((field, index) => (
-                  <article key={`${field.key}-${index}`} className="settings-field-item">
+                  <article
+                    key={`${field.key}-${index}`}
+                    className={`settings-field-item ${dragIndex === index ? 'dragging' : ''}`}
+                    draggable
+                    onDragStart={() => setDragIndex(index)}
+                    onDragEnd={() => setDragIndex(null)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={() => {
+                      if (dragIndex !== null) {
+                        moveField(dragIndex, index);
+                      }
+                      setDragIndex(null);
+                    }}
+                  >
+                    <div className="section-actions" style={{ justifyContent: 'space-between' }}>
+                      <strong style={{ fontSize: 13 }}>Campo #{index + 1}</strong>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Arrastrar ↕</span>
+                    </div>
+
                     <div className="settings-field-grid">
                       <label>
                         Label
                         <input value={field.label} onChange={(event) => updateField(index, { label: event.target.value })} className="w-full" />
-                      </label>
-                      <label>
-                        Key técnico
-                        <input
-                          value={field.key}
-                          onChange={(event) => updateField(index, { key: event.target.value })}
-                          onBlur={(event) => updateField(index, { key: toSafeKey(event.target.value) })}
-                          className="w-full"
-                        />
                       </label>
                       <label>
                         Tipo
@@ -301,9 +332,22 @@ export function SettingsSection(props: SettingsSectionProps) {
                         Campo obligatorio
                       </label>
 
-                      <button type="button" className="btn btn-ghost" onClick={() => removeField(index)}>
-                        Eliminar
-                      </button>
+                      <div className="section-actions" style={{ gap: 6 }}>
+                        <button type="button" className="btn btn-ghost" onClick={() => moveField(index, Math.max(index - 1, 0))} disabled={index === 0}>
+                          Subir
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => moveField(index, Math.min(index + 1, customFields.length - 1))}
+                          disabled={index === customFields.length - 1}
+                        >
+                          Bajar
+                        </button>
+                        <button type="button" className="btn btn-ghost" onClick={() => removeField(index)}>
+                          Eliminar
+                        </button>
+                      </div>
                     </div>
                   </article>
                 ))}
@@ -311,40 +355,6 @@ export function SettingsSection(props: SettingsSectionProps) {
             ) : (
               <div className="table-empty">No hay campos personalizados aún. Agrega uno para empezar.</div>
             )}
-          </div>
-
-          <div className="panel section-form" style={{ gap: 10 }}>
-            <strong>Preview del formulario público</strong>
-            <p className="section-subtitle" style={{ fontSize: 13 }}>
-              Vista aproximada de cómo verá el cliente los campos adicionales.
-            </p>
-
-            <div className="settings-preview-form">
-              <label>
-                Nombre completo
-                <input disabled placeholder="Juan Pérez" />
-              </label>
-              <label>
-                Email
-                <input disabled placeholder="juan@email.com" />
-              </label>
-
-              {customFields.map((field) => (
-                <label key={`preview-${field.key}`}>
-                  {field.label || field.key}
-                  {field.required ? ' *' : ''}
-                  {field.type === 'textarea' ? (
-                    <textarea disabled placeholder={field.placeholder || `Escribe ${field.label || field.key}`} />
-                  ) : (
-                    <input
-                      disabled
-                      type={field.type === 'tel' || field.type === 'email' ? field.type : 'text'}
-                      placeholder={field.placeholder || `Escribe ${field.label || field.key}`}
-                    />
-                  )}
-                </label>
-              ))}
-            </div>
           </div>
         </div>
 
