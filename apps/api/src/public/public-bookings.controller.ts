@@ -162,7 +162,12 @@ export class PublicBookingsController {
   @Post('waitlist')
   async joinWaitlist(@Param('slugOrDomain') slugOrDomain: string, @Body() body: JoinWaitlistDto) {
     const tenant = await this.findTenantBySlugOrDomain(slugOrDomain);
-    return this.bookingsService.joinWaitlistForTenant(tenant.id, body);
+    const waitlistEntry = await this.bookingsService.joinWaitlistForTenant(tenant.id, body);
+    const waitlistFeedback = await this.bookingsService.getWaitlistFeedback(waitlistEntry.id);
+    return {
+      waitlistEntry,
+      ...waitlistFeedback
+    };
   }
 
   private async findTenantBySlugOrDomain(slugOrDomain: string) {

@@ -110,11 +110,13 @@ export class BookingsService {
           customerEmail: payload.customerEmail,
           notes: payload.notes
         });
+        const waitlistFeedback = await this.getWaitlistFeedback(waitlistEntry.id);
 
         return {
           waitlisted: true,
           reason: 'Horario ocupado, agregado a lista de espera.',
-          waitlistEntry
+          waitlistEntry,
+          ...waitlistFeedback
         };
       }
 
@@ -344,6 +346,49 @@ export class BookingsService {
         notes: payload.notes
       }
     });
+  }
+
+  async getWaitlistFeedback(waitlistEntryId: string) {
+    const entry = await this.prisma.waitlistEntry.findUnique({
+      where: { id: waitlistEntryId },
+      include: {
+        service: {
+          select: {
+            durationMinutes: true
+          }
+        }
+      }
+    });
+
+    if (!entry) {
+      throw new NotFoundException('Entrada de lista de espera no encontrada.');
+    }
+
+    const queuePosition = await this.prisma.waitlistEntry.count({
+      where: {
+        tenantId: entry.tenantId,
+        serviceId: entry.serviceId,
+        staffId: entry.staffId,
+        status: WaitlistStatus.waiting,
+        OR: [
+          { preferredStartAt: { lt: entry.preferredStartAt } },
+          {
+            preferredStartAt: entry.preferredStartAt,
+            createdAt: { lte: entry.createdAt }
+          }
+        ]
+      }
+    });
+
+    const durationMinutes = entry.service?.durationMinutes ?? 30;
+    const estimatedStartAt = entry.preferredStartAt;
+    const estimatedEndAt = new Date(estimatedStartAt.getTime() + durationMinutes * 60_000);
+
+    return {
+      queuePosition: Math.max(queuePosition, 1),
+      estimatedStartAt: estimatedStartAt.toISOString(),
+      estimatedEndAt: estimatedEndAt.toISOString()
+    };
   }
 
   async getPublicSlots(tenantId: string, query: PublicSlotsQueryDto) {

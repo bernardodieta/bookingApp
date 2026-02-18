@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, WaitlistStatus } from '@prisma/client';
 import * as crypto from 'node:crypto';
 import * as jwt from 'jsonwebtoken';
 import { AuditService } from '../audit/audit.service';
@@ -420,6 +420,91 @@ export class CustomerPortalService {
         startAt: 'desc'
       }
     });
+  }
+
+  async listMyWaitlist(user: CustomerPortalAuthUser) {
+    const account = (await this.customerAccountDelegate.findFirst({
+      where: {
+        id: user.sub,
+        tenantId: user.tenantId,
+        isActive: true
+      },
+      select: {
+        id: true,
+        email: true
+      }
+    })) as {
+      id: string;
+      email: string;
+    } | null;
+
+    if (!account) {
+      throw new UnauthorizedException('Sesión de cliente inválida.');
+    }
+
+    const waitlistEntries = await this.prisma.waitlistEntry.findMany({
+      where: {
+        tenantId: user.tenantId,
+        customerEmail: account.email
+      },
+      include: {
+        service: {
+          select: {
+            id: true,
+            name: true,
+            durationMinutes: true
+          }
+        },
+        staff: {
+          select: {
+            id: true,
+            fullName: true
+          }
+        }
+      },
+      orderBy: [{ preferredStartAt: 'desc' }, { createdAt: 'desc' }]
+    });
+
+    return Promise.all(
+      waitlistEntries.map(async (entry) => {
+        const queuePosition =
+          entry.status === WaitlistStatus.waiting
+            ? await this.prisma.waitlistEntry.count({
+                where: {
+                  tenantId: entry.tenantId,
+                  serviceId: entry.serviceId,
+                  staffId: entry.staffId,
+                  status: WaitlistStatus.waiting,
+                  OR: [
+                    { preferredStartAt: { lt: entry.preferredStartAt } },
+                    {
+                      preferredStartAt: entry.preferredStartAt,
+                      createdAt: { lte: entry.createdAt }
+                    }
+                  ]
+                }
+              })
+            : null;
+
+        const estimatedStartAt = entry.preferredStartAt;
+        const estimatedEndAt = new Date(
+          estimatedStartAt.getTime() + (entry.service?.durationMinutes ?? 30) * 60_000
+        );
+
+        return {
+          id: entry.id,
+          status: entry.status,
+          preferredStartAt: entry.preferredStartAt,
+          createdAt: entry.createdAt,
+          notifiedAt: entry.notifiedAt,
+          service: entry.service,
+          staff: entry.staff,
+          queuePosition: typeof queuePosition === 'number' ? Math.max(queuePosition, 1) : null,
+          estimatedStartAt,
+          estimatedEndAt
+        };
+      })
+    );
   }
 
   async requestClaimCode(user: CustomerPortalAuthUser) {

@@ -33,6 +33,26 @@ type BookingItem = {
   };
 };
 
+type WaitlistItem = {
+  id: string;
+  status: 'waiting' | 'notified' | 'booked' | 'cancelled' | string;
+  preferredStartAt: string;
+  createdAt: string;
+  notifiedAt?: string | null;
+  queuePosition?: number | null;
+  estimatedStartAt?: string;
+  estimatedEndAt?: string;
+  service?: {
+    id: string;
+    name: string;
+    durationMinutes: number;
+  };
+  staff?: {
+    id: string;
+    fullName: string;
+  };
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
@@ -69,6 +89,56 @@ function formatDateTime(value: string) {
   return date.toLocaleString('es-MX');
 }
 
+function getWaitlistStatusMeta(status: string) {
+  switch (status) {
+    case 'waiting':
+      return {
+        label: 'En espera',
+        style: {
+          border: '1px solid #f59e0b',
+          background: '#fef3c7',
+          color: '#92400e'
+        }
+      };
+    case 'notified':
+      return {
+        label: 'Notificado',
+        style: {
+          border: '1px solid #2563eb',
+          background: '#dbeafe',
+          color: '#1e3a8a'
+        }
+      };
+    case 'booked':
+      return {
+        label: 'Convertido en reserva',
+        style: {
+          border: '1px solid #16a34a',
+          background: '#dcfce7',
+          color: '#166534'
+        }
+      };
+    case 'cancelled':
+      return {
+        label: 'Cancelado',
+        style: {
+          border: '1px solid #dc2626',
+          background: '#fee2e2',
+          color: '#991b1b'
+        }
+      };
+    default:
+      return {
+        label: status,
+        style: {
+          border: '1px solid var(--border)',
+          background: '#f8fafc',
+          color: '#334155'
+        }
+      };
+  }
+}
+
 export default function CustomerBookingsPage({ params }: PageProps) {
   const apiBase = API_BASE;
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -77,6 +147,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
   const [password, setPassword] = useState('');
   const [token, setToken] = useState('');
   const [bookings, setBookings] = useState<BookingItem[]>([]);
+  const [waitlistEntries, setWaitlistEntries] = useState<WaitlistItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -120,7 +191,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       const payload = (await response.json()) as CustomerPortalAuthResponse;
       setToken(payload.accessToken);
       setSuccess('Cuenta creada correctamente.');
-      await loadBookings(payload.accessToken);
+      await loadPortalData(payload.accessToken);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'No se pudo crear la cuenta');
     } finally {
@@ -155,7 +226,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       const payload = (await response.json()) as CustomerPortalAuthResponse;
       setToken(payload.accessToken);
       setSuccess('Sesión iniciada correctamente.');
-      await loadBookings(payload.accessToken);
+      await loadPortalData(payload.accessToken);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'No se pudo iniciar sesión');
     } finally {
@@ -177,6 +248,26 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
     const payload = (await response.json()) as BookingItem[];
     setBookings(payload);
+  }
+
+  async function loadWaitlist(accessToken: string) {
+    const response = await fetch(new URL(`/public/${params.slug}/customer-portal/waitlist`, apiBase).toString(), {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || `Error ${response.status}`);
+    }
+
+    const payload = (await response.json()) as WaitlistItem[];
+    setWaitlistEntries(payload);
+  }
+
+  async function loadPortalData(accessToken: string) {
+    await Promise.all([loadBookings(accessToken), loadWaitlist(accessToken)]);
   }
 
   async function handleGoogleToken(idToken: string) {
@@ -204,7 +295,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       const payload = (await response.json()) as CustomerPortalAuthResponse;
       setToken(payload.accessToken);
       setSuccess('Sesión iniciada con Google.');
-      await loadBookings(payload.accessToken);
+      await loadPortalData(payload.accessToken);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'No se pudo iniciar con Google');
     } finally {
@@ -272,7 +363,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
     setLoading(true);
 
     try {
-      await loadBookings(token);
+      await loadPortalData(token);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'No se pudieron cargar citas');
     } finally {
@@ -495,6 +586,44 @@ export default function CustomerBookingsPage({ params }: PageProps) {
             <span style={{ display: 'block', color: '#555' }}>{formatDateTime(booking.startAt)}</span>
             <span style={{ display: 'block', color: '#555' }}>Profesional: {booking.staff?.fullName ?? 'N/A'}</span>
             <span style={{ display: 'block', color: '#555' }}>Estado: {booking.status}</span>
+          </article>
+        ))}
+      </section>
+
+      <section className="panel" style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+        <h2 style={{ margin: 0, fontSize: 18 }}>Lista de espera</h2>
+        {!waitlistEntries.length ? <p style={{ margin: 0, color: '#666' }}>No tienes entradas en lista de espera.</p> : null}
+
+        {waitlistEntries.map((entry) => (
+          <article key={entry.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'grid', gap: 6 }}>
+            {(() => {
+              const statusMeta = getWaitlistStatusMeta(entry.status);
+              return (
+                <span
+                  style={{
+                    alignSelf: 'start',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    borderRadius: 999,
+                    padding: '2px 10px',
+                    ...statusMeta.style
+                  }}
+                >
+                  {statusMeta.label}
+                </span>
+              );
+            })()}
+            <strong style={{ display: 'block' }}>{entry.service?.name ?? 'Servicio'}</strong>
+            <span style={{ display: 'block', color: '#555' }}>Profesional: {entry.staff?.fullName ?? 'N/A'}</span>
+            <span style={{ display: 'block', color: '#555' }}>Preferencia: {formatDateTime(entry.preferredStartAt)}</span>
+            {typeof entry.queuePosition === 'number' && entry.queuePosition > 0 ? (
+              <span style={{ display: 'block', color: '#555' }}>Posición en cola: #{entry.queuePosition}</span>
+            ) : null}
+            {entry.estimatedStartAt && entry.estimatedEndAt ? (
+              <span style={{ display: 'block', color: '#555' }}>
+                Ventana estimada: {formatDateTime(entry.estimatedStartAt)} - {formatDateTime(entry.estimatedEndAt)}
+              </span>
+            ) : null}
           </article>
         ))}
       </section>

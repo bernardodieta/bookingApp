@@ -50,6 +50,12 @@ export class CustomerPortalController {
     return this.customerPortalService.listMyBookings(req.customerUser);
   }
 
+  @Get('waitlist')
+  @UseGuards(CustomerPortalAuthGuard)
+  waitlist(@Req() req: RequestWithCustomerUser) {
+    return this.customerPortalService.listMyWaitlist(req.customerUser);
+  }
+
   @Post('claim/request')
   @UseGuards(CustomerPortalAuthGuard)
   requestClaim(@Req() req: RequestWithCustomerUser) {

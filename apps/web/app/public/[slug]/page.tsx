@@ -55,6 +55,19 @@ type PublicSlotsResponse = {
 type BookingResponse = {
   id?: string;
   waitlisted?: boolean;
+  queuePosition?: number;
+  estimatedStartAt?: string;
+  estimatedEndAt?: string;
+  waitlistEntry?: {
+    id: string;
+    status: string;
+  };
+};
+
+type WaitlistResponse = {
+  queuePosition?: number;
+  estimatedStartAt?: string;
+  estimatedEndAt?: string;
   waitlistEntry?: {
     id: string;
     status: string;
@@ -184,6 +197,29 @@ function toLocalDateTimeInput(value: string) {
 
   const pad = (input: number) => String(input).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function formatWaitlistFeedbackMessage(
+  baseMessage: string,
+  queuePosition?: number,
+  estimatedStartAt?: string,
+  estimatedEndAt?: string,
+  timeZone?: string,
+  locale: 'es' | 'en' = 'es'
+) {
+  const parts = [baseMessage];
+
+  if (typeof queuePosition === 'number' && Number.isFinite(queuePosition) && queuePosition > 0) {
+    parts.push(locale === 'en' ? `Queue position: #${queuePosition}.` : `Posición en cola: #${queuePosition}.`);
+  }
+
+  if (estimatedStartAt && estimatedEndAt) {
+    const start = formatDateTime(estimatedStartAt, timeZone);
+    const end = formatDateTime(estimatedEndAt, timeZone);
+    parts.push(locale === 'en' ? `Estimated window: ${start} – ${end}.` : `Ventana estimada: ${start} – ${end}.`);
+  }
+
+  return parts.join(' ');
 }
 
 export default function PublicBookingPage({ params }: PublicPageProps) {
@@ -462,7 +498,16 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
 
       const payload = (await response.json()) as BookingResponse;
       if (payload.waitlisted) {
-        setSubmitSuccess(t.bookingWaitlisted);
+        setSubmitSuccess(
+          formatWaitlistFeedbackMessage(
+            t.bookingWaitlisted,
+            payload.queuePosition,
+            payload.estimatedStartAt,
+            payload.estimatedEndAt,
+            tenant?.timeZone,
+            locale
+          )
+        );
       } else {
         setSubmitSuccess(t.bookingCreated);
       }
@@ -528,7 +573,17 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
         throw new Error(text || `Error ${response.status}`);
       }
 
-      setWaitlistSuccess(t.waitlistCreated);
+      const payload = (await response.json()) as WaitlistResponse;
+      setWaitlistSuccess(
+        formatWaitlistFeedbackMessage(
+          t.waitlistCreated,
+          payload.queuePosition,
+          payload.estimatedStartAt,
+          payload.estimatedEndAt,
+          tenant?.timeZone,
+          locale
+        )
+      );
     } catch (waitlistRequestError) {
       const message = waitlistRequestError instanceof Error ? waitlistRequestError.message : t.waitlistCreateError;
       setWaitlistError(message);
