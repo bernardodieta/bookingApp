@@ -53,6 +53,10 @@ type WaitlistItem = {
   };
 };
 
+type TenantLocaleResponse = {
+  locale?: 'es' | 'en' | string;
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
@@ -81,19 +85,100 @@ declare global {
   }
 }
 
-function formatDateTime(value: string) {
+function formatDateTime(value: string, locale: 'es' | 'en' = 'es') {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return date.toLocaleString('es-MX');
+  return date.toLocaleString(locale === 'en' ? 'en-US' : 'es-MX');
 }
 
-function getWaitlistStatusMeta(status: string) {
+const PORTAL_COPY = {
+  es: {
+    pageTitle: 'Mis citas',
+    pageSubtitle: 'Portal del cliente para consultar historial y próximas reservas.',
+    accessTitle: '1) Acceso de cliente',
+    accessSubtitle: 'Inicia sesión si ya tienes cuenta o crea una nueva para gestionar tus reservas.',
+    loginMode: 'Iniciar sesión',
+    registerMode: 'Crear cuenta',
+    fullName: 'Nombre',
+    email: 'Email',
+    password: 'Contraseña',
+    processing: 'Procesando...',
+    refresh: 'Recargar citas',
+    googleLoading: 'Cargando botón de Google...',
+    googleUnavailable: 'Google SSO no configurado en entorno (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`).',
+    googleValidating: 'Validando sesión de Google...',
+    claimTitle: '2) Vincular historial previo',
+    claimSubtitle: 'Si ya reservabas antes sin cuenta, vincula ese historial con un código enviado por email.',
+    claimRequiresSession: 'Primero inicia sesión o crea tu cuenta para habilitar esta sección.',
+    requestCode: 'Solicitar código',
+    claimCodeLabel: 'Código de 6 dígitos',
+    confirmClaim: 'Confirmar claim',
+    requiredCredentials: 'Email y contraseña son obligatorios.',
+    registerSuccess: 'Cuenta creada correctamente.',
+    registerError: 'No se pudo crear la cuenta',
+    loginSuccess: 'Sesión iniciada correctamente.',
+    loginError: 'No se pudo iniciar sesión',
+    googleNoToken: 'Google no entregó token de sesión.',
+    googleSuccess: 'Sesión iniciada con Google.',
+    googleError: 'No se pudo iniciar con Google',
+    bookingsLoadError: 'No se pudieron cargar citas',
+    claimRequestNeedsSession: 'Primero inicia sesión para solicitar código de claim.',
+    claimRequestSuccess: (minutes: number) => `Código enviado por email. Expira en ${minutes} min.`,
+    claimRequestError: 'No se pudo solicitar código de claim',
+    claimConfirmNeedsSession: 'Primero inicia sesión para confirmar claim.',
+    claimCodeInvalid: 'Ingresa un código de 6 dígitos.',
+    claimConfirmSuccess: (count: number) => `Claim confirmado. Citas vinculadas: ${count}.`,
+    claimConfirmError: 'No se pudo confirmar claim',
+    fallbackService: 'Servicio'
+  },
+  en: {
+    pageTitle: 'My bookings',
+    pageSubtitle: 'Customer portal to view history and upcoming bookings.',
+    accessTitle: '1) Customer access',
+    accessSubtitle: 'Sign in if you already have an account, or create one to manage your bookings.',
+    loginMode: 'Sign in',
+    registerMode: 'Create account',
+    fullName: 'Name',
+    email: 'Email',
+    password: 'Password',
+    processing: 'Processing...',
+    refresh: 'Refresh bookings',
+    googleLoading: 'Loading Google button...',
+    googleUnavailable: 'Google SSO is not configured in environment (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`).',
+    googleValidating: 'Validating Google session...',
+    claimTitle: '2) Link previous history',
+    claimSubtitle: 'If you booked before without an account, link that history using an email code.',
+    claimRequiresSession: 'Please sign in or create an account to enable this section.',
+    requestCode: 'Request code',
+    claimCodeLabel: '6-digit code',
+    confirmClaim: 'Confirm link',
+    requiredCredentials: 'Email and password are required.',
+    registerSuccess: 'Account created successfully.',
+    registerError: 'Could not create account',
+    loginSuccess: 'Signed in successfully.',
+    loginError: 'Could not sign in',
+    googleNoToken: 'Google did not return a session token.',
+    googleSuccess: 'Signed in with Google.',
+    googleError: 'Could not sign in with Google',
+    bookingsLoadError: 'Could not load bookings',
+    claimRequestNeedsSession: 'Sign in first to request a link code.',
+    claimRequestSuccess: (minutes: number) => `Code sent by email. Expires in ${minutes} min.`,
+    claimRequestError: 'Could not request link code',
+    claimConfirmNeedsSession: 'Sign in first to confirm linking.',
+    claimCodeInvalid: 'Enter a 6-digit code.',
+    claimConfirmSuccess: (count: number) => `Link confirmed. Bookings linked: ${count}.`,
+    claimConfirmError: 'Could not confirm link',
+    fallbackService: 'Service'
+  }
+} as const;
+
+function getWaitlistStatusMeta(status: string, locale: 'es' | 'en') {
   switch (status) {
     case 'waiting':
       return {
-        label: 'En espera',
+        label: locale === 'en' ? 'Waiting' : 'En espera',
         style: {
           border: '1px solid #f59e0b',
           background: '#fef3c7',
@@ -102,7 +187,7 @@ function getWaitlistStatusMeta(status: string) {
       };
     case 'notified':
       return {
-        label: 'Notificado',
+        label: locale === 'en' ? 'Notified' : 'Notificado',
         style: {
           border: '1px solid #2563eb',
           background: '#dbeafe',
@@ -111,7 +196,7 @@ function getWaitlistStatusMeta(status: string) {
       };
     case 'booked':
       return {
-        label: 'Convertido en reserva',
+        label: locale === 'en' ? 'Converted to booking' : 'Convertido en reserva',
         style: {
           border: '1px solid #16a34a',
           background: '#dcfce7',
@@ -120,7 +205,7 @@ function getWaitlistStatusMeta(status: string) {
       };
     case 'cancelled':
       return {
-        label: 'Cancelado',
+        label: locale === 'en' ? 'Cancelled' : 'Cancelado',
         style: {
           border: '1px solid #dc2626',
           background: '#fee2e2',
@@ -139,9 +224,69 @@ function getWaitlistStatusMeta(status: string) {
   }
 }
 
+function getBookingStatusMeta(status: string, locale: 'es' | 'en') {
+  switch (status) {
+    case 'confirmed':
+      return {
+        label: locale === 'en' ? 'Confirmed' : 'Confirmada',
+        style: {
+          border: '1px solid #16a34a',
+          background: '#dcfce7',
+          color: '#166534'
+        }
+      };
+    case 'cancelled':
+      return {
+        label: locale === 'en' ? 'Cancelled' : 'Cancelada',
+        style: {
+          border: '1px solid #dc2626',
+          background: '#fee2e2',
+          color: '#991b1b'
+        }
+      };
+    case 'rescheduled':
+      return {
+        label: locale === 'en' ? 'Rescheduled' : 'Reprogramada',
+        style: {
+          border: '1px solid #2563eb',
+          background: '#dbeafe',
+          color: '#1e3a8a'
+        }
+      };
+    case 'completed':
+      return {
+        label: locale === 'en' ? 'Completed' : 'Completada',
+        style: {
+          border: '1px solid #0f766e',
+          background: '#ccfbf1',
+          color: '#115e59'
+        }
+      };
+    case 'no_show':
+      return {
+        label: locale === 'en' ? 'No show' : 'No asistió',
+        style: {
+          border: '1px solid #f59e0b',
+          background: '#fef3c7',
+          color: '#92400e'
+        }
+      };
+    default:
+      return {
+        label: status,
+        style: {
+          border: '1px solid var(--border)',
+          background: '#f8fafc',
+          color: '#334155'
+        }
+      };
+  }
+}
+
 export default function CustomerBookingsPage({ params }: PageProps) {
   const apiBase = API_BASE;
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [locale, setLocale] = useState<'es' | 'en'>('es');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -159,6 +304,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
 
   const hasSession = useMemo(() => token.trim().length > 0, [token]);
+  const copy = PORTAL_COPY[locale];
 
   async function handleRegister(event: FormEvent) {
     event.preventDefault();
@@ -166,7 +312,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
     setSuccess('');
 
     if (!email || !password) {
-      setError('Email y contraseña son obligatorios.');
+      setError(copy.requiredCredentials);
       return;
     }
 
@@ -190,10 +336,10 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
       const payload = (await response.json()) as CustomerPortalAuthResponse;
       setToken(payload.accessToken);
-      setSuccess('Cuenta creada correctamente.');
+      setSuccess(copy.registerSuccess);
       await loadPortalData(payload.accessToken);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'No se pudo crear la cuenta');
+      setError(requestError instanceof Error ? requestError.message : copy.registerError);
     } finally {
       setLoading(false);
     }
@@ -205,7 +351,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
     setSuccess('');
 
     if (!email || !password) {
-      setError('Email y contraseña son obligatorios.');
+      setError(copy.requiredCredentials);
       return;
     }
 
@@ -225,10 +371,10 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
       const payload = (await response.json()) as CustomerPortalAuthResponse;
       setToken(payload.accessToken);
-      setSuccess('Sesión iniciada correctamente.');
+      setSuccess(copy.loginSuccess);
       await loadPortalData(payload.accessToken);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'No se pudo iniciar sesión');
+      setError(requestError instanceof Error ? requestError.message : copy.loginError);
     } finally {
       setLoading(false);
     }
@@ -272,7 +418,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
   async function handleGoogleToken(idToken: string) {
     if (!idToken) {
-      setError('Google no entregó token de sesión.');
+      setError(copy.googleNoToken);
       return;
     }
 
@@ -294,14 +440,42 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
       const payload = (await response.json()) as CustomerPortalAuthResponse;
       setToken(payload.accessToken);
-      setSuccess('Sesión iniciada con Google.');
+      setSuccess(copy.googleSuccess);
       await loadPortalData(payload.accessToken);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'No se pudo iniciar con Google');
+      setError(requestError instanceof Error ? requestError.message : copy.googleError);
     } finally {
       setGoogleLoading(false);
     }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLocale() {
+      try {
+        const response = await fetch(new URL(`/public/${params.slug}`, apiBase).toString());
+        if (!response.ok || cancelled) {
+          return;
+        }
+
+        const payload = (await response.json()) as TenantLocaleResponse;
+        if (!cancelled) {
+          setLocale(payload.locale === 'en' ? 'en' : 'es');
+        }
+      } catch {
+        if (!cancelled) {
+          setLocale('es');
+        }
+      }
+    }
+
+    void loadLocale();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, params.slug]);
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !googleButtonRef.current) {
@@ -365,7 +539,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
     try {
       await loadPortalData(token);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'No se pudieron cargar citas');
+      setError(requestError instanceof Error ? requestError.message : copy.bookingsLoadError);
     } finally {
       setLoading(false);
     }
@@ -373,7 +547,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
   async function requestClaimCode() {
     if (!token) {
-      setError('Primero inicia sesión para solicitar código de claim.');
+      setError(copy.claimRequestNeedsSession);
       return;
     }
 
@@ -395,9 +569,9 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       }
 
       const payload = (await response.json()) as { expiresInMinutes: number };
-      setClaimMessage(`Código enviado por email. Expira en ${payload.expiresInMinutes} min.`);
+      setClaimMessage(copy.claimRequestSuccess(payload.expiresInMinutes));
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'No se pudo solicitar código de claim');
+      setError(requestError instanceof Error ? requestError.message : copy.claimRequestError);
     } finally {
       setClaimLoading(false);
     }
@@ -405,12 +579,12 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
   async function confirmClaimCode() {
     if (!token) {
-      setError('Primero inicia sesión para confirmar claim.');
+      setError(copy.claimConfirmNeedsSession);
       return;
     }
 
     if (claimCode.trim().length !== 6) {
-      setError('Ingresa un código de 6 dígitos.');
+      setError(copy.claimCodeInvalid);
       return;
     }
 
@@ -436,10 +610,10 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       }
 
       const payload = (await response.json()) as { linkedBookings: number };
-      setClaimMessage(`Claim confirmado. Citas vinculadas: ${payload.linkedBookings}.`);
+      setClaimMessage(copy.claimConfirmSuccess(payload.linkedBookings));
       await refreshBookings();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'No se pudo confirmar claim');
+      setError(requestError instanceof Error ? requestError.message : copy.claimConfirmError);
     } finally {
       setClaimLoading(false);
     }
@@ -453,17 +627,15 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
       <header className="page-header">
         <div>
-          <h1 className="page-title">Mis citas</h1>
-          <p className="page-subtitle">Portal del cliente para consultar historial y próximas reservas.</p>
+          <h1 className="page-title">{copy.pageTitle}</h1>
+          <p className="page-subtitle">{copy.pageSubtitle}</p>
         </div>
       </header>
 
       <section style={{ display: 'grid', gap: 12, marginBottom: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         <section className="panel" style={{ display: 'grid', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>1) Acceso de cliente</h2>
-          <p style={{ margin: 0, color: '#666' }}>
-            Inicia sesión si ya tienes cuenta o crea una nueva para gestionar tus reservas.
-          </p>
+          <h2 style={{ margin: 0, fontSize: 18 }}>{copy.accessTitle}</h2>
+          <p style={{ margin: 0, color: '#666' }}>{copy.accessSubtitle}</p>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
@@ -472,7 +644,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
               onClick={() => setAuthMode('login')}
               disabled={loading}
             >
-              Iniciar sesión
+              {copy.loginMode}
             </button>
             <button
               type="button"
@@ -480,23 +652,23 @@ export default function CustomerBookingsPage({ params }: PageProps) {
               onClick={() => setAuthMode('register')}
               disabled={loading}
             >
-              Crear cuenta
+              {copy.registerMode}
             </button>
           </div>
 
           {authMode === 'register' ? (
             <label>
-              Nombre
+              {copy.fullName}
               <input value={fullName} onChange={(event) => setFullName(event.target.value)} style={{ width: '100%' }} />
             </label>
           ) : null}
 
           <label>
-            Email
+            {copy.email}
             <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} style={{ width: '100%' }} />
           </label>
           <label>
-            Contraseña
+            {copy.password}
             <input
               type="password"
               value={password}
@@ -509,16 +681,16 @@ export default function CustomerBookingsPage({ params }: PageProps) {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {authMode === 'register' ? (
               <button onClick={handleRegister} type="button" className="btn" disabled={loading}>
-                {loading ? 'Procesando...' : 'Crear cuenta'}
+                {loading ? copy.processing : copy.registerMode}
               </button>
             ) : (
               <button onClick={handleLogin} type="button" className="btn" disabled={loading}>
-                {loading ? 'Procesando...' : 'Iniciar sesión'}
+                {loading ? copy.processing : copy.loginMode}
               </button>
             )}
 
             <button onClick={refreshBookings} type="button" className="btn btn-ghost" disabled={!hasSession || loading}>
-              Recargar citas
+              {copy.refresh}
             </button>
           </div>
 
@@ -526,12 +698,12 @@ export default function CustomerBookingsPage({ params }: PageProps) {
             {GOOGLE_CLIENT_ID ? (
               <>
                 <div ref={googleButtonRef} />
-                {!googleReady ? <small style={{ color: '#666' }}>Cargando botón de Google...</small> : null}
+                {!googleReady ? <small style={{ color: '#666' }}>{copy.googleLoading}</small> : null}
               </>
             ) : (
-              <small style={{ color: '#666' }}>Google SSO no configurado en entorno (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`).</small>
+              <small style={{ color: '#666' }}>{copy.googleUnavailable}</small>
             )}
-            {googleLoading ? <small style={{ color: '#666' }}>Validando sesión de Google...</small> : null}
+            {googleLoading ? <small style={{ color: '#666' }}>{copy.googleValidating}</small> : null}
           </div>
 
           {error ? <div className="status-error">{error}</div> : null}
@@ -539,25 +711,23 @@ export default function CustomerBookingsPage({ params }: PageProps) {
         </section>
 
         <section className="panel" style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>2) Vincular historial previo</h2>
-          <p style={{ margin: 0, color: '#666' }}>
-            Si ya reservabas antes sin cuenta, vincula ese historial con un código enviado por email.
-          </p>
+          <h2 style={{ margin: 0, fontSize: 18 }}>{copy.claimTitle}</h2>
+          <p style={{ margin: 0, color: '#666' }}>{copy.claimSubtitle}</p>
 
           {!hasSession ? (
             <div style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', color: '#666' }}>
-              Primero inicia sesión o crea tu cuenta para habilitar esta sección.
+              {copy.claimRequiresSession}
             </div>
           ) : null}
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-ghost" onClick={requestClaimCode} disabled={!hasSession || claimLoading}>
-              {claimLoading ? 'Procesando...' : 'Solicitar código'}
+              {claimLoading ? copy.processing : copy.requestCode}
             </button>
           </div>
 
           <label>
-            Código de 6 dígitos
+            {copy.claimCodeLabel}
             <input
               value={claimCode}
               onChange={(event) => setClaimCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -568,7 +738,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button type="button" className="btn" onClick={confirmClaimCode} disabled={!hasSession || claimLoading}>
-              {claimLoading ? 'Procesando...' : 'Confirmar claim'}
+              {claimLoading ? copy.processing : copy.confirmClaim}
             </button>
           </div>
 
@@ -577,27 +747,17 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       </section>
 
       <section className="panel" style={{ display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>Citas registradas</h2>
-        {!bookings.length ? <p style={{ margin: 0, color: '#666' }}>No hay citas para esta cuenta todavía.</p> : null}
+        <h2 style={{ margin: 0, fontSize: 18 }}>{locale === 'en' ? 'Your bookings' : 'Citas registradas'}</h2>
+        {!bookings.length ? (
+          <p style={{ margin: 0, color: '#666' }}>
+            {locale === 'en' ? 'No bookings found for this account yet.' : 'No hay citas para esta cuenta todavía.'}
+          </p>
+        ) : null}
 
         {bookings.map((booking) => (
-          <article key={booking.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
-            <strong style={{ display: 'block' }}>{booking.service?.name ?? 'Servicio'}</strong>
-            <span style={{ display: 'block', color: '#555' }}>{formatDateTime(booking.startAt)}</span>
-            <span style={{ display: 'block', color: '#555' }}>Profesional: {booking.staff?.fullName ?? 'N/A'}</span>
-            <span style={{ display: 'block', color: '#555' }}>Estado: {booking.status}</span>
-          </article>
-        ))}
-      </section>
-
-      <section className="panel" style={{ display: 'grid', gap: 10, marginTop: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>Lista de espera</h2>
-        {!waitlistEntries.length ? <p style={{ margin: 0, color: '#666' }}>No tienes entradas en lista de espera.</p> : null}
-
-        {waitlistEntries.map((entry) => (
-          <article key={entry.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'grid', gap: 6 }}>
+          <article key={booking.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'grid', gap: 6 }}>
             {(() => {
-              const statusMeta = getWaitlistStatusMeta(entry.status);
+              const statusMeta = getBookingStatusMeta(booking.status, locale);
               return (
                 <span
                   style={{
@@ -613,15 +773,58 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                 </span>
               );
             })()}
-            <strong style={{ display: 'block' }}>{entry.service?.name ?? 'Servicio'}</strong>
-            <span style={{ display: 'block', color: '#555' }}>Profesional: {entry.staff?.fullName ?? 'N/A'}</span>
-            <span style={{ display: 'block', color: '#555' }}>Preferencia: {formatDateTime(entry.preferredStartAt)}</span>
+            <strong style={{ display: 'block' }}>{booking.service?.name ?? copy.fallbackService}</strong>
+            <span style={{ display: 'block', color: '#555' }}>{formatDateTime(booking.startAt, locale)}</span>
+            <span style={{ display: 'block', color: '#555' }}>
+              {locale === 'en' ? 'Professional' : 'Profesional'}: {booking.staff?.fullName ?? 'N/A'}
+            </span>
+          </article>
+        ))}
+      </section>
+
+      <section className="panel" style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+        <h2 style={{ margin: 0, fontSize: 18 }}>{locale === 'en' ? 'Waitlist' : 'Lista de espera'}</h2>
+        {!waitlistEntries.length ? (
+          <p style={{ margin: 0, color: '#666' }}>
+            {locale === 'en' ? 'You have no waitlist entries.' : 'No tienes entradas en lista de espera.'}
+          </p>
+        ) : null}
+
+        {waitlistEntries.map((entry) => (
+          <article key={entry.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'grid', gap: 6 }}>
+            {(() => {
+              const statusMeta = getWaitlistStatusMeta(entry.status, locale);
+              return (
+                <span
+                  style={{
+                    alignSelf: 'start',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    borderRadius: 999,
+                    padding: '2px 10px',
+                    ...statusMeta.style
+                  }}
+                >
+                  {statusMeta.label}
+                </span>
+              );
+            })()}
+            <strong style={{ display: 'block' }}>{entry.service?.name ?? copy.fallbackService}</strong>
+            <span style={{ display: 'block', color: '#555' }}>
+              {locale === 'en' ? 'Professional' : 'Profesional'}: {entry.staff?.fullName ?? 'N/A'}
+            </span>
+            <span style={{ display: 'block', color: '#555' }}>
+              {locale === 'en' ? 'Preference' : 'Preferencia'}: {formatDateTime(entry.preferredStartAt, locale)}
+            </span>
             {typeof entry.queuePosition === 'number' && entry.queuePosition > 0 ? (
-              <span style={{ display: 'block', color: '#555' }}>Posición en cola: #{entry.queuePosition}</span>
+              <span style={{ display: 'block', color: '#555' }}>
+                {locale === 'en' ? 'Queue position' : 'Posición en cola'}: #{entry.queuePosition}
+              </span>
             ) : null}
             {entry.estimatedStartAt && entry.estimatedEndAt ? (
               <span style={{ display: 'block', color: '#555' }}>
-                Ventana estimada: {formatDateTime(entry.estimatedStartAt)} - {formatDateTime(entry.estimatedEndAt)}
+                {locale === 'en' ? 'Estimated window' : 'Ventana estimada'}: {formatDateTime(entry.estimatedStartAt, locale)} -{' '}
+                {formatDateTime(entry.estimatedEndAt, locale)}
               </span>
             ) : null}
           </article>

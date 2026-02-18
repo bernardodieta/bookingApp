@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException, UnauthorizedExcepti
 import { Prisma, WaitlistStatus } from '@prisma/client';
 import * as crypto from 'node:crypto';
 import * as jwt from 'jsonwebtoken';
+import { OAuth2Client, TokenPayload } from 'google-auth-library';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,13 +17,15 @@ const CLAIM_CODE_TTL_MINUTES = 10;
 type GoogleTokenInfo = {
   sub?: string;
   email?: string;
-  email_verified?: 'true' | 'false';
+  email_verified?: string | boolean;
   aud?: string;
   name?: string;
 };
 
 @Injectable()
 export class CustomerPortalService {
+  private readonly googleOAuthClient = new OAuth2Client();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
@@ -247,7 +250,8 @@ export class CustomerPortalService {
       throw new UnauthorizedException('No se pudo validar la identidad de Google.');
     }
 
-    if (tokenInfo.email_verified !== 'true') {
+    const isEmailVerified = tokenInfo.email_verified === true || tokenInfo.email_verified === 'true';
+    if (!isEmailVerified) {
       await this.auditPortalEvent({
         tenantId: tenant.id,
         action: 'CUSTOMER_PORTAL_GOOGLE_LOGIN_FAILED',
@@ -712,25 +716,30 @@ export class CustomerPortalService {
   }
 
   private async verifyGoogleIdToken(idToken: string) {
-    const url = new URL('https://oauth2.googleapis.com/tokeninfo');
-    url.searchParams.set('id_token', idToken);
+    const requiredAudience = process.env.GOOGLE_CLIENT_ID?.trim();
+    let payload: TokenPayload | undefined;
 
-    const response = await fetch(url.toString());
-    if (!response.ok) {
+    try {
+      const ticket = await this.googleOAuthClient.verifyIdToken({
+        idToken,
+        audience: requiredAudience || undefined
+      });
+      payload = ticket.getPayload();
+    } catch {
       throw new UnauthorizedException('No se pudo validar token de Google.');
     }
 
-    const payload = (await response.json()) as GoogleTokenInfo;
-    const requiredAudience = process.env.GOOGLE_CLIENT_ID?.trim();
-    if (requiredAudience && payload.aud && payload.aud !== requiredAudience) {
-      throw new UnauthorizedException('Token de Google para cliente inválido.');
-    }
-
-    if (requiredAudience && !payload.aud) {
+    if (!payload) {
       throw new UnauthorizedException('Token de Google incompleto.');
     }
 
-    return payload;
+    return {
+      sub: payload.sub,
+      email: payload.email,
+      email_verified: payload.email_verified,
+      aud: typeof payload.aud === 'string' ? payload.aud : undefined,
+      name: payload.name
+    } satisfies GoogleTokenInfo;
   }
 
   private isUniqueConstraintError(error: unknown) {
