@@ -131,7 +131,9 @@ const PORTAL_COPY = {
     claimCodeInvalid: 'Ingresa un código de 6 dígitos.',
     claimConfirmSuccess: (count: number) => `Claim confirmado. Citas vinculadas: ${count}.`,
     claimConfirmError: 'No se pudo confirmar claim',
-    fallbackService: 'Servicio'
+    fallbackService: 'Servicio',
+    bookNow: 'Reservar nueva cita',
+    bookNowHint: 'Aun no tienes citas en esta cuenta. Puedes agendar una nueva desde la pagina publica.'
   },
   en: {
     pageTitle: 'My bookings',
@@ -170,7 +172,9 @@ const PORTAL_COPY = {
     claimCodeInvalid: 'Enter a 6-digit code.',
     claimConfirmSuccess: (count: number) => `Link confirmed. Bookings linked: ${count}.`,
     claimConfirmError: 'Could not confirm link',
-    fallbackService: 'Service'
+    fallbackService: 'Service',
+    bookNow: 'Book new appointment',
+    bookNowHint: 'No bookings on this account yet. You can schedule a new one from the public page.'
   }
 } as const;
 
@@ -749,9 +753,17 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       <section className="panel" style={{ display: 'grid', gap: 10 }}>
         <h2 style={{ margin: 0, fontSize: 18 }}>{locale === 'en' ? 'Your bookings' : 'Citas registradas'}</h2>
         {!bookings.length ? (
-          <p style={{ margin: 0, color: '#666' }}>
-            {locale === 'en' ? 'No bookings found for this account yet.' : 'No hay citas para esta cuenta todavía.'}
-          </p>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <p style={{ margin: 0, color: '#666' }}>
+              {locale === 'en' ? 'No bookings found for this account yet.' : 'No hay citas para esta cuenta todavía.'}
+            </p>
+            <p style={{ margin: 0, color: '#666' }}>{copy.bookNowHint}</p>
+            <div>
+              <a className="btn" href={`/public/${params.slug}`}>
+                {copy.bookNow}
+              </a>
+            </div>
+          </div>
         ) : null}
 
         {bookings.map((booking) => (

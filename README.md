@@ -324,6 +324,11 @@ Variables para integraciones de calendario (IN-01 / IN-02 scaffold):
 - `CALENDAR_SYNC_OUTBOUND_RETRY_BASE_MS` / `CALENDAR_SYNC_OUTBOUND_RETRY_MAX_MS` (opcional; backoff exponencial)
 - `CALENDAR_INBOUND_UNLINKED_POLICY` (opcional; `conflict` default, `auto_create` para crear booking provisional cuando llega evento externo sin vínculo)
 
+Notas operativas (Google Calendar):
+- En local, `GOOGLE_CALENDAR_REDIRECT_URI` debe apuntar al callback backend: `http://localhost:3001/integrations/calendar/google/callback`.
+- Si Google devuelve `Error 403: access_denied` en OAuth, revisa OAuth Consent Screen en modo Testing y agrega el correo en `Test users`.
+- Si la cita se sincroniza pero se ve en otra hora en Google Calendar, valida `tenant.settings.timeZone` (ejemplo local: `America/Mexico_City`).
+
 Nota de roadmap de pagos:
 - MercadoPago queda diferido para una fase posterior (PG-03), no activo en MVP actual.
 
