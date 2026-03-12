@@ -58,7 +58,7 @@ type TenantLocaleResponse = {
   locale?: 'es' | 'en' | string;
 };
 
-type PortalView = 'access' | 'claim' | 'bookings' | 'waitlist';
+type PortalView = 'claim' | 'bookings' | 'waitlist';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
@@ -306,7 +306,7 @@ function getBookingStatusMeta(status: string, locale: 'es' | 'en') {
 
 export default function CustomerBookingsPage({ params }: PageProps) {
   const apiBase = API_BASE;
-  const [activeView, setActiveView] = useState<PortalView>('access');
+  const [activeView, setActiveView] = useState<PortalView>('bookings');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [locale, setLocale] = useState<'es' | 'en'>('es');
   const [fullName, setFullName] = useState('');
@@ -652,23 +652,21 @@ export default function CustomerBookingsPage({ params }: PageProps) {
     setSuccess('');
     setError('');
     setClaimMessage('');
-    setActiveView('access');
+    setActiveView('bookings');
   }
 
-  return (
-    <main className="app-shell" style={{ maxWidth: 840 }}>
-      {GOOGLE_CLIENT_ID ? (
-        <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />
-      ) : null}
+  if (!hasSession) {
+    return (
+      <main className="app-shell" style={{ maxWidth: 860 }}>
+        {GOOGLE_CLIENT_ID ? <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" /> : null}
 
-      <header className="page-header">
-        <div>
-          <h1 className="page-title">{copy.pageTitle}</h1>
-          <p className="page-subtitle">{copy.pageSubtitle}</p>
-        </div>
-      </header>
+        <header className="page-header">
+          <div>
+            <h1 className="page-title">{copy.pageTitle}</h1>
+            <p className="page-subtitle">{copy.pageSubtitle}</p>
+          </div>
+        </header>
 
-      <section style={{ display: 'grid', gap: 12, marginBottom: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         <section className="panel" style={{ display: 'grid', gap: 10 }}>
           <h2 style={{ margin: 0, fontSize: 18 }}>{copy.accessTitle}</h2>
           <p style={{ margin: 0, color: '#666' }}>{copy.accessSubtitle}</p>
@@ -724,10 +722,9 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                 {loading ? copy.processing : copy.loginMode}
               </button>
             )}
-
-            <button onClick={refreshBookings} type="button" className="btn btn-ghost" disabled={!hasSession || loading}>
-              {copy.refresh}
-            </button>
+            <a className="btn btn-ghost" href={`/public/${params.slug}`}>
+              {copy.bookNow}
+            </a>
           </div>
 
           <div style={{ display: 'grid', gap: 8 }}>
@@ -745,134 +742,216 @@ export default function CustomerBookingsPage({ params }: PageProps) {
           {error ? <div className="status-error">{error}</div> : null}
           {success ? <div className="status-success">{success}</div> : null}
         </section>
+      </main>
+    );
+  }
 
-        <section className="panel" style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>{copy.claimTitle}</h2>
-          <p style={{ margin: 0, color: '#666' }}>{copy.claimSubtitle}</p>
+  return (
+    <main className="dashboard-layout customer-dashboard-shell">
+      {GOOGLE_CLIENT_ID ? <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" /> : null}
 
-          {!hasSession ? (
-            <div style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', color: '#666' }}>
-              {copy.claimRequiresSession}
-            </div>
+      <aside className="dashboard-sidebar surface">
+        <div className="sidebar-brand">
+          <div className="sidebar-logo">
+            <ClipboardList size={18} />
+          </div>
+          <div>
+            <strong>{copy.pageTitle}</strong>
+            <div style={{ fontSize: 12, color: '#64748b' }}>{copy.dashboardSubtitle}</div>
+          </div>
+        </div>
+
+        <nav className="sidebar-nav">
+          <button type="button" className={`sidebar-item ${activeView === 'claim' ? 'active' : ''}`} onClick={() => setActiveView('claim')}>
+            <Link2 size={16} />
+            {copy.navClaim}
+          </button>
+          <button type="button" className={`sidebar-item ${activeView === 'bookings' ? 'active' : ''}`} onClick={() => setActiveView('bookings')}>
+            <ClipboardList size={16} />
+            {copy.navBookings}
+          </button>
+          <button type="button" className={`sidebar-item ${activeView === 'waitlist' ? 'active' : ''}`} onClick={() => setActiveView('waitlist')}>
+            <ListChecks size={16} />
+            {copy.navWaitlist}
+          </button>
+          <a className="sidebar-item" href={`/public/${params.slug}`}>
+            <ClipboardList size={16} />
+            {copy.bookNow}
+          </a>
+          {hasSession ? (
+            <button type="button" className="sidebar-item" onClick={logoutSession}>
+              <LogOut size={16} />
+              {copy.navLogout}
+            </button>
           ) : null}
+        </nav>
+      </aside>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-ghost" onClick={requestClaimCode} disabled={!hasSession || claimLoading}>
-              {claimLoading ? copy.processing : copy.requestCode}
-            </button>
-          </div>
-
-          <label>
-            {copy.claimCodeLabel}
-            <input
-              value={claimCode}
-              onChange={(event) => setClaimCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-              style={{ width: '100%' }}
-              placeholder="123456"
-            />
-          </label>
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="btn" onClick={confirmClaimCode} disabled={!hasSession || claimLoading}>
-              {claimLoading ? copy.processing : copy.confirmClaim}
-            </button>
-          </div>
-
-          {claimMessage ? <div className="status-success">{claimMessage}</div> : null}
-        </section>
-      </section>
-
-      <section className="panel" style={{ display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>{locale === 'en' ? 'Your bookings' : 'Citas registradas'}</h2>
-        {!bookings.length ? (
-          <div style={{ display: 'grid', gap: 10 }}>
-            <p style={{ margin: 0, color: '#666' }}>
-              {locale === 'en' ? 'No bookings found for this account yet.' : 'No hay citas para esta cuenta todavía.'}
-            </p>
-            <p style={{ margin: 0, color: '#666' }}>{copy.bookNowHint}</p>
+      <section className="dashboard-main">
+        <header className="dashboard-topbar surface">
+          <div className="topbar-left">
             <div>
-              <a className="btn" href={`/public/${params.slug}`}>
-                {copy.bookNow}
-              </a>
+              <strong>{copy.pageTitle}</strong>
+              <div style={{ fontSize: 12, color: '#64748b' }}>{copy.pageSubtitle}</div>
             </div>
           </div>
+          <div className="topbar-right">
+            <button onClick={refreshBookings} type="button" className="btn btn-ghost" disabled={!hasSession || loading}>
+              {copy.refresh}
+            </button>
+          </div>
+        </header>
+
+        {error ? <div className="status-error" style={{ marginBottom: 12 }}>{error}</div> : null}
+        {success ? <div className="status-success" style={{ marginBottom: 12 }}>{success}</div> : null}
+
+        {activeView === 'claim' ? (
+          <section className="panel" style={{ display: 'grid', gap: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>{copy.claimTitle}</h2>
+            <p style={{ margin: 0, color: '#666' }}>{copy.claimSubtitle}</p>
+
+            {!hasSession ? (
+              <div style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', color: '#666' }}>
+                {copy.claimRequiresSession}
+              </div>
+            ) : null}
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-ghost" onClick={requestClaimCode} disabled={!hasSession || claimLoading}>
+                {claimLoading ? copy.processing : copy.requestCode}
+              </button>
+            </div>
+
+            <label>
+              {copy.claimCodeLabel}
+              <input
+                value={claimCode}
+                onChange={(event) => setClaimCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                style={{ width: '100%' }}
+                placeholder="123456"
+              />
+            </label>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="btn" onClick={confirmClaimCode} disabled={!hasSession || claimLoading}>
+                {claimLoading ? copy.processing : copy.confirmClaim}
+              </button>
+            </div>
+
+            {claimMessage ? <div className="status-success">{claimMessage}</div> : null}
+          </section>
         ) : null}
 
-        {bookings.map((booking) => (
-          <article key={booking.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'grid', gap: 6 }}>
-            {(() => {
-              const statusMeta = getBookingStatusMeta(booking.status, locale);
-              return (
-                <span
-                  style={{
-                    alignSelf: 'start',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    borderRadius: 999,
-                    padding: '2px 10px',
-                    ...statusMeta.style
-                  }}
-                >
-                  {statusMeta.label}
-                </span>
-              );
-            })()}
-            <strong style={{ display: 'block' }}>{booking.service?.name ?? copy.fallbackService}</strong>
-            <span style={{ display: 'block', color: '#555' }}>{formatDateTime(booking.startAt, locale)}</span>
-            <span style={{ display: 'block', color: '#555' }}>
-              {locale === 'en' ? 'Professional' : 'Profesional'}: {booking.staff?.fullName ?? 'N/A'}
-            </span>
-          </article>
-        ))}
-      </section>
+        {activeView === 'bookings' ? (
+          <section className="panel" style={{ display: 'grid', gap: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>{locale === 'en' ? 'Your bookings' : 'Citas registradas'}</h2>
+            {!hasSession ? (
+              <div style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', color: '#666' }}>
+                {copy.sectionRequiresSession}
+              </div>
+            ) : null}
+            {hasSession && !bookings.length ? (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <p style={{ margin: 0, color: '#666' }}>
+                  {locale === 'en' ? 'No bookings found for this account yet.' : 'No hay citas para esta cuenta todavía.'}
+                </p>
+                <p style={{ margin: 0, color: '#666' }}>{copy.bookNowHint}</p>
+                <div>
+                  <a className="btn" href={`/public/${params.slug}`}>
+                    {copy.bookNow}
+                  </a>
+                </div>
+              </div>
+            ) : null}
 
-      <section className="panel" style={{ display: 'grid', gap: 10, marginTop: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>{locale === 'en' ? 'Waitlist' : 'Lista de espera'}</h2>
-        {!waitlistEntries.length ? (
-          <p style={{ margin: 0, color: '#666' }}>
-            {locale === 'en' ? 'You have no waitlist entries.' : 'No tienes entradas en lista de espera.'}
-          </p>
+            {hasSession
+              ? bookings.map((booking) => (
+                  <article key={booking.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'grid', gap: 6 }}>
+                    {(() => {
+                      const statusMeta = getBookingStatusMeta(booking.status, locale);
+                      return (
+                        <span
+                          style={{
+                            alignSelf: 'start',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            borderRadius: 999,
+                            padding: '2px 10px',
+                            ...statusMeta.style
+                          }}
+                        >
+                          {statusMeta.label}
+                        </span>
+                      );
+                    })()}
+                    <strong style={{ display: 'block' }}>{booking.service?.name ?? copy.fallbackService}</strong>
+                    <span style={{ display: 'block', color: '#555' }}>{formatDateTime(booking.startAt, locale)}</span>
+                    <span style={{ display: 'block', color: '#555' }}>
+                      {locale === 'en' ? 'Professional' : 'Profesional'}: {booking.staff?.fullName ?? 'N/A'}
+                    </span>
+                  </article>
+                ))
+              : null}
+          </section>
         ) : null}
 
-        {waitlistEntries.map((entry) => (
-          <article key={entry.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'grid', gap: 6 }}>
-            {(() => {
-              const statusMeta = getWaitlistStatusMeta(entry.status, locale);
-              return (
-                <span
-                  style={{
-                    alignSelf: 'start',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    borderRadius: 999,
-                    padding: '2px 10px',
-                    ...statusMeta.style
-                  }}
-                >
-                  {statusMeta.label}
-                </span>
-              );
-            })()}
-            <strong style={{ display: 'block' }}>{entry.service?.name ?? copy.fallbackService}</strong>
-            <span style={{ display: 'block', color: '#555' }}>
-              {locale === 'en' ? 'Professional' : 'Profesional'}: {entry.staff?.fullName ?? 'N/A'}
-            </span>
-            <span style={{ display: 'block', color: '#555' }}>
-              {locale === 'en' ? 'Preference' : 'Preferencia'}: {formatDateTime(entry.preferredStartAt, locale)}
-            </span>
-            {typeof entry.queuePosition === 'number' && entry.queuePosition > 0 ? (
-              <span style={{ display: 'block', color: '#555' }}>
-                {locale === 'en' ? 'Queue position' : 'Posición en cola'}: #{entry.queuePosition}
-              </span>
+        {activeView === 'waitlist' ? (
+          <section className="panel" style={{ display: 'grid', gap: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>{locale === 'en' ? 'Waitlist' : 'Lista de espera'}</h2>
+            {!hasSession ? (
+              <div style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', color: '#666' }}>
+                {copy.sectionRequiresSession}
+              </div>
             ) : null}
-            {entry.estimatedStartAt && entry.estimatedEndAt ? (
-              <span style={{ display: 'block', color: '#555' }}>
-                {locale === 'en' ? 'Estimated window' : 'Ventana estimada'}: {formatDateTime(entry.estimatedStartAt, locale)} -{' '}
-                {formatDateTime(entry.estimatedEndAt, locale)}
-              </span>
+            {hasSession && !waitlistEntries.length ? (
+              <p style={{ margin: 0, color: '#666' }}>
+                {locale === 'en' ? 'You have no waitlist entries.' : 'No tienes entradas en lista de espera.'}
+              </p>
             ) : null}
-          </article>
-        ))}
+
+            {hasSession
+              ? waitlistEntries.map((entry) => (
+                  <article key={entry.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'grid', gap: 6 }}>
+                    {(() => {
+                      const statusMeta = getWaitlistStatusMeta(entry.status, locale);
+                      return (
+                        <span
+                          style={{
+                            alignSelf: 'start',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            borderRadius: 999,
+                            padding: '2px 10px',
+                            ...statusMeta.style
+                          }}
+                        >
+                          {statusMeta.label}
+                        </span>
+                      );
+                    })()}
+                    <strong style={{ display: 'block' }}>{entry.service?.name ?? copy.fallbackService}</strong>
+                    <span style={{ display: 'block', color: '#555' }}>
+                      {locale === 'en' ? 'Professional' : 'Profesional'}: {entry.staff?.fullName ?? 'N/A'}
+                    </span>
+                    <span style={{ display: 'block', color: '#555' }}>
+                      {locale === 'en' ? 'Preference' : 'Preferencia'}: {formatDateTime(entry.preferredStartAt, locale)}
+                    </span>
+                    {typeof entry.queuePosition === 'number' && entry.queuePosition > 0 ? (
+                      <span style={{ display: 'block', color: '#555' }}>
+                        {locale === 'en' ? 'Queue position' : 'Posición en cola'}: #{entry.queuePosition}
+                      </span>
+                    ) : null}
+                    {entry.estimatedStartAt && entry.estimatedEndAt ? (
+                      <span style={{ display: 'block', color: '#555' }}>
+                        {locale === 'en' ? 'Estimated window' : 'Ventana estimada'}: {formatDateTime(entry.estimatedStartAt, locale)} -{' '}
+                        {formatDateTime(entry.estimatedEndAt, locale)}
+                      </span>
+                    ) : null}
+                  </article>
+                ))
+              : null}
+          </section>
+        ) : null}
       </section>
     </main>
   );
