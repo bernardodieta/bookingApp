@@ -2,7 +2,8 @@
 
 import Script from 'next/script';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { ClipboardList, KeyRound, Link2, ListChecks, LogOut } from 'lucide-react';
+import { z } from 'zod';
+import { CalendarDays, Clock3, ClipboardList, Link2, ListChecks, LogOut, MoreHorizontal, Plus, RefreshCw, Send } from 'lucide-react';
 
 type PageProps = {
   params: {
@@ -58,10 +59,33 @@ type TenantLocaleResponse = {
   locale?: 'es' | 'en' | string;
 };
 
-type PortalView = 'claim' | 'bookings' | 'waitlist';
+type ServiceItem = { id: string; name: string; durationMinutes: number; price: number };
+type StaffItem = { id: string; fullName: string };
+type FormField = { key?: string; name?: string; label?: string; type?: string; required?: boolean; placeholder?: string };
+type PublicSlotsResponse = { date: string; serviceId: string; staffId: string; slots: Array<{ startAt: string; endAt: string }> };
+type BookingNewResponse = { id?: string; waitlisted?: boolean; queuePosition?: number; estimatedStartAt?: string; estimatedEndAt?: string };
+
+type PortalView = 'bookings' | 'waitlist' | 'more' | 'booking';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
+const TODAY = new Date().toISOString().slice(0, 10);
+
+const bookingFormSchema = z.object({
+  serviceId: z.string().min(1, 'Selecciona un servicio.'),
+  staffId: z.string().min(1, 'Selecciona un profesional.'),
+  startAt: z.string().min(1, 'Selecciona un horario.'),
+  customerName: z.string().trim().min(1, 'Nombre requerido.'),
+  customerEmail: z.string().trim().email('Email inválido.'),
+});
+
+const waitlistFormSchema = z.object({
+  serviceId: z.string().min(1, 'Selecciona un servicio.'),
+  staffId: z.string().min(1, 'Selecciona un profesional.'),
+  preferredStartAt: z.string().min(1, 'Ingresa fecha/hora preferida.'),
+  customerName: z.string().trim().min(1, 'Nombre requerido.'),
+  customerEmail: z.string().trim().email('Email inválido.'),
+});
 
 declare global {
   interface Window {
@@ -94,6 +118,19 @@ function formatDateTime(value: string, locale: 'es' | 'en' = 'es') {
     return value;
   }
   return date.toLocaleString(locale === 'en' ? 'en-US' : 'es-MX');
+}
+
+function formatTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+}
+
+function toLocalDateTimeInput(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 const PORTAL_COPY = {
@@ -328,6 +365,50 @@ export default function CustomerBookingsPage({ params }: PageProps) {
   const hasSession = useMemo(() => token.trim().length > 0, [token]);
   const copy = PORTAL_COPY[locale];
 
+  // ── Booking flow state ────────────────────────────────────
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [staff, setStaff] = useState<StaffItem[]>([]);
+  const [formFields, setFormFields] = useState<FormField[]>([]);
+  const [serviceId, setServiceId] = useState('');
+  const [staffId, setStaffId] = useState('');
+  const [bookingDate, setBookingDate] = useState(TODAY);
+  const [slots, setSlots] = useState<Array<{ startAt: string; endAt: string }>>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState('');
+  const [selectedSlot, setSelectedSlot] = useState('');
+  const [bookingName, setBookingName] = useState('');
+  const [bookingEmail, setBookingEmail] = useState('');
+  const [bookingNotes, setBookingNotes] = useState('');
+  const [customFieldsValues, setCustomFieldsValues] = useState<Record<string, string>>({});
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [submitSuccess, setSubmitSuccess] = useState('');
+  const [preferredStartAt, setPreferredStartAt] = useState('');
+  const [wlLoading, setWlLoading] = useState(false);
+  const [wlError, setWlError] = useState('');
+  const [wlSuccess, setWlSuccess] = useState('');
+
+  // email from login pre-fills booking email
+  const displayBookingEmail = bookingEmail || email;
+
+  const normalizedFields = useMemo(
+    () =>
+      formFields
+        .map((field, index) => {
+          const key = (field.key ?? field.name ?? `field_${index}`).trim();
+          if (!key) return null;
+          return {
+            key,
+            label: field.label?.trim() || key,
+            type: field.type?.trim().toLowerCase() || 'text',
+            required: Boolean(field.required),
+            placeholder: field.placeholder?.trim() || ''
+          };
+        })
+        .filter((f): f is { key: string; label: string; type: string; required: boolean; placeholder: string } => !!f),
+    [formFields]
+  );
+
   async function handleRegister(event: FormEvent) {
     event.preventDefault();
     setError('');
@@ -474,33 +555,86 @@ export default function CustomerBookingsPage({ params }: PageProps) {
     }
   }
 
+  // Bootstrap: locale + booking data (services/staff/form)
   useEffect(() => {
     let cancelled = false;
 
-    async function loadLocale() {
+    async function bootstrap() {
       try {
-        const response = await fetch(new URL(`/public/${params.slug}`, apiBase).toString());
-        if (!response.ok || cancelled) {
-          return;
-        }
+        const [tenantRes, servicesRes, staffRes, formRes] = await Promise.all([
+          fetch(new URL(`/public/${params.slug}`, apiBase).toString()),
+          fetch(new URL(`/public/${params.slug}/services`, apiBase).toString()),
+          fetch(new URL(`/public/${params.slug}/staff`, apiBase).toString()),
+          fetch(new URL(`/public/${params.slug}/form`, apiBase).toString())
+        ]);
 
-        const payload = (await response.json()) as TenantLocaleResponse;
-        if (!cancelled) {
-          setLocale(payload.locale === 'en' ? 'en' : 'es');
+        if (cancelled) return;
+
+        if (tenantRes.ok) {
+          const p = (await tenantRes.json()) as TenantLocaleResponse;
+          if (!cancelled) setLocale(p.locale === 'en' ? 'en' : 'es');
+        }
+        if (servicesRes.ok) {
+          const p = (await servicesRes.json()) as ServiceItem[];
+          if (!cancelled) { setServices(p ?? []); setServiceId((c) => c || p[0]?.id || ''); }
+        }
+        if (staffRes.ok) {
+          const p = (await staffRes.json()) as StaffItem[];
+          if (!cancelled) { setStaff(p ?? []); setStaffId((c) => c || p[0]?.id || ''); }
+        }
+        if (formRes.ok) {
+          const p = (await formRes.json()) as { fields: FormField[] };
+          if (!cancelled) setFormFields(p.fields ?? []);
         }
       } catch {
-        if (!cancelled) {
-          setLocale('es');
-        }
+        if (!cancelled) setLocale('es');
       }
     }
 
-    void loadLocale();
+    void bootstrap();
 
     return () => {
       cancelled = true;
     };
   }, [apiBase, params.slug]);
+
+  // Load slots when booking filters change
+  useEffect(() => {
+    if (!serviceId || !staffId || !bookingDate) {
+      setSlots([]);
+      setSelectedSlot('');
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadSlots() {
+      setSlotsLoading(true);
+      setSlotsError('');
+      try {
+        const url = new URL(`/public/${params.slug}/slots`, apiBase);
+        url.searchParams.set('serviceId', serviceId);
+        url.searchParams.set('staffId', staffId);
+        url.searchParams.set('date', bookingDate);
+        const res = await fetch(url.toString());
+        if (!res.ok) { const t = await res.text(); throw new Error(t || `Error ${res.status}`); }
+        const p = (await res.json()) as PublicSlotsResponse;
+        if (!cancelled) { setSlots(p.slots ?? []); setSelectedSlot(''); }
+      } catch (err) {
+        if (!cancelled) { setSlotsError(err instanceof Error ? err.message : 'Error cargando horarios'); setSlots([]); }
+      } finally {
+        if (!cancelled) setSlotsLoading(false);
+      }
+    }
+
+    void loadSlots();
+    return () => { cancelled = true; };
+  }, [apiBase, params.slug, serviceId, staffId, bookingDate]);
+
+  // Pre-fill waitlist datetime when a slot is selected
+  useEffect(() => {
+    if (selectedSlot) setPreferredStartAt(toLocalDateTimeInput(selectedSlot));
+  }, [selectedSlot]);
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !googleButtonRef.current) {
@@ -653,6 +787,116 @@ export default function CustomerBookingsPage({ params }: PageProps) {
     setError('');
     setClaimMessage('');
     setActiveView('bookings');
+  }
+
+  async function onSubmitBooking() {
+    setSubmitError('');
+    setSubmitSuccess('');
+    setWlError('');
+    setWlSuccess('');
+
+    const parsed = bookingFormSchema.safeParse({
+      serviceId,
+      staffId,
+      startAt: selectedSlot,
+      customerName: bookingName,
+      customerEmail: displayBookingEmail
+    });
+    if (!parsed.success) {
+      setSubmitError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
+      return;
+    }
+
+    const requiredMissing = normalizedFields.find((f) => f.required && !(customFieldsValues[f.key] ?? '').trim());
+    if (requiredMissing) {
+      setSubmitError(`Campo requerido: ${requiredMissing.label}`);
+      return;
+    }
+
+    const customFields = normalizedFields.reduce<Record<string, string>>((acc, f) => {
+      const v = (customFieldsValues[f.key] ?? '').trim();
+      if (v) acc[f.key] = v;
+      return acc;
+    }, {});
+
+    setSubmitLoading(true);
+    try {
+      const response = await fetch(new URL(`/public/${params.slug}/bookings`, apiBase).toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId: parsed.data.serviceId,
+          staffId: parsed.data.staffId,
+          startAt: parsed.data.startAt,
+          customerName: parsed.data.customerName,
+          customerEmail: parsed.data.customerEmail,
+          notes: bookingNotes.trim() || undefined,
+          customFields: Object.keys(customFields).length ? customFields : undefined
+        })
+      });
+      if (!response.ok) { const text = await response.text(); throw new Error(text || `Error ${response.status}`); }
+      const payload = (await response.json()) as BookingNewResponse;
+      setSubmitSuccess(
+        payload.waitlisted
+          ? locale === 'en' ? 'That slot was just taken. Added to waitlist.' : 'Ese horario se ocupó. Te agregamos a lista de espera.'
+          : locale === 'en' ? 'Booking confirmed! Check your email.' : '¡Reserva confirmada! Revisa tu correo.'
+      );
+      setSelectedSlot('');
+      setBookingNotes('');
+      if (token) void loadPortalData(token);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : locale === 'en' ? 'Could not create booking' : 'No se pudo crear la reserva');
+    } finally {
+      setSubmitLoading(false);
+    }
+  }
+
+  async function onJoinWaitlist() {
+    setWlError('');
+    setWlSuccess('');
+    setSubmitError('');
+    setSubmitSuccess('');
+
+    const parsed = waitlistFormSchema.safeParse({
+      serviceId,
+      staffId,
+      preferredStartAt,
+      customerName: bookingName,
+      customerEmail: displayBookingEmail
+    });
+    if (!parsed.success) {
+      setWlError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
+      return;
+    }
+
+    const preferredDate = new Date(parsed.data.preferredStartAt);
+    if (Number.isNaN(preferredDate.getTime())) {
+      setWlError(locale === 'en' ? 'Invalid preferred date/time.' : 'Fecha/hora preferida inválida.');
+      return;
+    }
+
+    setWlLoading(true);
+    try {
+      const response = await fetch(new URL(`/public/${params.slug}/waitlist`, apiBase).toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId: parsed.data.serviceId,
+          staffId: parsed.data.staffId,
+          preferredStartAt: preferredDate.toISOString(),
+          customerName: parsed.data.customerName,
+          customerEmail: parsed.data.customerEmail,
+          notes: bookingNotes.trim() || undefined
+        })
+      });
+      if (!response.ok) { const text = await response.text(); throw new Error(text || `Error ${response.status}`); }
+      setWlSuccess(locale === 'en' ? 'Added to waitlist!' : '¡Agregado a lista de espera!');
+      if (token) void loadPortalData(token);
+    } catch (err) {
+      setWlError(err instanceof Error ? err.message : locale === 'en' ? 'Could not join waitlist' : 'No se pudo unirse a lista de espera');
+    } finally {
+      setWlLoading(false);
+    }
   }
 
   if (!hasSession) {
@@ -819,212 +1063,529 @@ export default function CustomerBookingsPage({ params }: PageProps) {
   }
 
   return (
-    <main className="dashboard-layout customer-dashboard-shell">
-      {GOOGLE_CLIENT_ID ? <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" /> : null}
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', paddingBottom: 80 }}>
 
-      <aside className="dashboard-sidebar surface">
-        <div className="sidebar-brand">
-          <div className="sidebar-logo">
-            <ClipboardList size={18} />
+      {/* ── Compact sticky topbar ── */}
+      <header
+        className="surface"
+        style={{
+          borderBottom: '1px solid var(--border)',
+          padding: '11px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          position: 'sticky',
+          top: 0,
+          zIndex: 20
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              width: 34, height: 34, borderRadius: 9,
+              background: 'var(--primary)', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}
+          >
+            <ClipboardList size={16} />
           </div>
           <div>
-            <strong>{copy.pageTitle}</strong>
-            <div style={{ fontSize: 12, color: '#64748b' }}>{copy.dashboardSubtitle}</div>
+            <strong style={{ fontSize: 15, display: 'block', lineHeight: 1.2 }}>{copy.pageTitle}</strong>
+            <span style={{ fontSize: 11, color: '#64748b' }}>
+              {locale === 'en' ? 'Your booking portal' : 'Tu portal de reservas'}
+            </span>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={logoutSession}
+          title={copy.navLogout}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '7px 10px', borderRadius: 8,
+            border: '1px solid var(--border)', background: 'transparent',
+            cursor: 'pointer', color: '#64748b'
+          }}
+        >
+          <LogOut size={15} />
+        </button>
+      </header>
 
-        <nav className="sidebar-nav">
-          <button type="button" className={`sidebar-item ${activeView === 'claim' ? 'active' : ''}`} onClick={() => setActiveView('claim')}>
-            <Link2 size={16} />
-            {copy.navClaim}
-          </button>
-          <button type="button" className={`sidebar-item ${activeView === 'bookings' ? 'active' : ''}`} onClick={() => setActiveView('bookings')}>
-            <ClipboardList size={16} />
-            {copy.navBookings}
-          </button>
-          <button type="button" className={`sidebar-item ${activeView === 'waitlist' ? 'active' : ''}`} onClick={() => setActiveView('waitlist')}>
-            <ListChecks size={16} />
-            {copy.navWaitlist}
-          </button>
-          <a className="sidebar-item" href={`/public/${params.slug}`}>
-            <ClipboardList size={16} />
-            {copy.bookNow}
-          </a>
-          {hasSession ? (
-            <button type="button" className="sidebar-item" onClick={logoutSession}>
-              <LogOut size={16} />
-              {copy.navLogout}
-            </button>
-          ) : null}
-        </nav>
-      </aside>
-
-      <section className="dashboard-main">
-        <header className="dashboard-topbar surface">
-          <div className="topbar-left">
-            <div>
-              <strong>{copy.pageTitle}</strong>
-              <div style={{ fontSize: 12, color: '#64748b' }}>{copy.pageSubtitle}</div>
-            </div>
-          </div>
-          <div className="topbar-right">
-            <button onClick={refreshBookings} type="button" className="btn btn-ghost" disabled={!hasSession || loading}>
-              {copy.refresh}
-            </button>
-          </div>
-        </header>
-
-        {error ? <div className="status-error" style={{ marginBottom: 12 }}>{error}</div> : null}
-        {success ? <div className="status-success" style={{ marginBottom: 12 }}>{success}</div> : null}
-
-        {activeView === 'claim' ? (
-          <section className="panel" style={{ display: 'grid', gap: 10 }}>
-            <h2 style={{ margin: 0, fontSize: 18 }}>{copy.claimTitle}</h2>
-            <p style={{ margin: 0, color: '#666' }}>{copy.claimSubtitle}</p>
-
-            {!hasSession ? (
-              <div style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', color: '#666' }}>
-                {copy.claimRequiresSession}
-              </div>
+      {/* ── Tab strip ── */}
+      <nav
+        style={{
+          background: 'var(--surface)',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          position: 'sticky',
+          top: 57,
+          zIndex: 19,
+          padding: '0 4px'
+        }}
+      >
+        {([
+          { id: 'bookings' as PortalView, label: copy.navBookings, Icon: ClipboardList, count: bookings.length },
+          { id: 'waitlist' as PortalView, label: copy.navWaitlist, Icon: ListChecks, count: waitlistEntries.length },
+          { id: 'more' as PortalView, label: locale === 'en' ? 'More' : 'Más', Icon: MoreHorizontal, count: 0 }
+        ]).map(({ id, label, Icon, count }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setActiveView(id)}
+            style={{
+              flex: 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '12px 8px 10px',
+              border: 'none',
+              borderBottom: activeView === id ? '2px solid var(--primary)' : '2px solid transparent',
+              background: 'transparent',
+              color: activeView === id ? 'var(--primary)' : '#64748b',
+              fontWeight: activeView === id ? 600 : 400,
+              fontSize: 13,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Icon size={14} />
+            {label}
+            {count > 0 ? (
+              <span
+                style={{
+                  fontSize: 11, fontWeight: 700, lineHeight: '18px',
+                  background: activeView === id ? 'var(--primary)' : '#e2e8f0',
+                  color: activeView === id ? '#fff' : '#475569',
+                  borderRadius: 999, padding: '0 6px'
+                }}
+              >{count}</span>
             ) : null}
+          </button>
+        ))}
+      </nav>
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button type="button" className="btn btn-ghost" onClick={requestClaimCode} disabled={!hasSession || claimLoading}>
-                {claimLoading ? copy.processing : copy.requestCode}
+      {/* ── Global feedback ── */}
+      {(error || success) ? (
+        <div style={{ maxWidth: 640, width: '100%', margin: '12px auto 0', padding: '0 16px', boxSizing: 'border-box' }}>
+          {error ? <div className="status-error">{error}</div> : null}
+          {success ? <div className="status-success">{success}</div> : null}
+        </div>
+      ) : null}
+
+      {/* ── Page content ── */}
+      <main style={{ flex: 1, padding: 16, maxWidth: 640, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+
+        {/* Citas */}
+        {activeView === 'bookings' ? (
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+                {locale === 'en' ? 'Your bookings' : 'Citas registradas'}
+              </h2>
+              <button
+                type="button"
+                onClick={refreshBookings}
+                disabled={loading}
+                title={copy.refresh}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '5px 10px', borderRadius: 7,
+                  border: '1px solid var(--border)', background: 'var(--surface-muted)',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontSize: 12, color: '#64748b'
+                }}
+              >
+                <RefreshCw size={13} style={{ opacity: loading ? 0.4 : 1 }} />
+                {loading ? (locale === 'en' ? 'Loading…' : 'Cargando…') : copy.refresh}
               </button>
             </div>
 
-            <label>
-              {copy.claimCodeLabel}
-              <input
-                value={claimCode}
-                onChange={(event) => setClaimCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                style={{ width: '100%' }}
-                placeholder="123456"
-              />
-            </label>
-
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button type="button" className="btn" onClick={confirmClaimCode} disabled={!hasSession || claimLoading}>
-                {claimLoading ? copy.processing : copy.confirmClaim}
-              </button>
-            </div>
-
-            {claimMessage ? <div className="status-success">{claimMessage}</div> : null}
-          </section>
+            {!bookings.length ? (
+              <div className="panel" style={{ textAlign: 'center', padding: 32, display: 'grid', gap: 12 }}>
+                <div style={{ fontSize: 36 }}>📅</div>
+                <p style={{ margin: 0, fontWeight: 600, color: '#374151' }}>
+                  {locale === 'en' ? 'No bookings yet' : 'Aún no tienes citas'}
+                </p>
+                <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>{copy.bookNowHint}</p>
+                <button type="button" className="btn btn-primary" onClick={() => setActiveView('booking')} style={{ justifyContent: 'center' }}>
+                  {copy.bookNow}
+                </button>
+              </div>
+            ) : bookings.map((booking) => {
+              const statusMeta = getBookingStatusMeta(booking.status, locale);
+              return (
+                <article key={booking.id} className="panel" style={{ display: 'grid', gap: 8, padding: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                    <strong style={{ fontSize: 15 }}>{booking.service?.name ?? copy.fallbackService}</strong>
+                    <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 10px', ...statusMeta.style }}>
+                      {statusMeta.label}
+                    </span>
+                  </div>
+                  <span style={{ display: 'block', color: '#555', fontSize: 13 }}>🕐 {formatDateTime(booking.startAt, locale)}</span>
+                  <span style={{ display: 'block', color: '#555', fontSize: 13 }}>👤 {booking.staff?.fullName ?? 'N/A'}</span>
+                </article>
+              );
+            })}
+          </div>
         ) : null}
 
-        {activeView === 'bookings' ? (
-          <section className="panel" style={{ display: 'grid', gap: 10 }}>
-            <h2 style={{ margin: 0, fontSize: 18 }}>{locale === 'en' ? 'Your bookings' : 'Citas registradas'}</h2>
-            {!hasSession ? (
-              <div style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', color: '#666' }}>
-                {copy.sectionRequiresSession}
-              </div>
-            ) : null}
-            {hasSession && !bookings.length ? (
-              <div style={{ display: 'grid', gap: 10 }}>
-                <p style={{ margin: 0, color: '#666' }}>
-                  {locale === 'en' ? 'No bookings found for this account yet.' : 'No hay citas para esta cuenta todavía.'}
+        {/* Lista de espera */}
+        {activeView === 'waitlist' ? (
+          <div style={{ display: 'grid', gap: 12 }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+              {locale === 'en' ? 'Waitlist' : 'Lista de espera'}
+            </h2>
+            {!waitlistEntries.length ? (
+              <div className="panel" style={{ textAlign: 'center', padding: 32, display: 'grid', gap: 12 }}>
+                <div style={{ fontSize: 36 }}>⏳</div>
+                <p style={{ margin: 0, fontWeight: 600, color: '#374151' }}>
+                  {locale === 'en' ? 'No waitlist entries' : 'Sin entradas en lista de espera'}
                 </p>
-                <p style={{ margin: 0, color: '#666' }}>{copy.bookNowHint}</p>
+                <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+                  {locale === 'en'
+                    ? "When your preferred slot opens up, we'll notify you."
+                    : 'Cuando haya disponibilidad en tu horario preferido, te notificaremos.'}
+                </p>
+              </div>
+            ) : waitlistEntries.map((entry) => {
+              const statusMeta = getWaitlistStatusMeta(entry.status, locale);
+              return (
+                <article key={entry.id} className="panel" style={{ display: 'grid', gap: 8, padding: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                    <strong style={{ fontSize: 15 }}>{entry.service?.name ?? copy.fallbackService}</strong>
+                    <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 10px', ...statusMeta.style }}>
+                      {statusMeta.label}
+                    </span>
+                  </div>
+                  <span style={{ display: 'block', color: '#555', fontSize: 13 }}>👤 {entry.staff?.fullName ?? 'N/A'}</span>
+                  <span style={{ display: 'block', color: '#555', fontSize: 13 }}>
+                    📅 {locale === 'en' ? 'Preference' : 'Preferencia'}: {formatDateTime(entry.preferredStartAt, locale)}
+                  </span>
+                  {typeof entry.queuePosition === 'number' && entry.queuePosition > 0 ? (
+                    <span style={{ display: 'block', fontSize: 13, color: '#555' }}>
+                      🔢 {locale === 'en' ? 'Queue position' : 'Posición en cola'}: #{entry.queuePosition}
+                    </span>
+                  ) : null}
+                  {entry.estimatedStartAt && entry.estimatedEndAt ? (
+                    <span style={{ display: 'block', fontSize: 13, color: '#555' }}>
+                      ⏰ {locale === 'en' ? 'Estimated window' : 'Ventana estimada'}:{' '}
+                      {formatDateTime(entry.estimatedStartAt, locale)} – {formatDateTime(entry.estimatedEndAt, locale)}
+                    </span>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {/* Más (vincular historial + cerrar sesión) */}
+        {activeView === 'more' ? (
+          <div style={{ display: 'grid', gap: 16 }}>
+
+            {/* Vincular historial */}
+            <section className="panel" style={{ display: 'grid', gap: 12, padding: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36, height: 36, borderRadius: 9,
+                    background: '#eff6ff', color: 'var(--primary)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                  }}
+                >
+                  <Link2 size={16} />
+                </div>
                 <div>
-                  <a className="btn" href={`/public/${params.slug}`}>
-                    {copy.bookNow}
-                  </a>
+                  <strong style={{ display: 'block', fontSize: 14 }}>{copy.navClaim}</strong>
+                  <span style={{ fontSize: 12, color: '#64748b' }}>{copy.claimSubtitle}</span>
                 </div>
               </div>
-            ) : null}
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={requestClaimCode}
+                disabled={claimLoading}
+                style={{ width: '100%', justifyContent: 'center' }}
+              >
+                {claimLoading ? copy.processing : copy.requestCode}
+              </button>
+              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500 }}>
+                {copy.claimCodeLabel}
+                <input
+                  value={claimCode}
+                  onChange={(event) => setClaimCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  style={{ width: '100%' }}
+                  placeholder="123456"
+                />
+              </label>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={confirmClaimCode}
+                disabled={claimLoading}
+                style={{ width: '100%', justifyContent: 'center' }}
+              >
+                {claimLoading ? copy.processing : copy.confirmClaim}
+              </button>
+              {claimMessage ? <div className="status-success">{claimMessage}</div> : null}
+            </section>
 
-            {hasSession
-              ? bookings.map((booking) => (
-                  <article key={booking.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'grid', gap: 6 }}>
-                    {(() => {
-                      const statusMeta = getBookingStatusMeta(booking.status, locale);
-                      return (
-                        <span
-                          style={{
-                            alignSelf: 'start',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            borderRadius: 999,
-                            padding: '2px 10px',
-                            ...statusMeta.style
-                          }}
-                        >
-                          {statusMeta.label}
-                        </span>
-                      );
-                    })()}
-                    <strong style={{ display: 'block' }}>{booking.service?.name ?? copy.fallbackService}</strong>
-                    <span style={{ display: 'block', color: '#555' }}>{formatDateTime(booking.startAt, locale)}</span>
-                    <span style={{ display: 'block', color: '#555' }}>
-                      {locale === 'en' ? 'Professional' : 'Profesional'}: {booking.staff?.fullName ?? 'N/A'}
-                    </span>
-                  </article>
-                ))
-              : null}
-          </section>
-        ) : null}
-
-        {activeView === 'waitlist' ? (
-          <section className="panel" style={{ display: 'grid', gap: 10 }}>
-            <h2 style={{ margin: 0, fontSize: 18 }}>{locale === 'en' ? 'Waitlist' : 'Lista de espera'}</h2>
-            {!hasSession ? (
-              <div style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', color: '#666' }}>
-                {copy.sectionRequiresSession}
+            {/* Cerrar sesión */}
+            <section
+              className="panel"
+              style={{ padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
+            >
+              <div>
+                <strong style={{ display: 'block', fontSize: 14 }}>{copy.navLogout}</strong>
+                <span style={{ fontSize: 12, color: '#64748b' }}>
+                  {locale === 'en' ? 'Clear your current session.' : 'Cierra tu sesión actual.'}
+                </span>
               </div>
-            ) : null}
-            {hasSession && !waitlistEntries.length ? (
-              <p style={{ margin: 0, color: '#666' }}>
-                {locale === 'en' ? 'You have no waitlist entries.' : 'No tienes entradas en lista de espera.'}
-              </p>
-            ) : null}
+              <button
+                type="button"
+                onClick={logoutSession}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+                  padding: '8px 14px', borderRadius: 8,
+                  border: '1px solid #fca5a5', background: '#fef2f2',
+                  cursor: 'pointer', fontSize: 13, color: '#b91c1c', fontWeight: 600
+                }}
+              >
+                <LogOut size={14} />
+                {copy.navLogout}
+              </button>
+            </section>
+          </div>
+        ) : null}
+      </main>
 
-            {hasSession
-              ? waitlistEntries.map((entry) => (
-                  <article key={entry.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'grid', gap: 6 }}>
-                    {(() => {
-                      const statusMeta = getWaitlistStatusMeta(entry.status, locale);
-                      return (
-                        <span
+      {/* ── Full embedded booking view ── */}
+      {activeView === 'booking' ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
+
+          {/* Sub-header */}
+          <div className="surface" style={{ borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => { setActiveView('bookings'); void refreshBookings(); setSubmitSuccess(''); setSubmitError(''); setWlSuccess(''); setWlError(''); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#374151' }}
+            >
+              ← {locale === 'en' ? 'Back' : 'Volver'}
+            </button>
+            <strong style={{ flex: 1, fontSize: 15 }}>{copy.bookNow}</strong>
+          </div>
+
+          {/* Scrollable content */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'grid', gap: 16, alignContent: 'start', maxWidth: 580, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+
+            {submitSuccess ? (
+              /* Success state */
+              <div className="panel" style={{ textAlign: 'center', padding: 36, display: 'grid', gap: 14 }}>
+                <div style={{ fontSize: 52 }}>✅</div>
+                <strong style={{ fontSize: 16 }}>{submitSuccess}</strong>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => { setSubmitSuccess(''); setSelectedSlot(''); }}
+                  style={{ justifyContent: 'center' }}
+                >
+                  {locale === 'en' ? 'Book another' : 'Reservar otra cita'}
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* 1 — Filters */}
+                <section className="panel" style={{ display: 'grid', gap: 12 }}>
+                  <strong style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <CalendarDays size={16} />
+                    {locale === 'en' ? '1. Choose service & date' : '1. Elige servicio y fecha'}
+                  </strong>
+
+                  <label style={{ display: 'grid', gap: 5, fontSize: 14 }}>
+                    {locale === 'en' ? 'Service' : 'Servicio'}
+                    <select value={serviceId} onChange={(e) => { setServiceId(e.target.value); setSelectedSlot(''); }} style={{ width: '100%' }}>
+                      <option value="">{locale === 'en' ? 'Select...' : 'Seleccionar...'}</option>
+                      {services.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes} min)</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label style={{ display: 'grid', gap: 5, fontSize: 14 }}>
+                    {locale === 'en' ? 'Professional' : 'Profesional'}
+                    <select value={staffId} onChange={(e) => { setStaffId(e.target.value); setSelectedSlot(''); }} style={{ width: '100%' }}>
+                      <option value="">{locale === 'en' ? 'Select...' : 'Seleccionar...'}</option>
+                      {staff.map((s) => (
+                        <option key={s.id} value={s.id}>{s.fullName}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label style={{ display: 'grid', gap: 5, fontSize: 14 }}>
+                    {locale === 'en' ? 'Date' : 'Fecha'}
+                    <input type="date" value={bookingDate} min={TODAY} onChange={(e) => { setBookingDate(e.target.value); setSelectedSlot(''); }} style={{ width: '100%' }} />
+                  </label>
+                </section>
+
+                {/* 2 — Available slots */}
+                <section className="panel" style={{ display: 'grid', gap: 10 }}>
+                  <strong style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Clock3 size={16} />
+                    {locale === 'en' ? '2. Pick a time slot' : '2. Selecciona un horario'}
+                  </strong>
+                  {slotsLoading ? <div style={{ color: '#64748b', fontSize: 13 }}>{locale === 'en' ? 'Loading...' : 'Cargando...'}</div> : null}
+                  {slotsError ? <div className="status-error">{slotsError}</div> : null}
+                  {!slotsLoading && !slotsError && !slots.length ? (
+                    <div style={{ color: '#64748b', fontSize: 13 }}>
+                      {locale === 'en' ? 'No slots available for current filters.' : 'Sin horarios disponibles para los filtros actuales.'}
+                    </div>
+                  ) : null}
+                  {!slotsLoading && slots.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {slots.map((slot) => (
+                        <button
+                          key={slot.startAt}
+                          type="button"
+                          onClick={() => setSelectedSlot(slot.startAt)}
                           style={{
-                            alignSelf: 'start',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            borderRadius: 999,
-                            padding: '2px 10px',
-                            ...statusMeta.style
+                            padding: '8px 14px', borderRadius: 8,
+                            border: selectedSlot === slot.startAt ? '2px solid var(--primary)' : '1px solid var(--border)',
+                            background: selectedSlot === slot.startAt ? '#eff6ff' : 'var(--surface)',
+                            color: selectedSlot === slot.startAt ? 'var(--primary)' : '#374151',
+                            fontWeight: selectedSlot === slot.startAt ? 700 : 400,
+                            cursor: 'pointer', fontSize: 14
                           }}
                         >
-                          {statusMeta.label}
-                        </span>
-                      );
-                    })()}
-                    <strong style={{ display: 'block' }}>{entry.service?.name ?? copy.fallbackService}</strong>
-                    <span style={{ display: 'block', color: '#555' }}>
-                      {locale === 'en' ? 'Professional' : 'Profesional'}: {entry.staff?.fullName ?? 'N/A'}
-                    </span>
-                    <span style={{ display: 'block', color: '#555' }}>
-                      {locale === 'en' ? 'Preference' : 'Preferencia'}: {formatDateTime(entry.preferredStartAt, locale)}
-                    </span>
-                    {typeof entry.queuePosition === 'number' && entry.queuePosition > 0 ? (
-                      <span style={{ display: 'block', color: '#555' }}>
-                        {locale === 'en' ? 'Queue position' : 'Posición en cola'}: #{entry.queuePosition}
-                      </span>
-                    ) : null}
-                    {entry.estimatedStartAt && entry.estimatedEndAt ? (
-                      <span style={{ display: 'block', color: '#555' }}>
-                        {locale === 'en' ? 'Estimated window' : 'Ventana estimada'}: {formatDateTime(entry.estimatedStartAt, locale)} -{' '}
-                        {formatDateTime(entry.estimatedEndAt, locale)}
-                      </span>
-                    ) : null}
-                  </article>
-                ))
-              : null}
-          </section>
-        ) : null}
-      </section>
-    </main>
+                          {formatTime(slot.startAt)}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </section>
+
+                {/* 3 — Booking form */}
+                <section className="panel" style={{ display: 'grid', gap: 12 }}>
+                  <strong style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Send size={16} />
+                    {locale === 'en' ? '3. Your details' : '3. Tus datos'}
+                  </strong>
+
+                  {selectedSlot ? (
+                    <div style={{ padding: '8px 12px', borderRadius: 8, background: '#eff6ff', border: '1px solid #bfdbfe', fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>
+                      🕐 {locale === 'en' ? 'Selected:' : 'Seleccionado:'} {formatDateTime(selectedSlot, locale)}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '8px 12px', borderRadius: 8, background: '#fafafa', border: '1px solid var(--border)', fontSize: 13, color: '#94a3b8' }}>
+                      ↑ {locale === 'en' ? 'Select a time slot above first' : 'Primero selecciona un horario arriba'}
+                    </div>
+                  )}
+
+                  <label style={{ display: 'grid', gap: 5, fontSize: 14 }}>
+                    {locale === 'en' ? 'Full name' : 'Nombre completo'}
+                    <input value={bookingName} onChange={(e) => setBookingName(e.target.value)} style={{ width: '100%' }} />
+                  </label>
+
+                  <label style={{ display: 'grid', gap: 5, fontSize: 14 }}>
+                    Email
+                    <input type="email" value={displayBookingEmail} onChange={(e) => setBookingEmail(e.target.value)} style={{ width: '100%' }} />
+                  </label>
+
+                  {normalizedFields.map((field) => (
+                    <label key={field.key} style={{ display: 'grid', gap: 5, fontSize: 14 }}>
+                      {field.label}{field.required ? ' *' : ''}
+                      {field.type === 'textarea' ? (
+                        <textarea
+                          value={customFieldsValues[field.key] ?? ''}
+                          onChange={(e) => setCustomFieldsValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                          placeholder={field.placeholder}
+                          style={{ width: '100%', minHeight: 72 }}
+                        />
+                      ) : (
+                        <input
+                          type={field.type === 'email' || field.type === 'tel' ? field.type : 'text'}
+                          value={customFieldsValues[field.key] ?? ''}
+                          onChange={(e) => setCustomFieldsValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                          placeholder={field.placeholder}
+                          style={{ width: '100%' }}
+                        />
+                      )}
+                    </label>
+                  ))}
+
+                  <label style={{ display: 'grid', gap: 5, fontSize: 14 }}>
+                    {locale === 'en' ? 'Notes (optional)' : 'Notas (opcional)'}
+                    <textarea value={bookingNotes} onChange={(e) => setBookingNotes(e.target.value)} style={{ width: '100%', minHeight: 72 }} />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => void onSubmitBooking()}
+                    disabled={submitLoading || !selectedSlot}
+                    className="btn btn-primary"
+                    style={{ justifyContent: 'center', width: '100%', padding: '11px 0', fontSize: 15, opacity: !selectedSlot || submitLoading ? 0.6 : 1 }}
+                  >
+                    {submitLoading
+                      ? (locale === 'en' ? 'Booking...' : 'Reservando...')
+                      : (locale === 'en' ? 'Confirm booking' : 'Confirmar reserva')}
+                  </button>
+
+                  {submitError ? <div className="status-error">{submitError}</div> : null}
+                </section>
+
+                {/* Waitlist option (collapsible) */}
+                <details className="panel" style={{ padding: 16 }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 14, listStyle: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span>⏳</span>
+                    {locale === 'en' ? 'No suitable slot? Join the waitlist' : '¿Sin horario? Únete a la lista de espera'}
+                  </summary>
+                  <div style={{ marginTop: 14, display: 'grid', gap: 12 }}>
+                    <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+                      {locale === 'en'
+                        ? "We'll notify you when a slot opens that matches your preference."
+                        : 'Te avisaremos cuando se libere un cupo que coincida con tu preferencia.'}
+                    </p>
+                    <label style={{ display: 'grid', gap: 5, fontSize: 14 }}>
+                      {locale === 'en' ? 'Preferred date & time' : 'Fecha y hora preferida'}
+                      <input type="datetime-local" value={preferredStartAt} onChange={(e) => setPreferredStartAt(e.target.value)} style={{ width: '100%' }} />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => void onJoinWaitlist()}
+                      disabled={wlLoading}
+                      className="btn btn-ghost"
+                      style={{ justifyContent: 'center', width: '100%' }}
+                    >
+                      {wlLoading
+                        ? (locale === 'en' ? 'Processing...' : 'Procesando...')
+                        : (locale === 'en' ? 'Join waitlist' : 'Unirme a lista de espera')}
+                    </button>
+                    {wlError ? <div className="status-error">{wlError}</div> : null}
+                    {wlSuccess ? <div className="status-success">{wlSuccess}</div> : null}
+                  </div>
+                </details>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── FAB: Nueva cita (hidden on booking view) ── */}
+      {activeView !== 'booking' ? (
+        <button
+          type="button"
+          onClick={() => setActiveView('booking')}
+          style={{
+            position: 'fixed', bottom: 20, right: 16,
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'var(--primary)', color: '#fff',
+            padding: '12px 20px', borderRadius: 99,
+            fontWeight: 600, fontSize: 14,
+            boxShadow: '0 4px 14px rgba(37,99,235,0.35)',
+            border: 'none', cursor: 'pointer', zIndex: 50
+          }}
+        >
+          <Plus size={16} />
+          {copy.bookNow}
+        </button>
+      ) : null}
+    </div>
   );
 }
