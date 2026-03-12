@@ -2,6 +2,7 @@
 
 import Script from 'next/script';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ClipboardList, KeyRound, Link2, ListChecks, LogOut } from 'lucide-react';
 
 type PageProps = {
   params: {
@@ -56,6 +57,8 @@ type WaitlistItem = {
 type TenantLocaleResponse = {
   locale?: 'es' | 'en' | string;
 };
+
+type PortalView = 'access' | 'claim' | 'bookings' | 'waitlist';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
@@ -133,7 +136,14 @@ const PORTAL_COPY = {
     claimConfirmError: 'No se pudo confirmar claim',
     fallbackService: 'Servicio',
     bookNow: 'Reservar nueva cita',
-    bookNowHint: 'Aun no tienes citas en esta cuenta. Puedes agendar una nueva desde la pagina publica.'
+    bookNowHint: 'Aun no tienes citas en esta cuenta. Puedes agendar una nueva desde la pagina publica.',
+    navAccess: 'Acceso',
+    navClaim: 'Vincular historial',
+    navBookings: 'Citas registradas',
+    navWaitlist: 'Lista de espera',
+    navLogout: 'Cerrar sesión',
+    dashboardSubtitle: 'Gestiona tu cuenta, historial y estado de tus reservas.',
+    sectionRequiresSession: 'Inicia sesión para ver esta sección.'
   },
   en: {
     pageTitle: 'My bookings',
@@ -174,7 +184,14 @@ const PORTAL_COPY = {
     claimConfirmError: 'Could not confirm link',
     fallbackService: 'Service',
     bookNow: 'Book new appointment',
-    bookNowHint: 'No bookings on this account yet. You can schedule a new one from the public page.'
+    bookNowHint: 'No bookings on this account yet. You can schedule a new one from the public page.',
+    navAccess: 'Access',
+    navClaim: 'Link history',
+    navBookings: 'Bookings',
+    navWaitlist: 'Waitlist',
+    navLogout: 'Sign out',
+    dashboardSubtitle: 'Manage your account, booking history, and waitlist status.',
+    sectionRequiresSession: 'Sign in to view this section.'
   }
 } as const;
 
@@ -289,6 +306,7 @@ function getBookingStatusMeta(status: string, locale: 'es' | 'en') {
 
 export default function CustomerBookingsPage({ params }: PageProps) {
   const apiBase = API_BASE;
+  const [activeView, setActiveView] = useState<PortalView>('access');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [locale, setLocale] = useState<'es' | 'en'>('es');
   const [fullName, setFullName] = useState('');
@@ -342,6 +360,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       setToken(payload.accessToken);
       setSuccess(copy.registerSuccess);
       await loadPortalData(payload.accessToken);
+      setActiveView('bookings');
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : copy.registerError);
     } finally {
@@ -377,6 +396,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       setToken(payload.accessToken);
       setSuccess(copy.loginSuccess);
       await loadPortalData(payload.accessToken);
+      setActiveView('bookings');
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : copy.loginError);
     } finally {
@@ -446,6 +466,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       setToken(payload.accessToken);
       setSuccess(copy.googleSuccess);
       await loadPortalData(payload.accessToken);
+      setActiveView('bookings');
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : copy.googleError);
     } finally {
@@ -616,11 +637,22 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       const payload = (await response.json()) as { linkedBookings: number };
       setClaimMessage(copy.claimConfirmSuccess(payload.linkedBookings));
       await refreshBookings();
+      setActiveView('bookings');
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : copy.claimConfirmError);
     } finally {
       setClaimLoading(false);
     }
+  }
+
+  function logoutSession() {
+    setToken('');
+    setBookings([]);
+    setWaitlistEntries([]);
+    setSuccess('');
+    setError('');
+    setClaimMessage('');
+    setActiveView('access');
   }
 
   return (

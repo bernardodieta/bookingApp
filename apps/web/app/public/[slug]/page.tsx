@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
-import { CalendarDays, Clock3, Send, UserRound } from 'lucide-react';
+import { CalendarDays, Clock3, Menu, Send, UserRound, X } from 'lucide-react';
 
 type PublicPageProps = {
   params: {
@@ -73,6 +73,8 @@ type WaitlistResponse = {
     status: string;
   };
 };
+
+type PublicView = 'overview' | 'schedule' | 'booking' | 'waitlist' | 'portal';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const today = new Date().toISOString().slice(0, 10);
@@ -224,6 +226,8 @@ function formatWaitlistFeedbackMessage(
 
 export default function PublicBookingPage({ params }: PublicPageProps) {
   const apiBase = API_BASE;
+  const [activeView, setActiveView] = useState<PublicView>('overview');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tenant, setTenant] = useState<TenantProfile | null>(null);
@@ -305,6 +309,27 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
 
     return buckets;
   }, [slots]);
+
+  const selectedService = useMemo(() => services.find((entry) => entry.id === serviceId) ?? null, [services, serviceId]);
+  const selectedStaff = useMemo(() => staff.find((entry) => entry.id === staffId) ?? null, [staff, staffId]);
+
+  const goToView = (view: PublicView) => {
+    setActiveView(view);
+    setMobileMenuOpen(false);
+  };
+
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -593,211 +618,315 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
   }
 
   return (
-    <main className="app-shell" style={{ maxWidth: 980 }}>
-      <header className="page-header">
-        <div>
-          <h1 className="page-title">{tenant?.name ? `Reservas · ${tenant.name}` : t.titleFallback}</h1>
-          <p className="page-subtitle">{t.subtitle}</p>
+    <main className="dashboard-layout public-dashboard-shell">
+      {mobileMenuOpen ? <button type="button" className="public-sidebar-overlay" aria-label="Close menu" onClick={() => setMobileMenuOpen(false)} /> : null}
+
+      <aside className={`dashboard-sidebar surface ${mobileMenuOpen ? 'is-open' : ''}`}>
+        <div className="sidebar-brand">
+          <div className="sidebar-logo" style={{ background: brandTint, color: brandPrimary }}>
+            <CalendarDays size={18} />
+          </div>
+          <div>
+            <strong>{tenant?.name ?? t.titleFallback}</strong>
+            <div style={{ fontSize: 12, color: '#64748b' }}>{locale === 'en' ? 'Customer booking panel' : 'Panel de reservas cliente'}</div>
+          </div>
+          <button type="button" className="public-mobile-menu-btn" onClick={() => setMobileMenuOpen(false)} aria-label="Close navigation menu">
+            <X size={16} />
+          </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+
+        <nav className="sidebar-nav">
+          <button type="button" className={`sidebar-item ${activeView === 'overview' ? 'active' : ''}`} onClick={() => goToView('overview')}>
+            <CalendarDays size={16} />
+            {locale === 'en' ? 'Overview' : 'Resumen'}
+          </button>
+          <button type="button" className={`sidebar-item ${activeView === 'schedule' ? 'active' : ''}`} onClick={() => goToView('schedule')}>
+            <Clock3 size={16} />
+            {locale === 'en' ? 'Schedule' : 'Agenda'}
+          </button>
+          <button type="button" className={`sidebar-item ${activeView === 'booking' ? 'active' : ''}`} onClick={() => goToView('booking')}>
+            <UserRound size={16} />
+            {locale === 'en' ? 'Book' : 'Reservar'}
+          </button>
+          <button type="button" className={`sidebar-item ${activeView === 'waitlist' ? 'active' : ''}`} onClick={() => goToView('waitlist')}>
+            <Send size={16} />
+            {t.waitlist}
+          </button>
+          <button type="button" className={`sidebar-item ${activeView === 'portal' ? 'active' : ''}`} onClick={() => goToView('portal')}>
+            <UserRound size={16} />
+            {locale === 'en' ? 'My bookings portal' : 'Portal mis citas'}
+          </button>
+        </nav>
+      </aside>
+
+      <section className="dashboard-main">
+        <header className="dashboard-topbar surface">
+          <div className="topbar-left">
+            <button type="button" className="public-mobile-menu-btn" onClick={() => setMobileMenuOpen(true)} aria-label="Open navigation menu">
+              <Menu size={16} />
+              {locale === 'en' ? 'Menu' : 'Menu'}
+            </button>
+            <div className="topbar-logo" style={{ background: brandTint, color: brandPrimary }}>
+              <CalendarDays size={18} />
+            </div>
+            <div>
+              <strong>{tenant?.name ? `Reservas · ${tenant.name}` : t.titleFallback}</strong>
+              <div style={{ fontSize: 12, color: '#64748b' }}>{t.subtitle}</div>
+            </div>
+          </div>
           {tenant?.logoUrl ? (
-            <img src={tenant.logoUrl} alt="Logo" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'contain', border: '1px solid var(--border)', background: '#fff' }} />
+            <img
+              src={tenant.logoUrl}
+              alt="Logo"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                objectFit: 'contain',
+                border: '1px solid var(--border)',
+                background: '#fff'
+              }}
+            />
           ) : null}
-          <div style={{ width: 46, height: 46, borderRadius: 12, background: brandTint, display: 'grid', placeItems: 'center' }}>
-            <CalendarDays size={22} color={brandPrimary} />
-          </div>
-        </div>
-      </header>
+        </header>
 
-      <section className="panel" style={{ marginBottom: 12, display: 'grid', gap: 8 }}>
-        <strong>Portal cliente</strong>
-        <p style={{ margin: 0, color: '#555' }}>
-          ¿Ya reservaste antes? Entra para ver historial, registrarte o iniciar con Google.
-        </p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <a className="btn btn-ghost" href={`/public/${params.slug}/mis-citas`}>
-            Ir a mis citas
-          </a>
-        </div>
-      </section>
+        {loading ? <div className="panel">{t.loadingProfile}</div> : null}
+        {error ? <div className="status-error">{error}</div> : null}
 
-      {loading ? <div>{t.loadingProfile}</div> : null}
-      {error ? <div className="status-error">{error}</div> : null}
-
-      {!loading && !error ? (
-        <section style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <div className="panel" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-              <label>
-                {t.service}
-                <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} style={{ width: '100%' }}>
-                  <option value="">{t.select}</option>
-                  {services.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.name} ({entry.durationMinutes} min)
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {t.professional}
-                <select value={staffId} onChange={(e) => setStaffId(e.target.value)} style={{ width: '100%' }}>
-                  <option value="">{t.select}</option>
-                  {staff.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.fullName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {t.date}
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '100%' }} />
-              </label>
-            </div>
-
-            <div className="panel" style={{ display: 'grid', gap: 10 }}>
-              <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <Clock3 size={16} /> {t.availableSlots}
-              </strong>
-              {slotsLoading ? <div>{t.loadingSlots}</div> : null}
-              {slotsError ? <div style={{ color: '#900' }}>{slotsError}</div> : null}
-
-              {!slotsLoading && !slotsError ? (
-                <div style={{ display: 'grid', gap: 10, maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
-                  {([
-                    ['morning', 'Mañana', slotBuckets.morning],
-                    ['afternoon', 'Tarde', slotBuckets.afternoon],
-                    ['evening', 'Noche', slotBuckets.evening]
-                  ] as const).map(([key, label, bucketSlots]) => (
-                    <div key={key} style={{ display: 'grid', gap: 6 }}>
-                      <small style={{ color: '#666', fontWeight: 600 }}>{label}</small>
-                      {bucketSlots.length ? (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                          {bucketSlots.map((slot) => (
-                            <button
-                              key={slot.startAt}
-                              type="button"
-                              onClick={() => setSelectedSlot(slot.startAt)}
-                              style={{
-                                minWidth: 78,
-                                padding: '7px 10px',
-                                borderRadius: 8,
-                                border: selectedSlot === slot.startAt ? `2px solid ${brandPrimary}` : '1px solid var(--border)',
-                                background: selectedSlot === slot.startAt ? brandTint : 'var(--surface)',
-                                fontWeight: 600
-                              }}
-                              aria-pressed={selectedSlot === slot.startAt}
-                            >
-                              {formatTime(slot.startAt, tenant?.timeZone)}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <small style={{ color: '#888' }}>Sin horarios</small>
-                      )}
-                    </div>
-                  ))}
-
-                  {!slots.length ? <span style={{ color: '#666' }}>{t.noSlots}</span> : null}
+        {!loading && !error ? (
+          <>
+            {activeView === 'overview' ? (
+              <section style={{ display: 'grid', gap: 12 }}>
+                <div className="panel" style={{ display: 'grid', gap: 8 }}>
+                  <strong>{locale === 'en' ? 'Current setup' : 'Configuración actual'}</strong>
+                  <div style={{ color: '#475569' }}>
+                    {t.service}: <strong>{selectedService ? `${selectedService.name} (${selectedService.durationMinutes} min)` : t.none}</strong>
+                  </div>
+                  <div style={{ color: '#475569' }}>
+                    {t.professional}: <strong>{selectedStaff?.fullName ?? t.none}</strong>
+                  </div>
+                  <div style={{ color: '#475569' }}>
+                    {t.date}: <strong>{date}</strong>
+                  </div>
+                  <div style={{ color: '#475569' }}>
+                    {t.selectedSlot}: <strong>{selectedSlot ? formatDateTime(selectedSlot, tenant?.timeZone) : t.none}</strong>
+                  </div>
                 </div>
-              ) : null}
-            </div>
-          </div>
+                <div className="panel" style={{ display: 'grid', gap: 8 }}>
+                  <strong>{locale === 'en' ? 'Recommended flow' : 'Flujo recomendado'}</strong>
+                  <div style={{ color: '#475569' }}>1. {locale === 'en' ? 'Choose service, professional and date in Schedule.' : 'Elige servicio, profesional y fecha en Agenda.'}</div>
+                  <div style={{ color: '#475569' }}>2. {locale === 'en' ? 'Pick a slot and continue to Book.' : 'Selecciona un horario y continúa a Reservar.'}</div>
+                  <div style={{ color: '#475569' }}>3. {locale === 'en' ? 'If no slots are available, use Waitlist.' : 'Si no hay disponibilidad, usa Lista de espera.'}</div>
+                </div>
+              </section>
+            ) : null}
 
-          <div style={{ display: 'grid', gap: 12, alignContent: 'start' }}>
-            <form onSubmit={onSubmitBooking} className="panel" style={{ display: 'grid', gap: 10 }}>
-            <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <UserRound size={16} /> {t.bookingData}
-            </strong>
-            <label>
-              {t.fullName}
-              <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} style={{ width: '100%' }} />
-            </label>
-            <label>
-              {t.email}
-              <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} style={{ width: '100%' }} />
-            </label>
+            {activeView === 'schedule' ? (
+              <section style={{ display: 'grid', gap: 12 }}>
+                <div className="panel" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                  <label>
+                    {t.service}
+                    <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} style={{ width: '100%' }}>
+                      <option value="">{t.select}</option>
+                      {services.map((entry) => (
+                        <option key={entry.id} value={entry.id}>
+                          {entry.name} ({entry.durationMinutes} min)
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {t.professional}
+                    <select value={staffId} onChange={(e) => setStaffId(e.target.value)} style={{ width: '100%' }}>
+                      <option value="">{t.select}</option>
+                      {staff.map((entry) => (
+                        <option key={entry.id} value={entry.id}>
+                          {entry.fullName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {t.date}
+                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '100%' }} />
+                  </label>
+                </div>
 
-            {normalizedFields.map((field) => (
-              <label key={field.key}>
-                {field.label}
-                {field.required ? ' *' : ''}
-                {field.type === 'textarea' ? (
-                  <textarea
-                    value={customFieldsValues[field.key] ?? ''}
-                    onChange={(e) =>
-                      setCustomFieldsValues((current) => ({
-                        ...current,
-                        [field.key]: e.target.value
-                      }))
-                    }
-                    placeholder={field.placeholder}
-                    style={{ width: '100%', minHeight: 80 }}
-                  />
-                ) : (
+                <div className="panel" style={{ display: 'grid', gap: 10 }}>
+                  <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <Clock3 size={16} /> {t.availableSlots}
+                  </strong>
+                  {slotsLoading ? <div>{t.loadingSlots}</div> : null}
+                  {slotsError ? <div style={{ color: '#900' }}>{slotsError}</div> : null}
+
+                  {!slotsLoading && !slotsError ? (
+                    <div style={{ display: 'grid', gap: 10, maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
+                      {([
+                        ['morning', locale === 'en' ? 'Morning' : 'Mañana', slotBuckets.morning],
+                        ['afternoon', locale === 'en' ? 'Afternoon' : 'Tarde', slotBuckets.afternoon],
+                        ['evening', locale === 'en' ? 'Evening' : 'Noche', slotBuckets.evening]
+                      ] as const).map(([key, label, bucketSlots]) => (
+                        <div key={key} style={{ display: 'grid', gap: 6 }}>
+                          <small style={{ color: '#666', fontWeight: 600 }}>{label}</small>
+                          {bucketSlots.length ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                              {bucketSlots.map((slot) => (
+                                <button
+                                  key={slot.startAt}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedSlot(slot.startAt);
+                                    goToView('booking');
+                                  }}
+                                  style={{
+                                    minWidth: 78,
+                                    padding: '7px 10px',
+                                    borderRadius: 8,
+                                    border: selectedSlot === slot.startAt ? `2px solid ${brandPrimary}` : '1px solid var(--border)',
+                                    background: selectedSlot === slot.startAt ? brandTint : 'var(--surface)',
+                                    fontWeight: 600
+                                  }}
+                                  aria-pressed={selectedSlot === slot.startAt}
+                                >
+                                  {formatTime(slot.startAt, tenant?.timeZone)}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <small style={{ color: '#888' }}>{locale === 'en' ? 'No slots' : 'Sin horarios'}</small>
+                          )}
+                        </div>
+                      ))}
+
+                      {!slots.length ? <span style={{ color: '#666' }}>{t.noSlots}</span> : null}
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
+
+            {activeView === 'booking' ? (
+              <form onSubmit={onSubmitBooking} className="panel" style={{ display: 'grid', gap: 10 }}>
+                <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <UserRound size={16} /> {t.bookingData}
+                </strong>
+                <label>
+                  {t.fullName}
+                  <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} style={{ width: '100%' }} />
+                </label>
+                <label>
+                  {t.email}
+                  <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} style={{ width: '100%' }} />
+                </label>
+
+                {normalizedFields.map((field) => (
+                  <label key={field.key}>
+                    {field.label}
+                    {field.required ? ' *' : ''}
+                    {field.type === 'textarea' ? (
+                      <textarea
+                        value={customFieldsValues[field.key] ?? ''}
+                        onChange={(e) =>
+                          setCustomFieldsValues((current) => ({
+                            ...current,
+                            [field.key]: e.target.value
+                          }))
+                        }
+                        placeholder={field.placeholder}
+                        style={{ width: '100%', minHeight: 80 }}
+                      />
+                    ) : (
+                      <input
+                        type={field.type === 'email' || field.type === 'tel' ? field.type : 'text'}
+                        value={customFieldsValues[field.key] ?? ''}
+                        onChange={(e) =>
+                          setCustomFieldsValues((current) => ({
+                            ...current,
+                            [field.key]: e.target.value
+                          }))
+                        }
+                        placeholder={field.placeholder}
+                        style={{ width: '100%' }}
+                      />
+                    )}
+                  </label>
+                ))}
+
+                <label>
+                  {t.notesOptional}
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} style={{ width: '100%', minHeight: 80 }} />
+                </label>
+
+                <div style={{ color: '#555' }}>
+                  {t.selectedSlot}:{' '}
+                  <strong>{selectedSlot ? formatDateTime(selectedSlot, tenant?.timeZone) : t.none}</strong>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitLoading}
+                  className="btn"
+                  style={{ width: 220, borderColor: brandPrimary, background: brandPrimary, color: '#fff' }}
+                >
+                  <Send size={16} />
+                  {submitLoading ? t.bookingSubmitting : t.bookingSubmit}
+                </button>
+
+                {submitError ? <div className="status-error">{submitError}</div> : null}
+                {submitSuccess ? <div className="status-success">{submitSuccess}</div> : null}
+              </form>
+            ) : null}
+
+            {activeView === 'waitlist' ? (
+              <form onSubmit={onJoinWaitlist} className="panel" style={{ display: 'grid', gap: 10 }}>
+                <strong>{t.waitlist}</strong>
+                <p style={{ margin: 0, color: '#64748b' }}>
+                  {locale === 'en'
+                    ? 'Use this option when no schedule works for you. We will notify you when a slot opens.'
+                    : 'Usa esta opción cuando no te funcione el horario actual. Te avisaremos cuando se libere un cupo.'}
+                </p>
+                <label>
+                  {t.preferredDateTime}
                   <input
-                    type={field.type === 'email' || field.type === 'tel' ? field.type : 'text'}
-                    value={customFieldsValues[field.key] ?? ''}
-                    onChange={(e) =>
-                      setCustomFieldsValues((current) => ({
-                        ...current,
-                        [field.key]: e.target.value
-                      }))
-                    }
-                    placeholder={field.placeholder}
+                    type="datetime-local"
+                    value={preferredStartAt}
+                    onChange={(e) => setPreferredStartAt(e.target.value)}
                     style={{ width: '100%' }}
                   />
-                )}
-              </label>
-            ))}
+                </label>
 
-            <label>
-              {t.notesOptional}
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} style={{ width: '100%', minHeight: 80 }} />
-            </label>
+                <button type="submit" disabled={waitlistLoading} className="btn btn-ghost" style={{ width: 240 }}>
+                  {waitlistLoading ? t.waitlistSubmitting : t.waitlistSubmit}
+                </button>
 
-            <div style={{ color: '#555' }}>
-              {t.selectedSlot}:{' '}
-              <strong>{selectedSlot ? formatDateTime(selectedSlot, tenant?.timeZone) : t.none}</strong>
-            </div>
+                {waitlistError ? <div className="status-error">{waitlistError}</div> : null}
+                {waitlistSuccess ? <div className="status-success">{waitlistSuccess}</div> : null}
+              </form>
+            ) : null}
 
-            <button
-              type="submit"
-              disabled={submitLoading}
-              className="btn"
-              style={{ width: 220, borderColor: brandPrimary, background: brandPrimary, color: '#fff' }}
-            >
-              <Send size={16} />
-              {submitLoading ? t.bookingSubmitting : t.bookingSubmit}
-            </button>
+            {activeView === 'portal' ? (
+              <section className="panel" style={{ display: 'grid', gap: 10 }}>
+                <strong>{locale === 'en' ? 'My bookings portal' : 'Portal mis citas'}</strong>
+                <p style={{ margin: 0, color: '#475569' }}>
+                  {locale === 'en'
+                    ? 'If you already booked before, sign in there to see history, waitlist status, and linked bookings.'
+                    : 'Si ya reservaste antes, entra ahí para ver historial, estado de lista de espera y reservas vinculadas.'}
+                </p>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <a className="btn" href={`/public/${params.slug}/mis-citas`}>
+                    {locale === 'en' ? 'Go to my bookings' : 'Ir a mis citas'}
+                  </a>
+                </div>
+              </section>
+            ) : null}
+          </>
+        ) : null}
+      </section>
 
-            {submitError ? <div className="status-error">{submitError}</div> : null}
-            {submitSuccess ? <div className="status-success">{submitSuccess}</div> : null}
-            </form>
-
-            <form onSubmit={onJoinWaitlist} className="panel" style={{ display: 'grid', gap: 10 }}>
-              <strong>{t.waitlist}</strong>
-              <label>
-                {t.preferredDateTime}
-                <input
-                  type="datetime-local"
-                  value={preferredStartAt}
-                  onChange={(e) => setPreferredStartAt(e.target.value)}
-                  style={{ width: '100%' }}
-                />
-              </label>
-
-              <button type="submit" disabled={waitlistLoading} className="btn btn-ghost" style={{ width: 240 }}>
-                {waitlistLoading ? t.waitlistSubmitting : t.waitlistSubmit}
-              </button>
-
-              {waitlistError ? <div className="status-error">{waitlistError}</div> : null}
-              {waitlistSuccess ? <div className="status-success">{waitlistSuccess}</div> : null}
-            </form>
-          </div>
-        </section>
-      ) : null}
+      <button type="button" className="btn public-mobile-cta" onClick={() => goToView('booking')}>
+        <Send size={16} />
+        {locale === 'en' ? 'Go to booking' : 'Ir a reservar'}
+      </button>
     </main>
   );
 }

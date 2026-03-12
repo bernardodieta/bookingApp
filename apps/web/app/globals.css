@@ -450,6 +450,16 @@ button:disabled {
   min-height: 90px;
 }
 
+.public-mobile-menu-btn,
+.public-sidebar-overlay,
+.public-mobile-cta {
+  display: none;
+}
+
+.public-dashboard-shell {
+  grid-template-columns: 240px 1fr;
+}
+
 @media (max-width: 1024px) {
   .dashboard-layout {
     grid-template-columns: 1fr;
@@ -478,5 +488,86 @@ button:disabled {
 
   .settings-field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .public-dashboard-shell {
+    gap: 0;
+    padding: 0 0 84px;
+  }
+
+  .public-dashboard-shell .dashboard-main {
+    padding: 12px;
+  }
+
+  .public-dashboard-shell .dashboard-topbar {
+    margin-bottom: 12px;
+  }
+
+  .public-dashboard-shell .topbar-left {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .public-dashboard-shell .topbar-logo {
+    display: none;
+  }
+
+  .public-dashboard-shell .dashboard-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: min(84vw, 320px);
+    border-radius: 0 14px 14px 0;
+    z-index: 60;
+    transform: translateX(-110%);
+    transition: transform 0.2s ease;
+  }
+
+  .public-dashboard-shell .dashboard-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .public-sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    border: none;
+    background: rgba(15, 23, 42, 0.34);
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .public-mobile-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 8px;
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+
+  .public-dashboard-shell .sidebar-brand {
+    justify-content: space-between;
+  }
+
+  .public-dashboard-shell .sidebar-brand > div:last-child {
+    flex: 1;
+  }
+
+  .public-mobile-cta {
+    display: inline-flex;
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 50;
+    justify-content: center;
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+    box-shadow: var(--shadow-md);
   }
 }
