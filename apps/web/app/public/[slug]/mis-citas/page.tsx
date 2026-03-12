@@ -657,92 +657,164 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
   if (!hasSession) {
     return (
-      <main className="app-shell" style={{ maxWidth: 860 }}>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '32px 16px',
+          background: 'radial-gradient(circle at top, #eff6ff 0%, var(--bg) 40%, var(--bg) 100%)'
+        }}
+      >
         {GOOGLE_CLIENT_ID ? <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" /> : null}
 
-        <header className="page-header">
-          <div>
-            <h1 className="page-title">{copy.pageTitle}</h1>
-            <p className="page-subtitle">{copy.pageSubtitle}</p>
+        {/* Brand */}
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 52,
+              height: 52,
+              borderRadius: 14,
+              background: 'var(--primary)',
+              color: '#fff',
+              marginBottom: 14
+            }}
+          >
+            <ClipboardList size={24} />
           </div>
-        </header>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.3px' }}>{copy.pageTitle}</h1>
+          <p style={{ margin: '6px 0 0', fontSize: 14, color: '#64748b' }}>{copy.pageSubtitle}</p>
+        </div>
 
-        <section className="panel" style={{ display: 'grid', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>{copy.accessTitle}</h2>
-          <p style={{ margin: 0, color: '#666' }}>{copy.accessSubtitle}</p>
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className={authMode === 'login' ? 'btn' : 'btn btn-ghost'}
-              onClick={() => setAuthMode('login')}
-              disabled={loading}
-            >
-              {copy.loginMode}
-            </button>
-            <button
-              type="button"
-              className={authMode === 'register' ? 'btn' : 'btn btn-ghost'}
-              onClick={() => setAuthMode('register')}
-              disabled={loading}
-            >
-              {copy.registerMode}
-            </button>
+        {/* Card */}
+        <div
+          className="panel"
+          style={{ width: '100%', maxWidth: 420, padding: '28px 28px 24px', display: 'grid', gap: 18 }}
+        >
+          {/* Mode toggle */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              borderRadius: 8,
+              background: 'var(--surface-muted)',
+              border: '1px solid var(--border)',
+              padding: 3,
+              gap: 2
+            }}
+          >
+            {(['login', 'register'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setAuthMode(mode)}
+                disabled={loading}
+                style={{
+                  padding: '8px 0',
+                  borderRadius: 6,
+                  border: 'none',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  background: authMode === mode ? 'var(--surface)' : 'transparent',
+                  color: authMode === mode ? 'var(--primary)' : '#64748b',
+                  boxShadow: authMode === mode ? '0 1px 3px rgba(0,0,0,0.09)' : 'none',
+                  transition: 'all 0.15s'
+                }}
+              >
+                {mode === 'login' ? copy.loginMode : copy.registerMode}
+              </button>
+            ))}
           </div>
 
-          {authMode === 'register' ? (
-            <label>
-              {copy.fullName}
-              <input value={fullName} onChange={(event) => setFullName(event.target.value)} style={{ width: '100%' }} />
-            </label>
-          ) : null}
-
-          <label>
-            {copy.email}
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} style={{ width: '100%' }} />
-          </label>
-          <label>
-            {copy.password}
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              style={{ width: '100%' }}
-              minLength={8}
-            />
-          </label>
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {/* Form */}
+          <form
+            onSubmit={authMode === 'register' ? handleRegister : handleLogin}
+            style={{ display: 'grid', gap: 14 }}
+          >
             {authMode === 'register' ? (
-              <button onClick={handleRegister} type="button" className="btn" disabled={loading}>
-                {loading ? copy.processing : copy.registerMode}
-              </button>
-            ) : (
-              <button onClick={handleLogin} type="button" className="btn" disabled={loading}>
-                {loading ? copy.processing : copy.loginMode}
-              </button>
-            )}
-            <a className="btn btn-ghost" href={`/public/${params.slug}`}>
-              {copy.bookNow}
-            </a>
+              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+                {copy.fullName}
+                <input value={fullName} onChange={(event) => setFullName(event.target.value)} style={{ width: '100%' }} />
+              </label>
+            ) : null}
+
+            <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+              {copy.email}
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                style={{ width: '100%' }}
+                autoComplete="email"
+              />
+            </label>
+
+            <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+              {copy.password}
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                style={{ width: '100%' }}
+                minLength={8}
+                autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
+              />
+            </label>
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading}
+              style={{ width: '100%', justifyContent: 'center', marginTop: 2, padding: '10px 0', fontSize: 15 }}
+            >
+              {loading ? copy.processing : authMode === 'register' ? copy.registerMode : copy.loginMode}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#94a3b8', fontSize: 12 }}>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            {locale === 'en' ? 'or continue with' : 'o continúa con'}
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
 
-          <div style={{ display: 'grid', gap: 8 }}>
+          {/* Google SSO */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             {GOOGLE_CLIENT_ID ? (
               <>
                 <div ref={googleButtonRef} />
-                {!googleReady ? <small style={{ color: '#666' }}>{copy.googleLoading}</small> : null}
+                {!googleReady && !googleLoading ? (
+                  <small style={{ color: '#94a3b8' }}>{copy.googleLoading}</small>
+                ) : null}
+                {googleLoading ? <small style={{ color: '#94a3b8' }}>{copy.googleValidating}</small> : null}
               </>
             ) : (
-              <small style={{ color: '#666' }}>{copy.googleUnavailable}</small>
+              <small style={{ color: '#94a3b8', textAlign: 'center' }}>{copy.googleUnavailable}</small>
             )}
-            {googleLoading ? <small style={{ color: '#666' }}>{copy.googleValidating}</small> : null}
           </div>
 
+          {/* Feedback */}
           {error ? <div className="status-error">{error}</div> : null}
           {success ? <div className="status-success">{success}</div> : null}
-        </section>
-      </main>
+        </div>
+
+        {/* Footer link */}
+        <p style={{ margin: '20px 0 0', fontSize: 13, color: '#64748b', textAlign: 'center' }}>
+          {locale === 'en' ? 'Looking to book an appointment? ' : '¿Quieres agendar una cita? '}
+          <a
+            href={`/public/${params.slug}`}
+            style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}
+          >
+            {copy.bookNow} →
+          </a>
+        </p>
+      </div>
     );
   }
 
