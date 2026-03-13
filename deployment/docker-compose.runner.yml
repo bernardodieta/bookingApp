@@ -10,8 +10,7 @@ services:
       - RUNNER_LABELS=self-hosted,Linux,X64,docker
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - runner-work:/home/runner/actions-runner/_work
-      - runner-config:/home/runner/actions-runner
+      - runner-data:/home/runner/actions-runner
       - runner-cache:/home/runner/.cache
     group_add:
       - "110"
@@ -22,6 +21,5 @@ services:
           memory: 8G
 
 volumes:
-  runner-work:
-  runner-config:
+  runner-data:
   runner-cache:
