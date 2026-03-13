@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /d/Desarrollo/personal/apointApp/apps/web -type f -name \"*staff*\" 2>/dev/null | head -20)",
+      "Bash(find /d/Desarrollo/personal/apointApp/apps/web/app -name \"layout.tsx\" -o -name \"page.tsx\" | xargs ls -la)",
+      "Bash(find /d/Desarrollo/personal/apointApp/apps/web/app/dashboard -type f -name \"*.tsx\" -o -name \"*.ts\" 2>/dev/null | grep -i staff)",
+      "Bash(find /d/Desarrollo/personal/apointApp/apps/web -type f -name \"*.tsx\" -o -name \"*.ts\" | xargs grep -l \"integrations\\\\|calendar\" | head -10)",
+      "Bash(find /d/Desarrollo/personal/apointApp/apps/web -type f -name \"*.ts\" -o -name \"*.tsx\" | xargs grep -l \"staff\" 2>/dev/null | head -10)"
+    ]
+  }
+}
