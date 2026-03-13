@@ -5,7 +5,23 @@
       "Bash(find /d/Desarrollo/personal/apointApp/apps/web/app -name \"layout.tsx\" -o -name \"page.tsx\" | xargs ls -la)",
       "Bash(find /d/Desarrollo/personal/apointApp/apps/web/app/dashboard -type f -name \"*.tsx\" -o -name \"*.ts\" 2>/dev/null | grep -i staff)",
       "Bash(find /d/Desarrollo/personal/apointApp/apps/web -type f -name \"*.tsx\" -o -name \"*.ts\" | xargs grep -l \"integrations\\\\|calendar\" | head -10)",
-      "Bash(find /d/Desarrollo/personal/apointApp/apps/web -type f -name \"*.ts\" -o -name \"*.tsx\" | xargs grep -l \"staff\" 2>/dev/null | head -10)"
+      "Bash(find /d/Desarrollo/personal/apointApp/apps/web -type f -name \"*.ts\" -o -name \"*.tsx\" | xargs grep -l \"staff\" 2>/dev/null | head -10)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && npx prisma migrate dev --name link-staff-user 2>&1)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && npx prisma validate 2>&1)",
+      "Bash(cd D:/Desarrollo/personal/apointApp && npx dotenv -e .env -- npx --prefix apps/api prisma validate --schema apps/api/prisma/schema.prisma 2>&1)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && DATABASE_URL=\"postgresql://postgres:postgres@localhost:55432/apoint\" npx prisma validate 2>&1)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && DATABASE_URL=\"postgresql://postgres:postgres@localhost:55432/apoint\" npx prisma migrate dev --name link-staff-user 2>&1)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && DATABASE_URL=\"postgresql://postgres:postgres@localhost:55432/apoint\" npx prisma migrate dev --name link-staff-user --create-only 2>&1)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && echo \"y\" | DATABASE_URL=\"postgresql://postgres:postgres@localhost:55432/apoint\" npx prisma migrate dev --name link-staff-user 2>&1)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && PRISMA_MIGRATE_SKIP_GENERATE=true DATABASE_URL=\"postgresql://postgres:postgres@localhost:55432/apoint\" node -e \"\nconst { execSync } = require\\('child_process'\\);\nexecSync\\('npx prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-schema-datasource prisma/schema.prisma --script', { stdio: 'inherit', env: { ...process.env, DATABASE_URL: 'postgresql://postgres:postgres@localhost:55432/apoint' } }\\);\n\" 2>&1)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && DATABASE_URL=\"postgresql://postgres:postgres@localhost:55432/apoint\" npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --script 2>&1)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && DATABASE_URL=\"postgresql://postgres:postgres@localhost:55432/apoint\" npx prisma migrate deploy 2>&1)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && DATABASE_URL=\"postgresql://postgres:postgres@localhost:55432/apoint\" npx prisma generate 2>&1)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && npx tsc --noEmit 2>&1 | head -40)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && npx tsc --noEmit 2>&1 | head -20)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/api && npx tsc --noEmit 2>&1 | grep -v \"spec.ts\")",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/web && npx tsc --noEmit 2>&1 | head -30)",
+      "Bash(cd D:/Desarrollo/personal/apointApp/apps/web && npx tsc --noEmit 2>&1 | head -20)"
     ]
   }
 }

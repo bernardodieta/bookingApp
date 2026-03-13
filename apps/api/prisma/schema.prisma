@@ -139,6 +139,7 @@ model User {
   passwordHash String
   role         UserRole @default(owner)
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  staff        Staff?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -164,9 +165,11 @@ model Service {
 model Staff {
   id                     String                  @id @default(cuid())
   tenantId               String
+  userId                 String?                 @unique
   fullName               String
   email                  String
   active                 Boolean                 @default(true)
+  user                   User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
   tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   availabilityRules      AvailabilityRule[]
   availabilityExceptions AvailabilityException[]

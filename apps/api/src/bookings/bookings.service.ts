@@ -194,6 +194,32 @@ export class BookingsService {
     });
   }
 
+  listForUser(user: AuthUser, status?: string) {
+    const where: Prisma.BookingWhereInput = { tenantId: user.tenantId };
+
+    if (user.role === 'staff' && user.staffId) {
+      where.staffId = user.staffId;
+    }
+
+    if (status) {
+      const validStatuses = status.split(',').filter((s): s is BookingStatus =>
+        Object.values(BookingStatus).includes(s as BookingStatus)
+      );
+      if (validStatuses.length > 0) {
+        where.status = { in: validStatuses };
+      }
+    }
+
+    return this.prisma.booking.findMany({
+      where,
+      include: {
+        service: true,
+        staff: true
+      },
+      orderBy: { startAt: 'asc' }
+    });
+  }
+
   async runDueReminders(user: AuthUser) {
     return this.runDueRemindersForTenant(user.tenantId, user.sub);
   }
@@ -531,6 +557,9 @@ export class BookingsService {
 
     if (!booking) {
       throw new NotFoundException('Reserva no encontrada.');
+    }
+    if (user.role === 'staff' && user.staffId && booking.staffId !== user.staffId) {
+      throw new BadRequestException('No puedes cancelar reservas de otro miembro del staff.');
     }
     if (booking.status === BookingStatus.cancelled) {
       return booking;

@@ -19,7 +19,8 @@ export class IntegrationsController {
   @Post('google/authorize')
   @UseGuards(AuthGuard)
   googleAuthorize(@Req() req: RequestWithUser, @Body() body: CalendarAuthorizeDto) {
-    return this.integrationsService.createGoogleAuthorizeUrl(req.user, body.staffId);
+    const staffId = req.user.role === 'staff' && req.user.staffId ? req.user.staffId : body.staffId;
+    return this.integrationsService.createGoogleAuthorizeUrl(req.user, staffId);
   }
 
   @Get('google/callback')
@@ -30,7 +31,8 @@ export class IntegrationsController {
   @Post('microsoft/authorize')
   @UseGuards(AuthGuard)
   microsoftAuthorize(@Req() req: RequestWithUser, @Body() body: CalendarAuthorizeDto) {
-    return this.integrationsService.createMicrosoftAuthorizeUrl(req.user, body.staffId);
+    const staffId = req.user.role === 'staff' && req.user.staffId ? req.user.staffId : body.staffId;
+    return this.integrationsService.createMicrosoftAuthorizeUrl(req.user, staffId);
   }
 
   @Get('microsoft/callback')
@@ -53,7 +55,7 @@ export class IntegrationsController {
   @Get('accounts')
   @UseGuards(AuthGuard)
   listAccounts(@Req() req: RequestWithUser) {
-    return this.integrationsService.listCalendarAccounts(req.user);
+    return this.integrationsService.listCalendarAccounts(req.user, req.user.role === 'staff' ? req.user.staffId : undefined);
   }
 
   @Get('metrics')
@@ -89,6 +91,6 @@ export class IntegrationsController {
   @Delete('accounts/:id')
   @UseGuards(AuthGuard)
   disconnect(@Req() req: RequestWithUser, @Param('id') id: string) {
-    return this.integrationsService.disconnectCalendarAccount(req.user, id);
+    return this.integrationsService.disconnectCalendarAccount(req.user, id, req.user.role === 'staff' ? req.user.staffId : undefined);
   }
 }

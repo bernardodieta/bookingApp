@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthGuard } from '../common/guards/auth.guard';
+import { Roles, RolesGuard } from '../common/guards/roles.guard';
 import { AuthUser } from '../common/types/auth-user.type';
 import { UpdateTenantSettingsDto } from './dto/update-tenant-settings.dto';
 import { TenantSettingsService } from './tenant-settings.service';
@@ -8,7 +9,8 @@ import { TenantSettingsService } from './tenant-settings.service';
 type RequestWithUser = Request & { user: AuthUser };
 
 @Controller('tenant/settings')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
+@Roles('owner')
 export class TenantSettingsController {
   constructor(private readonly tenantSettingsService: TenantSettingsService) {}
 

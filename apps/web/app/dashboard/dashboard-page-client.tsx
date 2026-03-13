@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, CalendarDays, ChevronDown, ChevronRight, ClipboardList, CreditCard, LayoutDashboard, Link2, LogOut, Settings, UserCircle2, Wrench } from 'lucide-react';
+import { Building2, CalendarDays, ChevronDown, ChevronRight, ClipboardList, CreditCard, LayoutDashboard, Link2, LogOut, Settings, UserCircle2, Users, Wrench } from 'lucide-react';
 import { OverviewSection } from './components/overview-section';
 import { AgendaSection } from './components/agenda-section';
 import { PaymentsSection } from './components/payments-section';
@@ -10,6 +10,7 @@ import { OperationsSection } from './components/operations-section';
 import { SettingsSection } from './components/settings-section';
 import ReporteSection from './components/reporte-section';
 import { IntegrationsSection } from './components/integrations-section';
+import { StaffManagementSection } from './components/staff-management-section';
 import { useDashboardBoot } from './hooks/use-dashboard-boot';
 import { useAutoDismissSuccess, looksLikeEmail, toDateTimeLocalInput } from './dashboard-utils';
 import type {
@@ -71,7 +72,7 @@ export default function DashboardPage() {
   const [apiUrl, setApiUrl] = useState(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001');
   const [token, setToken] = useState('');
   const [range, setRange] = useState<'day' | 'week' | 'month'>('day');
-  const [activeSection, setActiveSection] = useState<'overview' | 'agenda' | 'reporte' | 'payments' | 'operations' | 'settings' | 'integrations'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'agenda' | 'reporte' | 'payments' | 'operations' | 'staff-management' | 'settings' | 'integrations'>('overview');
   const [operationsOpen, setOperationsOpen] = useState(true);
   const [operationsAvailabilityOpen, setOperationsAvailabilityOpen] = useState(true);
   const [operationsView, setOperationsView] = useState<OperationsView>('quick-service');
@@ -498,6 +499,20 @@ export default function DashboardPage() {
     setQuickBookingServiceId,
     setQuickWaitlistServiceId
   });
+
+  const reloadStaffOptions = useCallback(async () => {
+    if (!token.trim() || !apiUrl.trim()) return;
+    try {
+      const res = await fetch(new URL('/staff', apiUrl.trim()).toString(), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setStaffOptions(await res.json());
+      }
+    } catch {
+      // silent — non-critical reload
+    }
+  }, [token, apiUrl]);
 
   useEffect(() => {
     if (!token.trim()) {
@@ -1898,6 +1913,11 @@ export default function DashboardPage() {
             </div>
           ) : null}
 
+          <button type="button" className={`sidebar-item ${activeSection === 'staff-management' ? 'active' : ''}`} onClick={() => setActiveSection('staff-management')}>
+            <Users size={16} />
+            <span style={{ flex: 1, textAlign: 'left' }}>Equipo</span>
+          </button>
+
           <button
             type="button"
             className={`sidebar-item ${activeSection === 'payments' ? 'active' : ''}`}
@@ -2272,6 +2292,14 @@ export default function DashboardPage() {
           setAvailabilityExceptionNoteDrafts={setAvailabilityExceptionNoteDrafts}
           onSaveAvailabilityException={onSaveAvailabilityException}
           onDeleteAvailabilityException={onDeleteAvailabilityException}
+        />
+      ) : null}
+
+      {activeSection === 'staff-management' ? (
+        <StaffManagementSection
+          apiUrl={apiUrl}
+          token={token}
+          onStaffChanged={() => void reloadStaffOptions()}
         />
       ) : null}
 

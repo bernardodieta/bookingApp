@@ -223,9 +223,14 @@ export class IntegrationsService {
     };
   }
 
-  async listCalendarAccounts(user: AuthUser) {
+  async listCalendarAccounts(user: AuthUser, filterStaffId?: string) {
+    const where: { tenantId: string; staffId?: string } = { tenantId: user.tenantId };
+    if (filterStaffId) {
+      where.staffId = filterStaffId;
+    }
+
     const accounts = await this.prisma.calendarAccount.findMany({
-      where: { tenantId: user.tenantId },
+      where,
       include: {
         staff: {
           select: {
@@ -722,13 +727,16 @@ export class IntegrationsService {
     };
   }
 
-  async disconnectCalendarAccount(user: AuthUser, accountId: string) {
-    const account = await this.prisma.calendarAccount.findFirst({
-      where: {
-        id: accountId,
-        tenantId: user.tenantId
-      }
-    });
+  async disconnectCalendarAccount(user: AuthUser, accountId: string, filterStaffId?: string) {
+    const where: { id: string; tenantId: string; staffId?: string } = {
+      id: accountId,
+      tenantId: user.tenantId,
+    };
+    if (filterStaffId) {
+      where.staffId = filterStaffId;
+    }
+
+    const account = await this.prisma.calendarAccount.findFirst({ where });
 
     if (!account) {
       throw new NotFoundException('Cuenta de calendario no encontrada.');

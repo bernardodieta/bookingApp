@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
+import { StaffRegisterDto } from './dto/staff-register.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { Request } from 'express';
 import { AuthUser } from '../common/types/auth-user.type';
@@ -26,6 +27,11 @@ export class AuthController {
   @Post('google')
   loginWithGoogle(@Body() body: GoogleLoginDto) {
     return this.authService.loginWithGoogle(body);
+  }
+
+  @Post('staff/register')
+  registerStaff(@Body() body: StaffRegisterDto) {
+    return this.authService.registerStaff(body);
   }
 
   @Get('me')

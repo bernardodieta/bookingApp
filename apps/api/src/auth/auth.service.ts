@@ -53,7 +53,7 @@ export class AuthService {
       return { tenant, user };
     });
 
-    return this.issueTokens({ sub: created.user.id, tenantId: created.tenant.id, email: normalizedEmail });
+    return this.issueTokens({ sub: created.user.id, tenantId: created.tenant.id, email: normalizedEmail, role: 'owner' });
   }
 
   async login(payload: LoginDto) {
@@ -63,7 +63,15 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    return this.issueTokens({ sub: user.id, tenantId: user.tenantId, email: user.email });
+    const staffRecord = await this.findLinkedStaff(user.id);
+
+    return this.issueTokens({
+      sub: user.id,
+      tenantId: user.tenantId,
+      email: user.email,
+      role: user.role as AuthUser['role'],
+      ...(staffRecord ? { staffId: staffRecord.id } : {}),
+    });
   }
 
   async loginWithGoogle(payload: GoogleLoginDto) {
@@ -84,7 +92,15 @@ export class AuthService {
       throw new UnauthorizedException('No existe una cuenta de partner para este correo.');
     }
 
-    return this.issueTokens({ sub: user.id, tenantId: user.tenantId, email: user.email });
+    const staffRecord = await this.findLinkedStaff(user.id);
+
+    return this.issueTokens({
+      sub: user.id,
+      tenantId: user.tenantId,
+      email: user.email,
+      role: user.role as AuthUser['role'],
+      ...(staffRecord ? { staffId: staffRecord.id } : {}),
+    });
   }
 
   verifyAccessToken(token: string): AuthUser {
@@ -93,7 +109,9 @@ export class AuthService {
       return {
         sub: decoded.sub,
         tenantId: decoded.tenantId,
-        email: decoded.email
+        email: decoded.email,
+        role: decoded.role ?? 'owner',
+        ...(decoded.staffId ? { staffId: decoded.staffId } : {}),
       };
     } catch {
       throw new UnauthorizedException('Token inválido o expirado.');
@@ -108,6 +126,62 @@ export class AuthService {
       expiresIn: ACCESS_EXPIRES_IN,
       user
     };
+  }
+
+  async registerStaff(payload: { tenantSlug: string; email: string; password: string }) {
+    const normalizedEmail = payload.email.toLowerCase().trim();
+
+    const tenant = await this.prisma.tenant.findUnique({ where: { slug: payload.tenantSlug } });
+    if (!tenant) {
+      throw new BadRequestException('No se encontró el negocio con ese identificador.');
+    }
+
+    const staffRecord = await this.prisma.staff.findUnique({
+      where: { tenantId_email: { tenantId: tenant.id, email: normalizedEmail } },
+    });
+    if (!staffRecord || !staffRecord.active) {
+      throw new BadRequestException('No existe un miembro de staff con ese email en este negocio.');
+    }
+    if (staffRecord.userId) {
+      throw new BadRequestException('Este miembro de staff ya tiene una cuenta registrada.');
+    }
+
+    const existingUser = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (existingUser) {
+      throw new BadRequestException('El correo ya está registrado.');
+    }
+
+    const passwordHash = this.hashPassword(payload.password);
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          tenantId: tenant.id,
+          email: normalizedEmail,
+          passwordHash,
+          role: 'staff',
+        },
+      });
+
+      await tx.staff.update({
+        where: { id: staffRecord.id },
+        data: { userId: newUser.id },
+      });
+
+      return newUser;
+    });
+
+    return this.issueTokens({
+      sub: user.id,
+      tenantId: tenant.id,
+      email: normalizedEmail,
+      role: 'staff',
+      staffId: staffRecord.id,
+    });
+  }
+
+  private async findLinkedStaff(userId: string) {
+    return this.prisma.staff.findUnique({ where: { userId } });
   }
 
   private hashPassword(password: string) {

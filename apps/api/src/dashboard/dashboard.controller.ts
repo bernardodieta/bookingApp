@@ -1,6 +1,7 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthGuard } from '../common/guards/auth.guard';
+import { Roles, RolesGuard } from '../common/guards/roles.guard';
 import { AuthUser } from '../common/types/auth-user.type';
 import { DashboardService } from './dashboard.service';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
@@ -9,7 +10,8 @@ import { ReportQueryDto } from './dto/report-query.dto';
 type RequestWithUser = Request & { user: AuthUser };
 
 @Controller('dashboard')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
+@Roles('owner')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 

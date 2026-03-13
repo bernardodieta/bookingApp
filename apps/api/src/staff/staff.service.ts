@@ -29,14 +29,28 @@ export class StaffService {
       }
     }
 
-    return this.prisma.staff.create({
+    const normalizedEmail = payload.email.toLowerCase();
+
+    const newStaff = await this.prisma.staff.create({
       data: {
         tenantId: user.tenantId,
         fullName: payload.fullName,
-        email: payload.email.toLowerCase(),
+        email: normalizedEmail,
         active: payload.active ?? true
       }
     });
+
+    const existingUser = await this.prisma.user.findFirst({
+      where: { email: normalizedEmail, tenantId: user.tenantId, role: 'staff' }
+    });
+    if (existingUser) {
+      return this.prisma.staff.update({
+        where: { id: newStaff.id },
+        data: { userId: existingUser.id }
+      });
+    }
+
+    return newStaff;
   }
 
   private getMaxStaffByPlan(plan: Plan) {
