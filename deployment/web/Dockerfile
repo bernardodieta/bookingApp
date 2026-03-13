@@ -31,6 +31,9 @@ ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 # Copy web source
 COPY apps/web/ apps/web/
 
+# Ensure public dir exists (may be empty)
+RUN mkdir -p apps/web/public
+
 # Build Next.js (standalone output)
 RUN npm run build -w @apoint/web
 
