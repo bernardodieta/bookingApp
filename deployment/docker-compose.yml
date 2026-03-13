@@ -1,0 +1,128 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: apoint-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:55433:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: apoint-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:6380:6379"
+
+  api-migrate:
+    build:
+      context: ..
+      dockerfile: deployment/api/Dockerfile
+    container_name: apoint-api-migrate
+    restart: "no"
+    working_dir: /app/apps/api
+    command: ["npx", "prisma", "migrate", "deploy", "--schema", "prisma/schema.prisma"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ..
+      dockerfile: deployment/api/Dockerfile
+    container_name: apoint-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_CUSTOMER_SECRET: ${JWT_CUSTOMER_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      PUBLIC_GOOGLE_LOGIN_RATE_LIMIT_MAX: ${PUBLIC_GOOGLE_LOGIN_RATE_LIMIT_MAX:-10}
+      PUBLIC_GOOGLE_LOGIN_RATE_LIMIT_WINDOW_MS: ${PUBLIC_GOOGLE_LOGIN_RATE_LIMIT_WINDOW_MS:-60000}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      NOTIFICATIONS_BUSINESS_EMAIL: ${NOTIFICATIONS_BUSINESS_EMAIL:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      CALENDAR_TOKENS_ENCRYPTION_KEY: ${CALENDAR_TOKENS_ENCRYPTION_KEY:-}
+      CALENDAR_OAUTH_STATE_SECRET: ${CALENDAR_OAUTH_STATE_SECRET:-}
+      GOOGLE_CALENDAR_CLIENT_ID: ${GOOGLE_CALENDAR_CLIENT_ID:-}
+      GOOGLE_CALENDAR_CLIENT_SECRET: ${GOOGLE_CALENDAR_CLIENT_SECRET:-}
+      GOOGLE_CALENDAR_REDIRECT_URI: ${GOOGLE_CALENDAR_REDIRECT_URI:-}
+      GOOGLE_CALENDAR_SCOPES: ${GOOGLE_CALENDAR_SCOPES:-openid email profile https://www.googleapis.com/auth/calendar}
+      GOOGLE_CALENDAR_WEBHOOK_URL: ${GOOGLE_CALENDAR_WEBHOOK_URL:-}
+      GOOGLE_CALENDAR_WEBHOOK_TTL_SECONDS: ${GOOGLE_CALENDAR_WEBHOOK_TTL_SECONDS:-604800}
+      MICROSOFT_CALENDAR_CLIENT_ID: ${MICROSOFT_CALENDAR_CLIENT_ID:-}
+      MICROSOFT_CALENDAR_CLIENT_SECRET: ${MICROSOFT_CALENDAR_CLIENT_SECRET:-}
+      MICROSOFT_CALENDAR_REDIRECT_URI: ${MICROSOFT_CALENDAR_REDIRECT_URI:-}
+      MICROSOFT_CALENDAR_SCOPES: ${MICROSOFT_CALENDAR_SCOPES:-openid email profile offline_access https://graph.microsoft.com/Calendars.ReadWrite}
+      MICROSOFT_CALENDAR_WEBHOOK_URL: ${MICROSOFT_CALENDAR_WEBHOOK_URL:-}
+      MICROSOFT_CALENDAR_WEBHOOK_EXPIRATION_HOURS: ${MICROSOFT_CALENDAR_WEBHOOK_EXPIRATION_HOURS:-48}
+      GOOGLE_CALENDAR_WEBHOOK_TOKEN: ${GOOGLE_CALENDAR_WEBHOOK_TOKEN:-}
+      MICROSOFT_CALENDAR_WEBHOOK_CLIENT_STATE: ${MICROSOFT_CALENDAR_WEBHOOK_CLIENT_STATE:-}
+      CALENDAR_SYNC_OUTBOUND_AUTO_ENABLED: ${CALENDAR_SYNC_OUTBOUND_AUTO_ENABLED:-true}
+      CALENDAR_SYNC_OUTBOUND_INTERVAL_MS: ${CALENDAR_SYNC_OUTBOUND_INTERVAL_MS:-30000}
+      CALENDAR_SYNC_OUTBOUND_BATCH_SIZE: ${CALENDAR_SYNC_OUTBOUND_BATCH_SIZE:-10}
+      CALENDAR_SYNC_OUTBOUND_MAX_ATTEMPTS: ${CALENDAR_SYNC_OUTBOUND_MAX_ATTEMPTS:-5}
+      CALENDAR_SYNC_OUTBOUND_RETRY_BASE_MS: ${CALENDAR_SYNC_OUTBOUND_RETRY_BASE_MS:-30000}
+      CALENDAR_SYNC_OUTBOUND_RETRY_MAX_MS: ${CALENDAR_SYNC_OUTBOUND_RETRY_MAX_MS:-3600000}
+      CALENDAR_INBOUND_UNLINKED_POLICY: ${CALENDAR_INBOUND_UNLINKED_POLICY:-conflict}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api-migrate:
+        condition: service_completed_successfully
+    ports:
+      - "3005:3001"
+
+  web:
+    build:
+      context: ..
+      dockerfile: deployment/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-}
+    container_name: apoint-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+    ports:
+      - "3006:3000"
+
+volumes:
+  postgres_data:
+  redis_data:
