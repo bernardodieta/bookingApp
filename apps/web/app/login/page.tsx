@@ -4,7 +4,7 @@ import Script from 'next/script';
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
-import { Building2, LogIn, UserPlus } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 
 const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
@@ -251,96 +251,165 @@ export default function LoginPage() {
   return (
     <>
       {GOOGLE_CLIENT_ID ? <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={() => setGoogleScriptLoaded(true)} /> : null}
-      <main className="app-shell" style={{ maxWidth: 640 }}>
-      <section className="surface" style={{ padding: 22 }}>
-        <header className="page-header" style={{ marginBottom: 12 }}>
-          <div>
-            <h1 className="page-title">{mode === 'login' ? 'Apoint Login' : 'Crear negocio'}</h1>
-            <p className="page-subtitle">
-              {mode === 'login' ? 'Inicia sesión para usar tu dashboard.' : 'Registra tu cuenta owner y entra en un paso.'}
-            </p>
-          </div>
-          <div style={{ width: 46, height: 46, borderRadius: 12, background: '#eaf1ff', display: 'grid', placeItems: 'center' }}>
-            {mode === 'login' ? <LogIn size={22} color="#1d4ed8" /> : <Building2 size={22} color="#1d4ed8" />}
-          </div>
-        </header>
 
-      <div className="panel" style={{ marginBottom: 12, background: 'var(--surface-muted)' }}>
-        <div style={{ fontSize: 13, color: '#555' }}>
-          Este acceso es para negocio/partners (dashboard). Si eres cliente final, ingresa desde la página pública del negocio y abre <strong>“Portal cliente / Mis citas”</strong>.
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '32px 16px',
+          background: 'radial-gradient(circle at top, #eff6ff 0%, var(--bg, #f6f8fc) 40%, var(--bg, #f6f8fc) 100%)'
+        }}
+      >
+        {/* Brand */}
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 52,
+              height: 52,
+              borderRadius: 14,
+              background: 'var(--primary, #2563eb)',
+              color: '#fff',
+              marginBottom: 14
+            }}
+          >
+            <Building2 size={24} />
+          </div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.3px' }}>
+            {mode === 'login' ? 'Acceso de socio' : 'Crear negocio'}
+          </h1>
+          <p style={{ margin: '6px 0 0', fontSize: 14, color: '#64748b' }}>
+            {mode === 'login' ? 'Inicia sesión en tu panel de gestión.' : 'Registra tu negocio y entra en un paso.'}
+          </p>
         </div>
-      </div>
 
-      <div className="toolbar" style={{ marginBottom: 14 }}>
-        <button
-          type="button"
-          onClick={() => {
-            setMode('login');
-            setError('');
-            setGoogleReady(false);
-            setGoogleInitKey((value) => value + 1);
-          }}
-          disabled={loading || mode === 'login'}
-          className={`btn ${mode === 'login' ? 'btn-primary' : 'btn-ghost'}`}
-        >
-          <LogIn size={16} />
-          Ya tengo cuenta
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setMode('register');
-            setError('');
-            setGoogleReady(false);
-          }}
-          disabled={loading || mode === 'register'}
-          className={`btn ${mode === 'register' ? 'btn-primary' : 'btn-ghost'}`}
-        >
-          <UserPlus size={16} />
-          Crear negocio
-        </button>
-      </div>
+        {/* Card */}
+        <div className="panel" style={{ width: '100%', maxWidth: 440, padding: '28px 28px 24px', display: 'grid', gap: 18 }}>
 
-      <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
-        <label>
-          API URL
-          <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} style={{ width: '100%' }} />
-        </label>
-        {mode === 'register' ? (
-          <label>
-            Nombre del negocio
-            <input value={tenantName} onChange={(e) => setTenantName(e.target.value)} style={{ width: '100%' }} />
-          </label>
-        ) : null}
-        <label>
-          Email
-          <input value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%' }} />
-        </label>
-        <label>
-          Password
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: '100%' }} />
-        </label>
-        <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: 220 }}>
-          {mode === 'login' ? <LogIn size={16} /> : <UserPlus size={16} />}
-          {loading ? (mode === 'login' ? 'Ingresando...' : 'Registrando...') : mode === 'login' ? 'Entrar' : 'Registrar y entrar'}
-        </button>
-      </form>
+          {/* Mode toggle */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              borderRadius: 8,
+              background: 'var(--surface-muted, #f1f5f9)',
+              border: '1px solid var(--border, #e2e8f0)',
+              padding: 3,
+              gap: 2
+            }}
+          >
+            {(['login', 'register'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => {
+                  setMode(m);
+                  setError('');
+                  setGoogleReady(false);
+                  if (m === 'login') setGoogleInitKey((v) => v + 1);
+                }}
+                disabled={loading}
+                style={{
+                  padding: '8px 0',
+                  borderRadius: 6,
+                  border: 'none',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  background: mode === m ? 'var(--surface, #fff)' : 'transparent',
+                  color: mode === m ? 'var(--primary, #2563eb)' : '#64748b',
+                  boxShadow: mode === m ? '0 1px 3px rgba(0,0,0,0.09)' : 'none',
+                  transition: 'all 0.15s'
+                }}
+              >
+                {m === 'login' ? 'Ya tengo cuenta' : 'Crear negocio'}
+              </button>
+            ))}
+          </div>
 
-      {mode === 'login' ? (
-        <div className="panel" style={{ marginTop: 14, display: 'grid', gap: 8 }}>
-          <strong>Google SSO (partners)</strong>
-          {!GOOGLE_CLIENT_ID ? <span style={{ color: '#666', fontSize: 13 }}>Configura `NEXT_PUBLIC_GOOGLE_CLIENT_ID` para habilitar Google SSO.</span> : null}
-          {googleLoading ? <span style={{ color: '#666', fontSize: 13 }}>Validando sesión de Google...</span> : null}
-          {GOOGLE_CLIENT_ID ? <div ref={setGoogleButtonNode} /> : null}
-          {GOOGLE_CLIENT_ID && googleScriptLoaded && !googleReady ? (
-            <span style={{ color: '#666', fontSize: 13 }}>Cargando botón de Google...</span>
+          {/* Form */}
+          <form onSubmit={onSubmit} style={{ display: 'grid', gap: 14 }}>
+            {mode === 'register' ? (
+              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+                Nombre del negocio
+                <input value={tenantName} onChange={(e) => setTenantName(e.target.value)} style={{ width: '100%' }} placeholder="Mi negocio" />
+              </label>
+            ) : null}
+
+            <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+              Email
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%' }} autoComplete="email" />
+            </label>
+
+            <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+              Contraseña
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ width: '100%' }}
+                minLength={8}
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+              />
+            </label>
+
+            <details style={{ fontSize: 13 }}>
+              <summary style={{ cursor: 'pointer', color: '#94a3b8', userSelect: 'none', listStyle: 'none' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Avanzado</span>
+              </summary>
+              <label style={{ display: 'grid', gap: 5, marginTop: 10, fontWeight: 500, color: '#374151' }}>
+                API URL
+                <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} style={{ width: '100%', fontSize: 12 }} />
+              </label>
+            </details>
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading}
+              style={{ width: '100%', justifyContent: 'center', marginTop: 2, padding: '10px 0', fontSize: 15 }}
+            >
+              {loading
+                ? (mode === 'login' ? 'Ingresando...' : 'Registrando...')
+                : (mode === 'login' ? 'Entrar' : 'Registrar y entrar')}
+            </button>
+          </form>
+
+          {mode === 'login' ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#94a3b8', fontSize: 12 }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--border, #e2e8f0)' }} />
+                o continúa con
+                <div style={{ flex: 1, height: 1, background: 'var(--border, #e2e8f0)' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                {GOOGLE_CLIENT_ID ? (
+                  <>
+                    <div ref={setGoogleButtonNode} />
+                    {googleScriptLoaded && !googleReady ? <small style={{ color: '#94a3b8' }}>Cargando botón de Google...</small> : null}
+                    {googleLoading ? <small style={{ color: '#94a3b8' }}>Validando sesión de Google...</small> : null}
+                  </>
+                ) : (
+                  <small style={{ color: '#94a3b8', textAlign: 'center' }}>
+                    Configura NEXT_PUBLIC_GOOGLE_CLIENT_ID para habilitar Google SSO.
+                  </small>
+                )}
+              </div>
+            </>
           ) : null}
-        </div>
-      ) : null}
 
-      {error ? <div className="status-error" style={{ marginTop: 14 }}>{error}</div> : null}
-      </section>
-    </main>
+          {error ? <div className="status-error">{error}</div> : null}
+        </div>
+
+        <p style={{ margin: '20px 0 0', fontSize: 13, color: '#64748b', textAlign: 'center' }}>
+          ¿Eres cliente? Ingresa desde la página pública del negocio en Mis citas.
+        </p>
+      </div>
     </>
   );
 }

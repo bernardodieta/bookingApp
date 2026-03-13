@@ -16,6 +16,7 @@ import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { PaymentsModule } from './payments/payments.module';
 import { CustomerPortalModule } from './customer-portal/customer-portal.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -33,7 +34,8 @@ import { IntegrationsModule } from './integrations/integrations.module';
     AuditModule,
     PaymentsModule,
     CustomerPortalModule,
-    IntegrationsModule
+    IntegrationsModule,
+    AdminModule
   ],
   controllers: [HealthController],
   providers: []

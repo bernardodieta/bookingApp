@@ -11,11 +11,18 @@ type BookingFieldDraft = {
   placeholder: string;
 };
 
+const PLAN_INFO = {
+  free: { label: 'Free', color: '#64748b', bg: '#f1f5f9', limits: 'Hasta 50 reservas/mes · 1 staff' },
+  pro: { label: 'Pro', color: '#2563eb', bg: '#eff6ff', limits: 'Reservas ilimitadas · Hasta 5 staff' },
+  business: { label: 'Business', color: '#7c3aed', bg: '#f5f3ff', limits: 'Todo ilimitado' }
+} as const;
+
 type SettingsSectionProps = {
   settingsView: 'branding' | 'widget' | 'rules' | 'form';
   onGlobalToast?: (message: string, tone?: 'success' | 'error') => void;
   apiUrl: string;
   tenantSettings: { name: string; slug: string } | null;
+  plan?: string;
   tenantSettingsLoading: boolean;
   token: string;
   loadTenantSettings: () => Promise<void>;
@@ -297,6 +304,26 @@ export function SettingsSection(props: SettingsSectionProps) {
           <p className="section-subtitle" style={{ fontSize: 13 }}>
             Personaliza el look público con logo y color principal.
           </p>
+
+          {/* Plan info card */}
+          {props.plan ? (() => {
+            const key = props.plan as keyof typeof PLAN_INFO;
+            const meta = PLAN_INFO[key] ?? { label: props.plan, color: '#555', bg: '#f5f5f5', limits: '' };
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: meta.bg, border: `1px solid ${meta.color}33`, borderRadius: 10, padding: '10px 14px' }}>
+                <div>
+                  <div style={{ fontSize: 11, color: '#888', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>Tu plan actual</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                    <span style={{ fontWeight: 800, color: meta.color, fontSize: 15 }}>{meta.label}</span>
+                    <span style={{ fontSize: 12, color: '#555' }}>{meta.limits}</span>
+                  </div>
+                </div>
+                {key !== 'business' ? (
+                  <span style={{ fontSize: 11, color: meta.color, fontWeight: 600 }}>Contacta soporte para upgradear ↗</span>
+                ) : null}
+              </div>
+            );
+          })() : null}
 
           <label>
             Logo URL

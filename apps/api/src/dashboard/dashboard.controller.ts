@@ -4,6 +4,7 @@ import { AuthGuard } from '../common/guards/auth.guard';
 import { AuthUser } from '../common/types/auth-user.type';
 import { DashboardService } from './dashboard.service';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
+import { ReportQueryDto } from './dto/report-query.dto';
 
 type RequestWithUser = Request & { user: AuthUser };
 
@@ -20,5 +21,10 @@ export class DashboardController {
   @Get('reports')
   reports(@Req() req: RequestWithUser, @Query() query: DashboardQueryDto) {
     return this.dashboardService.getReports(req.user, query);
+  }
+
+  @Get('full-report')
+  fullReport(@Req() req: RequestWithUser, @Query() query: ReportQueryDto) {
+    return this.dashboardService.getFullReport(req.user, query);
   }
 }

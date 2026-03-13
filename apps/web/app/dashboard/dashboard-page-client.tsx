@@ -2,12 +2,13 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, ChevronDown, ChevronRight, ClipboardList, CreditCard, LayoutDashboard, Link2, LogOut, Settings, UserCircle2, Wrench } from 'lucide-react';
+import { Building2, CalendarDays, ChevronDown, ChevronRight, ClipboardList, CreditCard, LayoutDashboard, Link2, LogOut, Settings, UserCircle2, Wrench } from 'lucide-react';
 import { OverviewSection } from './components/overview-section';
+import { AgendaSection } from './components/agenda-section';
 import { PaymentsSection } from './components/payments-section';
 import { OperationsSection } from './components/operations-section';
 import { SettingsSection } from './components/settings-section';
-import { AuditSection } from './components/audit-section';
+import ReporteSection from './components/reporte-section';
 import { IntegrationsSection } from './components/integrations-section';
 import { useDashboardBoot } from './hooks/use-dashboard-boot';
 import { useAutoDismissSuccess, looksLikeEmail, toDateTimeLocalInput } from './dashboard-utils';
@@ -18,8 +19,6 @@ import type {
   AvailabilityExceptionItem,
   DashboardResponse,
   DashboardReportsResponse,
-  AuditLogEntry,
-  AuditLogsResponse,
   TenantSettingsResponse,
   PaymentRecord,
   SaleNoteResponse
@@ -29,7 +28,6 @@ import {
   PAYMENT_METHOD_OPTIONS,
   DAY_OF_WEEK_LABEL,
   dashboardFilterSchema,
-  auditFilterSchema,
   tenantSettingsSchema,
   quickCreateServiceSchema,
   quickCreateStaffSchema,
@@ -70,12 +68,11 @@ function isSameToast(a: GlobalToastItem | null | undefined, b: GlobalToastItem) 
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [apiUrl, setApiUrl] = useState('http://localhost:3001');
+  const [apiUrl, setApiUrl] = useState(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001');
   const [token, setToken] = useState('');
   const [range, setRange] = useState<'day' | 'week' | 'month'>('day');
-  const [activeSection, setActiveSection] = useState<'overview' | 'payments' | 'operations' | 'settings' | 'integrations' | 'audit'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'agenda' | 'reporte' | 'payments' | 'operations' | 'settings' | 'integrations'>('overview');
   const [operationsOpen, setOperationsOpen] = useState(true);
-  const [operationsQuickOpen, setOperationsQuickOpen] = useState(true);
   const [operationsAvailabilityOpen, setOperationsAvailabilityOpen] = useState(true);
   const [operationsView, setOperationsView] = useState<OperationsView>('quick-service');
   const [paymentsOpen, setPaymentsOpen] = useState(true);
@@ -99,15 +96,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [reports, setReports] = useState<DashboardReportsResponse | null>(null);
   const [reportsError, setReportsError] = useState('');
-  const [auditAction, setAuditAction] = useState('');
-  const [auditActorUserId, setAuditActorUserId] = useState('');
-  const [auditFrom, setAuditFrom] = useState(today);
-  const [auditTo, setAuditTo] = useState(today);
-  const [auditLimit, setAuditLimit] = useState('20');
-  const [auditCursor, setAuditCursor] = useState<string | null>(null);
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
-  const [auditLoading, setAuditLoading] = useState(false);
-  const [auditError, setAuditError] = useState('');
+
   const [tenantSettingsLoading, setTenantSettingsLoading] = useState(false);
   const [tenantSettingsError, setTenantSettingsError] = useState('');
   const [tenantSettingsSuccess, setTenantSettingsSuccess] = useState('');
@@ -541,73 +530,7 @@ export default function DashboardPage() {
     setReports(null);
     setPayments([]);
     setSaleNote(null);
-    setAuditLogs([]);
-    setAuditCursor(null);
     router.replace('/login');
-  }
-
-  async function loadAuditLogs(nextCursor?: string) {
-    setAuditError('');
-
-    const parsedLimit = Number(auditLimit);
-    const parsed = auditFilterSchema.safeParse({
-      apiUrl: apiUrl.trim(),
-      token: token.trim(),
-      action: auditAction.trim() || undefined,
-      actorUserId: auditActorUserId.trim() || undefined,
-      from: auditFrom || undefined,
-      to: auditTo || undefined,
-      limit: Number.isFinite(parsedLimit) ? parsedLimit : NaN
-    });
-
-    if (!parsed.success) {
-      setAuditError(parsed.error.issues[0]?.message ?? 'Filtros de auditoría inválidos.');
-      return;
-    }
-
-    setAuditLoading(true);
-
-    try {
-      const url = new URL('/audit/logs', parsed.data.apiUrl);
-      if (parsed.data.action) {
-        url.searchParams.set('action', parsed.data.action);
-      }
-      if (parsed.data.actorUserId) {
-        url.searchParams.set('actorUserId', parsed.data.actorUserId);
-      }
-      if (parsed.data.from) {
-        url.searchParams.set('from', `${parsed.data.from}T00:00:00.000Z`);
-      }
-      if (parsed.data.to) {
-        url.searchParams.set('to', `${parsed.data.to}T23:59:59.999Z`);
-      }
-      url.searchParams.set('limit', String(parsed.data.limit));
-      if (nextCursor) {
-        url.searchParams.set('cursor', nextCursor);
-      }
-
-      const response = await fetch(url.toString(), {
-        headers: {
-          Authorization: `Bearer ${parsed.data.token}`
-        }
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
-      }
-
-      const payload = (await response.json()) as AuditLogsResponse;
-      setAuditLogs(payload.items ?? []);
-      setAuditCursor(payload.nextCursor ?? null);
-    } catch (requestError) {
-      const message = requestError instanceof Error ? requestError.message : 'No se pudo cargar auditoría';
-      setAuditError(message);
-      setAuditLogs([]);
-      setAuditCursor(null);
-    } finally {
-      setAuditLoading(false);
-    }
   }
 
   async function loadAvailabilityData() {
@@ -1893,37 +1816,10 @@ export default function DashboardPage() {
             <span>Resumen</span>
           </button>
 
-          <button
-            type="button"
-            className={`sidebar-item ${activeSection === 'payments' ? 'active' : ''}`}
-            onClick={() => {
-              setPaymentsOpen((current) => !current);
-              setActiveSection('payments');
-            }}
-          >
-            <CreditCard size={16} />
-            <span style={{ flex: 1, textAlign: 'left' }}>Pagos</span>
-            {paymentsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          <button type="button" className={`sidebar-item ${activeSection === 'agenda' ? 'active' : ''}`} onClick={() => setActiveSection('agenda')}>
+            <CalendarDays size={16} />
+            <span>Agenda</span>
           </button>
-
-          {paymentsOpen ? (
-            <div className="sidebar-submenu">
-              <button
-                type="button"
-                className={`sidebar-subitem ${paymentsView === 'register' ? 'active' : ''}`}
-                onClick={() => openPaymentsView('register')}
-              >
-                Registrar pago
-              </button>
-              <button
-                type="button"
-                className={`sidebar-subitem ${paymentsView === 'history' ? 'active' : ''}`}
-                onClick={() => openPaymentsView('history')}
-              >
-                Historial reciente
-              </button>
-            </div>
-          ) : null}
 
           <button
             type="button"
@@ -1940,43 +1836,34 @@ export default function DashboardPage() {
 
           {operationsOpen ? (
             <div className="sidebar-submenu">
-              <button type="button" className="sidebar-subgroup-toggle" onClick={() => setOperationsQuickOpen((current) => !current)}>
-                <span style={{ flex: 1, textAlign: 'left' }}>Acciones rápidas</span>
-                {operationsQuickOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <button
+                type="button"
+                className={`sidebar-subitem ${operationsView === 'quick-service' ? 'active' : ''}`}
+                onClick={() => openOperationsView('quick-service')}
+              >
+                Crear servicio
               </button>
-
-              {operationsQuickOpen ? (
-                <div className="sidebar-submenu-nested">
-                  <button
-                    type="button"
-                    className={`sidebar-subitem ${operationsView === 'quick-service' ? 'active' : ''}`}
-                    onClick={() => openOperationsView('quick-service')}
-                  >
-                    Crear servicio
-                  </button>
-                  <button
-                    type="button"
-                    className={`sidebar-subitem ${operationsView === 'quick-staff' ? 'active' : ''}`}
-                    onClick={() => openOperationsView('quick-staff')}
-                  >
-                    Crear staff
-                  </button>
-                  <button
-                    type="button"
-                    className={`sidebar-subitem ${operationsView === 'quick-booking' ? 'active' : ''}`}
-                    onClick={() => openOperationsView('quick-booking')}
-                  >
-                    Crear booking
-                  </button>
-                  <button
-                    type="button"
-                    className={`sidebar-subitem ${operationsView === 'quick-waitlist' ? 'active' : ''}`}
-                    onClick={() => openOperationsView('quick-waitlist')}
-                  >
-                    Waitlist
-                  </button>
-                </div>
-              ) : null}
+              <button
+                type="button"
+                className={`sidebar-subitem ${operationsView === 'quick-staff' ? 'active' : ''}`}
+                onClick={() => openOperationsView('quick-staff')}
+              >
+                Crear staff
+              </button>
+              <button
+                type="button"
+                className={`sidebar-subitem ${operationsView === 'quick-booking' ? 'active' : ''}`}
+                onClick={() => openOperationsView('quick-booking')}
+              >
+                Crear cita
+              </button>
+              <button
+                type="button"
+                className={`sidebar-subitem ${operationsView === 'quick-waitlist' ? 'active' : ''}`}
+                onClick={() => openOperationsView('quick-waitlist')}
+              >
+                Lista de espera
+              </button>
 
               <button type="button" className="sidebar-subgroup-toggle" onClick={() => setOperationsAvailabilityOpen((current) => !current)}>
                 <span style={{ flex: 1, textAlign: 'left' }}>Disponibilidad</span>
@@ -2013,6 +1900,38 @@ export default function DashboardPage() {
 
           <button
             type="button"
+            className={`sidebar-item ${activeSection === 'payments' ? 'active' : ''}`}
+            onClick={() => {
+              setPaymentsOpen((current) => !current);
+              setActiveSection('payments');
+            }}
+          >
+            <CreditCard size={16} />
+            <span style={{ flex: 1, textAlign: 'left' }}>Pagos</span>
+            {paymentsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+
+          {paymentsOpen ? (
+            <div className="sidebar-submenu">
+              <button
+                type="button"
+                className={`sidebar-subitem ${paymentsView === 'register' ? 'active' : ''}`}
+                onClick={() => openPaymentsView('register')}
+              >
+                Registrar pago
+              </button>
+              <button
+                type="button"
+                className={`sidebar-subitem ${paymentsView === 'history' ? 'active' : ''}`}
+                onClick={() => openPaymentsView('history')}
+              >
+                Historial reciente
+              </button>
+            </div>
+          ) : null}
+
+          <button
+            type="button"
             className={`sidebar-item ${activeSection === 'settings' ? 'active' : ''}`}
             onClick={() => {
               setSettingsOpen((current) => !current);
@@ -2020,7 +1939,7 @@ export default function DashboardPage() {
             }}
           >
             <Settings size={16} />
-            <span style={{ flex: 1, textAlign: 'left' }}>Settings</span>
+            <span style={{ flex: 1, textAlign: 'left' }}>Configuración</span>
             {settingsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
 
@@ -2057,9 +1976,9 @@ export default function DashboardPage() {
             </div>
           ) : null}
 
-          <button type="button" className={`sidebar-item ${activeSection === 'audit' ? 'active' : ''}`} onClick={() => setActiveSection('audit')}>
+          <button type="button" className={`sidebar-item ${activeSection === 'reporte' ? 'active' : ''}`} onClick={() => setActiveSection('reporte')}>
             <ClipboardList size={16} />
-            <span>Auditoría</span>
+            <span>Reporte</span>
           </button>
 
           <button
@@ -2166,6 +2085,14 @@ export default function DashboardPage() {
           rescheduleDrafts={rescheduleDrafts}
           setRescheduleDrafts={setRescheduleDrafts}
           reports={reports}
+        />
+      ) : null}
+
+      {activeSection === 'agenda' ? (
+        <AgendaSection
+          apiUrl={apiUrl}
+          token={token}
+          staffOptions={staffOptions}
         />
       ) : null}
 
@@ -2354,6 +2281,7 @@ export default function DashboardPage() {
           onGlobalToast={showGlobalToast}
           apiUrl={apiUrl}
           tenantSettings={tenantSettings}
+          plan={tenantSettings?.plan}
           tenantSettingsLoading={tenantSettingsLoading}
           token={token}
           loadTenantSettings={loadTenantSettings}
@@ -2383,26 +2311,8 @@ export default function DashboardPage() {
         />
       ) : null}
 
-      {activeSection === 'audit' ? (
-        <AuditSection
-          auditAction={auditAction}
-          setAuditAction={setAuditAction}
-          auditActorUserId={auditActorUserId}
-          setAuditActorUserId={setAuditActorUserId}
-          auditFrom={auditFrom}
-          setAuditFrom={setAuditFrom}
-          auditTo={auditTo}
-          setAuditTo={setAuditTo}
-          auditLimit={auditLimit}
-          setAuditLimit={setAuditLimit}
-          auditLoading={auditLoading}
-          token={token}
-          loadAuditLogs={loadAuditLogs}
-          auditCursor={auditCursor}
-          auditError={auditError}
-          setAuditError={setAuditError}
-          auditLogs={auditLogs}
-        />
+      {activeSection === 'reporte' ? (
+        <ReporteSection apiUrl={apiUrl} token={token} staffOptions={staffOptions} />
       ) : null}
 
       {activeSection === 'integrations' ? (

@@ -22,6 +22,7 @@ function isReservedPath(pathname: string) {
   return (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
+    pathname.startsWith('/admin') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/public') ||
@@ -33,7 +34,7 @@ export function middleware(request: NextRequest) {
   const { nextUrl, headers } = request;
   const path = nextUrl.pathname;
 
-  if (isReservedPath(path) || path !== '/') {
+  if (isReservedPath(path)) {
     return NextResponse.next();
   }
 
@@ -49,11 +50,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Custom domain detected — rewrite all non-reserved paths to the public tenant route
   const rewriteUrl = nextUrl.clone();
-  rewriteUrl.pathname = `/public/${hostname}`;
+  rewriteUrl.pathname = `/public/${hostname}${path === '/' ? '' : path}`;
   return NextResponse.rewrite(rewriteUrl);
 }
 
 export const config = {
-  matcher: ['/']
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)']
 };

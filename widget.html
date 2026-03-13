@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Widget Test — Apoint</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+      min-height: 100vh;
+      padding: 40px 24px;
+    }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .subtitle { font-size: 14px; color: #64748b; margin-bottom: 32px; }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      max-width: 720px;
+    }
+    .card h2 { font-size: 15px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #2563eb;
+    }
+
+    /* Config row */
+    .config-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 500; }
+    input, select {
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      min-width: 180px;
+    }
+    input:focus, select:focus { border-color: #2563eb; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity .15s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-outline { background: #fff; color: #2563eb; border: 1px solid #2563eb; }
+    .btn-ghost { background: #f1f5f9; color: #334155; }
+
+    /* Popup test area */
+    .popup-demo {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 20px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px dashed #cbd5e1;
+    }
+    .popup-demo p { font-size: 13px; color: #64748b; }
+
+    /* Snippet box */
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 12px;
+      line-height: 1.6;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* iframe preview */
+    .iframe-wrap {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+    }
+    iframe { display: block; }
+
+    /* Status */
+    #status-box {
+      font-size: 13px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-top: 12px;
+      display: none;
+    }
+    #status-box.ok { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; display: block; }
+    #status-box.err { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; display: block; }
+
+    .divider { border: none; border-top: 1px solid #e2e8f0; margin: 8px 0 16px; }
+    .copy-btn { font-size: 11px; padding: 4px 10px; margin-left: auto; display: block; width: fit-content; }
+  </style>
+</head>
+<body>
+
+  <h1>🧪 Widget Test — Apoint</h1>
+  <p class="subtitle">Prueba el widget de reservas en aislamiento. El API debe estar corriendo en localhost:3001.</p>
+
+  <!-- Config -->
+  <div class="card">
+    <h2>⚙️ Configuración</h2>
+    <div class="config-row">
+      <label>
+        Slug del tenant
+        <input id="inp-slug" type="text" value="abogadoruiz" placeholder="mi-negocio" />
+      </label>
+      <label>
+        API URL
+        <input id="inp-api" type="text" value="http://localhost:3001" />
+      </label>
+      <label>
+        Web URL
+        <input id="inp-web" type="text" value="http://localhost:3000" />
+      </label>
+      <button class="btn btn-primary" onclick="applyConfig()">Aplicar</button>
+      <button class="btn btn-ghost" onclick="checkStatus()">Verificar conexión</button>
+    </div>
+    <div id="status-box"></div>
+  </div>
+
+  <!-- Popup mode -->
+  <div class="card">
+    <h2>🪟 Modo Popup <span class="badge">widget.js</span></h2>
+    <p style="font-size:13px;color:#64748b;margin-bottom:14px;">
+      Carga el script desde el API. El botón con <code>data-apoint-book</code> abre el formulario en ventana popup.
+    </p>
+    <div class="popup-demo">
+      <p>↓ Haz click en el botón para abrir el popup de reserva</p>
+      <button id="apoint-trigger" data-apoint-book type="button" class="btn btn-primary">
+        📅 Reservar cita
+      </button>
+    </div>
+    <hr class="divider" />
+    <p style="font-size:12px;font-weight:600;color:#475569;margin-bottom:6px;">Snippet para pegar en tu web:</p>
+    <pre id="snippet-popup"></pre>
+    <button class="btn btn-ghost copy-btn" onclick="copySnippet('snippet-popup')">Copiar</button>
+  </div>
+
+  <!-- iframe mode -->
+  <div class="card">
+    <h2>🖼️ Modo iframe <span class="badge">embed</span></h2>
+    <p style="font-size:13px;color:#64748b;margin-bottom:14px;">
+      Formulario embebido directamente en la página, sin popup.
+    </p>
+    <pre id="snippet-iframe" style="margin-bottom:10px;"></pre>
+    <button class="btn btn-ghost copy-btn" onclick="copySnippet('snippet-iframe')" style="margin-bottom:16px;">Copiar</button>
+    <div class="iframe-wrap">
+      <iframe id="iframe-preview" src="" width="100%" height="700" style="border:0;" loading="lazy"></iframe>
+    </div>
+  </div>
+
+  <script>
+    let slug = 'abogadoruiz';
+    let apiUrl = 'http://localhost:3001';
+    let webUrl = 'http://localhost:3000';
+    let widgetScriptTag = null;
+
+    function bookingUrl() {
+      return `${webUrl}/public/${slug}`;
+    }
+
+    function widgetJsUrl() {
+      return `${apiUrl}/public/${slug}/widget.js`;
+    }
+
+    function updateSnippets() {
+      const bUrl = bookingUrl();
+      const wUrl = widgetJsUrl();
+
+      document.getElementById('snippet-popup').textContent =
+        `<button data-apoint-book type="button">Reservar cita</button>\n<script src="${wUrl}"><\/script>`;
+
+      document.getElementById('snippet-iframe').textContent =
+        `<iframe src="${bUrl}"\n  width="100%" height="700"\n  style="border:0;border-radius:12px;overflow:hidden;"\n  loading="lazy">\n</iframe>`;
+
+      document.getElementById('iframe-preview').src = bUrl;
+    }
+
+    function loadWidgetScript() {
+      // Remove previous script if any
+      if (widgetScriptTag) widgetScriptTag.remove();
+      widgetScriptTag = document.createElement('script');
+      widgetScriptTag.src = widgetJsUrl();
+      widgetScriptTag.onerror = () => {
+        showStatus('No se pudo cargar widget.js — verifica que el slug existe y que el widget está habilitado en Configuración → Widget.', 'err');
+      };
+      document.body.appendChild(widgetScriptTag);
+    }
+
+    function applyConfig() {
+      slug   = document.getElementById('inp-slug').value.trim() || slug;
+      apiUrl = document.getElementById('inp-api').value.trim() || apiUrl;
+      webUrl = document.getElementById('inp-web').value.trim() || webUrl;
+      updateSnippets();
+      loadWidgetScript();
+      showStatus(`Configuración aplicada. Slug: "${slug}"`, 'ok');
+    }
+
+    async function checkStatus() {
+      const box = document.getElementById('status-box');
+      box.className = '';
+      box.style.display = 'block';
+      box.textContent = 'Verificando...';
+      try {
+        const res = await fetch(`${apiUrl}/public/${slug}/widget-config`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data.widgetEnabled) {
+          showStatus(`⚠️ Tenant "${data.tenantName}" encontrado, pero el widget está DESHABILITADO. Ve a Dashboard → Configuración → Widget para activarlo.`, 'err');
+        } else {
+          showStatus(`✅ Tenant "${data.tenantName}" (${slug}) — Widget habilitado. Todo listo.`, 'ok');
+        }
+      } catch (e) {
+        showStatus(`❌ Error: ${e.message} — ¿Está corriendo el API en ${apiUrl}?`, 'err');
+      }
+    }
+
+    function showStatus(msg, type) {
+      const box = document.getElementById('status-box');
+      box.textContent = msg;
+      box.className = type;
+    }
+
+    function copySnippet(id) {
+      navigator.clipboard.writeText(document.getElementById(id).textContent)
+        .then(() => showStatus('Snippet copiado al portapapeles.', 'ok'))
+        .catch(() => showStatus('No se pudo copiar.', 'err'));
+    }
+
+    // Init
+    updateSnippets();
+    loadWidgetScript();
+  </script>
+</body>
+</html>

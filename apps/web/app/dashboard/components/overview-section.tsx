@@ -83,10 +83,6 @@ export function OverviewSection(props: OverviewSectionProps) {
   return (
     <>
       <form onSubmit={props.onSubmit} className="section-form" style={{ marginBottom: 20 }}>
-        <label>
-          API URL
-          <input value={props.apiUrl} onChange={(e) => props.setApiUrl(e.target.value)} className="w-full" />
-        </label>
         <div className="section-grid section-grid-4">
           <label>
             Rango

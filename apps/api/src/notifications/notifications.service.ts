@@ -151,6 +151,35 @@ export class NotificationsService {
     });
   }
 
+  async sendBookingCancelledEmail(input: {
+    tenantName: string;
+    customerName: string;
+    customerEmail: string;
+    serviceName: string;
+    staffName: string;
+    startAt: Date;
+    timeZone: string;
+    reason?: string | null;
+  }) {
+    const startAtLabel = this.formatDateInTimeZone(input.startAt, input.timeZone);
+    const subject = `Tu cita fue cancelada - ${input.tenantName}`;
+    const reasonLine = input.reason ? `\nMotivo: ${input.reason}` : '';
+    const reasonHtml = input.reason ? `<li><strong>Motivo:</strong> ${input.reason}</li>` : '';
+    const text = [
+      `Hola ${input.customerName},`,
+      '',
+      `Lamentamos informarte que tu cita en ${input.tenantName} fue cancelada.`,
+      `Servicio: ${input.serviceName}`,
+      `Profesional: ${input.staffName}`,
+      `Fecha/hora: ${startAtLabel}${reasonLine}`,
+      '',
+      'Si tienes dudas, contáctate con el negocio directamente.'
+    ].join('\n');
+    const html = `<p>Hola ${input.customerName},</p><p>Lamentamos informarte que tu cita en <strong>${input.tenantName}</strong> fue cancelada.</p><ul><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Fecha/hora:</strong> ${startAtLabel}</li>${reasonHtml}</ul><p>Si tienes dudas, contáctate con el negocio directamente.</p>`;
+
+    await this.sendWithFallback({ to: input.customerEmail, subject, text, html });
+  }
+
   async sendCustomerPortalClaimCodeEmail(input: {
     tenantName: string;
     customerEmail: string;

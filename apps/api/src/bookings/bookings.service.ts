@@ -518,7 +518,14 @@ export class BookingsService {
 
   async cancel(user: AuthUser, bookingId: string, payload: CancelBookingDto) {
     const [booking, tenantSettings] = await Promise.all([
-      this.prisma.booking.findFirst({ where: { id: bookingId, tenantId: user.tenantId } }),
+      this.prisma.booking.findFirst({
+        where: { id: bookingId, tenantId: user.tenantId },
+        include: {
+          service: { select: { name: true } },
+          staff: { select: { fullName: true } },
+          tenant: { select: { name: true } }
+        }
+      }),
       this.getTenantSettings(user.tenantId)
     ]);
 
@@ -560,6 +567,24 @@ export class BookingsService {
     });
 
     await this.notifyNextWaitlistOnCancellation(cancelled);
+
+    // Notify the customer via email about the cancellation
+    if (booking.customerEmail) {
+      try {
+        await this.notificationsService.sendBookingCancelledEmail({
+          tenantName: booking.tenant.name,
+          customerName: booking.customerName,
+          customerEmail: booking.customerEmail,
+          serviceName: booking.service.name,
+          staffName: booking.staff.fullName,
+          startAt: booking.startAt,
+          timeZone: tenantSettings.timeZone ?? 'UTC',
+          reason: payload.reason ?? null
+        });
+      } catch {
+        // Non-blocking — do not fail the cancel if email fails
+      }
+    }
 
     try {
       await this.integrationsService.enqueueGoogleOutboundSyncJob({

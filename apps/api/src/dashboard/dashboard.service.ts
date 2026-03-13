@@ -180,6 +180,31 @@ export class DashboardService {
     };
   }
 
+  async getFullReport(user: AuthUser, query: { from?: string; to?: string; staffId?: string }) {
+    const now = new Date();
+    const start = query.from ? new Date(`${query.from}T00:00:00.000Z`) : new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = query.to ? new Date(`${query.to}T23:59:59.999Z`) : now;
+
+    const where: Record<string, unknown> = {
+      tenantId: user.tenantId,
+      startAt: { gte: start, lte: end }
+    };
+    if (query.staffId) {
+      where.staffId = query.staffId;
+    }
+
+    const bookings = await this.prisma.booking.findMany({
+      where,
+      include: {
+        service: { select: { name: true } },
+        staff: { select: { fullName: true } }
+      },
+      orderBy: { startAt: 'asc' }
+    });
+
+    return { total: bookings.length, from: start.toISOString(), to: end.toISOString(), bookings };
+  }
+
   private buildSummary(
     bookings: Array<{ status: BookingStatus; staffId: string; startAt: Date; endAt: Date }>
   ) {
