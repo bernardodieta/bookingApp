@@ -152,6 +152,7 @@ const PORTAL_COPY = {
     pageSubtitle: 'Portal del cliente para consultar historial y próximas reservas.',
     accessTitle: '1) Acceso de cliente',
     accessSubtitle: 'Inicia sesión si ya tienes cuenta o crea una nueva para gestionar tus reservas.',
+    staffHint: '¿Eres miembro del equipo? Registrate con el email que te asignó el negocio.',
     loginMode: 'Iniciar sesión',
     registerMode: 'Crear cuenta',
     fullName: 'Nombre',
@@ -200,6 +201,7 @@ const PORTAL_COPY = {
     pageSubtitle: 'Customer portal to view history and upcoming bookings.',
     accessTitle: '1) Customer access',
     accessSubtitle: 'Sign in if you already have an account, or create one to manage your bookings.',
+    staffHint: 'Are you a team member? Register with the email your business assigned to you.',
     loginMode: 'Sign in',
     registerMode: 'Create account',
     fullName: 'Name',
@@ -1051,6 +1053,11 @@ export default function CustomerBookingsPage({ params }: PageProps) {
               {loading ? copy.processing : authMode === 'register' ? copy.registerMode : copy.loginMode}
             </button>
           </form>
+
+          {/* Staff hint */}
+          <p style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', margin: 0 }}>
+            {copy.staffHint}
+          </p>
 
           {/* Divider */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#94a3b8', fontSize: 12 }}>

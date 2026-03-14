@@ -180,6 +180,38 @@ export class NotificationsService {
     await this.sendWithFallback({ to: input.customerEmail, subject, text, html });
   }
 
+  async sendStaffInvitationEmail(input: {
+    tenantName: string;
+    staffEmail: string;
+    staffName: string;
+    registrationUrl: string;
+  }) {
+    const subject = `Invitación al equipo - ${input.tenantName}`;
+    const text = [
+      `Hola ${input.staffName},`,
+      '',
+      `Fuiste agregado/a al equipo de ${input.tenantName}.`,
+      `Para activar tu cuenta, registrate en el siguiente enlace:`,
+      input.registrationUrl,
+      '',
+      `Usa el email ${input.staffEmail} para completar el registro.`
+    ].join('\n');
+    const html = [
+      `<p>Hola ${input.staffName},</p>`,
+      `<p>Fuiste agregado/a al equipo de <strong>${input.tenantName}</strong>.</p>`,
+      `<p>Para activar tu cuenta, registrate en el siguiente enlace:</p>`,
+      `<p><a href="${input.registrationUrl}" style="color:#2563eb;font-weight:600;">${input.registrationUrl}</a></p>`,
+      `<p>Usa el email <strong>${input.staffEmail}</strong> para completar el registro.</p>`
+    ].join('');
+
+    await this.sendWithFallback({
+      to: input.staffEmail,
+      subject,
+      text,
+      html
+    });
+  }
+
   async sendCustomerPortalClaimCodeEmail(input: {
     tenantName: string;
     customerEmail: string;

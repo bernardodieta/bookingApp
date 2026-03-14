@@ -21,14 +21,16 @@ type StaffRecord = {
 type StaffManagementSectionProps = {
   apiUrl: string;
   token: string;
+  tenantSlug?: string;
   onStaffChanged?: () => void;
 };
 
-export function StaffManagementSection({ apiUrl, token, onStaffChanged }: StaffManagementSectionProps) {
+export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChanged }: StaffManagementSectionProps) {
   const [staff, setStaff] = useState<StaffRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Edit state
   const [editId, setEditId] = useState<string | null>(null);
@@ -364,15 +366,42 @@ export function StaffManagementSection({ apiUrl, token, onStaffChanged }: StaffM
                         </span>
                       </td>
                       <td>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 500,
-                            color: member.userId ? '#166534' : '#94a3b8'
-                          }}
-                        >
-                          {member.userId ? 'Registrado' : 'Sin cuenta'}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 500,
+                              color: member.userId ? '#166534' : '#94a3b8'
+                            }}
+                          >
+                            {member.userId ? 'Registrado' : 'Sin cuenta'}
+                          </span>
+                          {!member.userId && tenantSlug && (
+                            <button
+                              type="button"
+                              title="Copiar link de registro"
+                              onClick={() => {
+                                const url = `${window.location.origin}/public/${tenantSlug}/mis-citas`;
+                                navigator.clipboard.writeText(url).then(() => {
+                                  setCopiedId(member.id);
+                                  setTimeout(() => setCopiedId(null), 2000);
+                                });
+                              }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: 11,
+                                color: copiedId === member.id ? '#166534' : 'var(--primary, #2563eb)',
+                                fontWeight: 500,
+                                padding: '2px 4px',
+                                borderRadius: 4
+                              }}
+                            >
+                              {copiedId === member.id ? '✓ Copiado' : 'Copiar link'}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>

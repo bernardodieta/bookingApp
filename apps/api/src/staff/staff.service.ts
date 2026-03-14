@@ -1,14 +1,20 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Plan } from '@prisma/client';
 import { AuthUser } from '../common/types/auth-user.type';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
 import { UpdateStaffProfileDto } from './dto/update-staff-profile.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class StaffService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(StaffService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async create(user: AuthUser, payload: CreateStaffDto) {
     const tenant = await this.prisma.tenant.findUnique({
@@ -55,6 +61,26 @@ export class StaffService {
         where: { id: newStaff.id },
         data: { userId: existingUser.id }
       });
+    }
+
+    // Send invitation email to staff without an account
+    const tenantInfo = await this.prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+      select: { name: true, slug: true }
+    });
+    if (tenantInfo?.slug) {
+      const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+      const registrationUrl = `${appUrl}/public/${tenantInfo.slug}/mis-citas`;
+      this.notifications
+        .sendStaffInvitationEmail({
+          tenantName: tenantInfo.name,
+          staffEmail: normalizedEmail,
+          staffName: payload.fullName,
+          registrationUrl,
+        })
+        .catch((err) => {
+          this.logger.warn(`[STAFF_INVITE] Failed to send invitation to ${normalizedEmail}: ${err instanceof Error ? err.message : String(err)}`);
+        });
     }
 
     return newStaff;

@@ -5,6 +5,9 @@ function createServiceWithMocks() {
   const prisma = {
     user: {
       findUnique: jest.fn()
+    },
+    staff: {
+      findUnique: jest.fn()
     }
   };
 

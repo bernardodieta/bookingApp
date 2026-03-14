@@ -2299,6 +2299,7 @@ export default function DashboardPage() {
         <StaffManagementSection
           apiUrl={apiUrl}
           token={token}
+          tenantSlug={tenantSettings?.slug}
           onStaffChanged={() => void reloadStaffOptions()}
         />
       ) : null}

@@ -33,8 +33,12 @@ function createBookingsService() {
     log: jest.fn()
   };
 
-  const service = new BookingsService(prisma as never, notificationsService as never, auditService as never);
-  return { service, prisma, notificationsService, auditService };
+  const integrationsService = {
+    syncBookingToCalendar: jest.fn()
+  };
+
+  const service = new BookingsService(prisma as never, notificationsService as never, auditService as never, integrationsService as never);
+  return { service, prisma, notificationsService, auditService, integrationsService };
 }
 
 function defaultTenantSettings(plan: Plan = 'free') {
@@ -47,7 +51,8 @@ function defaultTenantSettings(plan: Plan = 'free') {
     maxBookingsPerWeek: null,
     cancellationNoticeHours: 0,
     rescheduleNoticeHours: 0,
-    refundPolicy: 'none'
+    refundPolicy: 'none',
+    timeZone: 'UTC'
   };
 }
 
