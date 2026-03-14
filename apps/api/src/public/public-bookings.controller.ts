@@ -43,7 +43,7 @@ export class PublicBookingsController {
   async widgetConfig(@Param('slugOrDomain') slugOrDomain: string) {
     const tenant = await this.findTenantBySlugOrDomain(slugOrDomain);
     const bookingUrl = this.getBookingUrl(tenant);
-    const popupScriptSnippet = `<button id="apoint-book-btn" type="button">Reservar cita</button>\n<script>\n(function(){\n  var btn=document.getElementById('apoint-book-btn');\n  if(!btn)return;\n  btn.addEventListener('click',function(){\n    var width=480,height=780,left=(window.screen.width-width)/2,top=(window.screen.height-height)/2;\n    window.open('${bookingUrl}','apointBooking','width='+width+',height='+height+',left='+left+',top='+top+',menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes');\n  });\n})();\n<\/script>`;
+    const popupScriptSnippet = `<button id="apoint-book-btn" type="button">Reservar cita</button>\n<script>\n(function(){\n  var btn=document.getElementById('apoint-book-btn');\n  if(!btn)return;\n  btn.addEventListener('click',function(){\n    var width=480,height=780,left=(window.screen.width-width)/2,top=(window.screen.height-height)/2;\n    window.open('${bookingUrl}','apointBooking','width='+width+',height='+height+',left='+left+',top='+top+',menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes');\n  });\n})();\n</` + 'script>';
 
     return {
       tenantName: tenant.name,

@@ -161,8 +161,7 @@ export class BookingsService {
         action: 'BOOKING_CREATED',
         actorUserId
       });
-    } catch {
-    }
+    } catch { /* audit log is best-effort */ }
 
     try {
       await this.notificationsService.sendBookingCreatedEmails({
@@ -622,8 +621,7 @@ export class BookingsService {
         action: 'BOOKING_CANCELLED',
         actorUserId: user.sub
       });
-    } catch {
-    }
+    } catch { /* audit log is best-effort */ }
 
     return {
       ...cancelled,
@@ -817,8 +815,7 @@ export class BookingsService {
         action: 'BOOKING_RESCHEDULED',
         actorUserId: user.sub
       });
-    } catch {
-    }
+    } catch { /* audit log is best-effort */ }
 
     return updated;
   }
