@@ -69,6 +69,7 @@ jobs:
           CALENDAR_SYNC_OUTBOUND_RETRY_BASE_MS=${{ secrets.CALENDAR_SYNC_OUTBOUND_RETRY_BASE_MS }}
           CALENDAR_SYNC_OUTBOUND_RETRY_MAX_MS=${{ secrets.CALENDAR_SYNC_OUTBOUND_RETRY_MAX_MS }}
           CALENDAR_INBOUND_UNLINKED_POLICY=${{ secrets.CALENDAR_INBOUND_UNLINKED_POLICY }}
+          SUPER_ADMIN_SECRET=${{ secrets.SUPER_ADMIN_SECRET }}
           NEXT_PUBLIC_API_URL=https://api-bookingapp.0es3cloud.com
           NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
           NEXT_PUBLIC_APP_URL=https://bookingapp.0es3cloud.com
@@ -84,6 +85,12 @@ jobs:
           docker compose --env-file .env up -d postgres redis
           docker compose --env-file .env up --force-recreate api-migrate
           echo "Migrations completed."
+
+      - name: Seed demo data
+        working-directory: deployment
+        run: |
+          docker compose --env-file .env up --force-recreate api-seed
+          echo "Seed completed."
 
       - name: Stop existing app containers
         working-directory: deployment

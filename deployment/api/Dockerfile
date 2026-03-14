@@ -30,6 +30,11 @@ RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
 # Build NestJS
 RUN npm run build -w @apoint/api
 
+# Compile scripts separately (nest build only covers src/)
+RUN npx tsc --outDir apps/api/dist/scripts --module commonjs --target ES2021 \
+    --esModuleInterop --skipLibCheck --resolveJsonModule \
+    apps/api/scripts/seed-demo.ts
+
 # =============================================================================
 # Stage 3: Production
 # =============================================================================

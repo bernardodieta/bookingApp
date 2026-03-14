@@ -45,6 +45,24 @@ services:
       postgres:
         condition: service_healthy
 
+  api-seed:
+    build:
+      context: ..
+      dockerfile: deployment/api/Dockerfile
+    container_name: apoint-api-seed
+    restart: "no"
+    working_dir: /app/apps/api
+    command: ["node", "dist/scripts/seed-demo.js"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DEMO_OWNER_EMAIL: ${DEMO_OWNER_EMAIL:-owner@demo.com}
+      DEMO_OWNER_PASSWORD: ${DEMO_OWNER_PASSWORD:-Password123}
+      DEMO_TENANT_NAME: ${DEMO_TENANT_NAME:-Demo}
+      DEMO_TENANT_SLUG: ${DEMO_TENANT_SLUG:-demo}
+    depends_on:
+      api-migrate:
+        condition: service_completed_successfully
+
   api:
     build:
       context: ..
@@ -96,6 +114,7 @@ services:
       CALENDAR_SYNC_OUTBOUND_RETRY_BASE_MS: ${CALENDAR_SYNC_OUTBOUND_RETRY_BASE_MS:-30000}
       CALENDAR_SYNC_OUTBOUND_RETRY_MAX_MS: ${CALENDAR_SYNC_OUTBOUND_RETRY_MAX_MS:-3600000}
       CALENDAR_INBOUND_UNLINKED_POLICY: ${CALENDAR_INBOUND_UNLINKED_POLICY:-conflict}
+      SUPER_ADMIN_SECRET: ${SUPER_ADMIN_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
