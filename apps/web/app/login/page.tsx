@@ -10,6 +10,7 @@ const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
 const ROLE_KEY = 'apoint.dashboard.role';
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
+const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 declare global {
   interface Window {
@@ -57,7 +58,7 @@ function redirectByRole(router: ReturnType<typeof useRouter>, role?: string) {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [apiUrl, setApiUrl] = useState('http://localhost:3001');
+  const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
   const [email, setEmail] = useState('owner@demo.com');
   const [password, setPassword] = useState('Password123');
   const [loading, setLoading] = useState(false);

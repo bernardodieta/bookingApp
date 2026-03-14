@@ -36,10 +36,10 @@ export default function StaffDashboardClient() {
     }
 
     setToken(storedToken);
-    setApiUrl(storedApiUrl ?? 'http://localhost:3001');
+    setApiUrl(storedApiUrl ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001');
 
     // Fetch user info
-    fetch(new URL('/auth/me', storedApiUrl ?? 'http://localhost:3001').toString(), {
+    fetch(new URL('/auth/me', storedApiUrl ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').toString(), {
       headers: { Authorization: `Bearer ${storedToken}` }
     })
       .then((res) => {
