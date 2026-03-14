@@ -3,6 +3,7 @@ import { Plan } from '@prisma/client';
 import { AuthUser } from '../common/types/auth-user.type';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
+import { UpdateStaffProfileDto } from './dto/update-staff-profile.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -36,7 +37,13 @@ export class StaffService {
         tenantId: user.tenantId,
         fullName: payload.fullName,
         email: normalizedEmail,
-        active: payload.active ?? true
+        active: payload.active ?? true,
+        university: payload.university,
+        degree: payload.degree,
+        specialty: payload.specialty,
+        bio: payload.bio,
+        graduationYear: payload.graduationYear,
+        photoUrl: payload.photoUrl
       }
     });
 
@@ -85,6 +92,41 @@ export class StaffService {
     return this.prisma.staff.update({
       where: { id },
       data: payload
+    });
+  }
+
+  async getMyProfile(user: AuthUser) {
+    if (!user.staffId) {
+      throw new NotFoundException('No tienes un perfil de staff asociado.');
+    }
+
+    const staff = await this.prisma.staff.findFirst({
+      where: { id: user.staffId, tenantId: user.tenantId }
+    });
+
+    if (!staff) {
+      throw new NotFoundException('Perfil de staff no encontrado.');
+    }
+
+    return staff;
+  }
+
+  async updateMyProfile(user: AuthUser, dto: UpdateStaffProfileDto) {
+    if (!user.staffId) {
+      throw new NotFoundException('No tienes un perfil de staff asociado.');
+    }
+
+    const staff = await this.prisma.staff.findFirst({
+      where: { id: user.staffId, tenantId: user.tenantId }
+    });
+
+    if (!staff) {
+      throw new NotFoundException('Perfil de staff no encontrado.');
+    }
+
+    return this.prisma.staff.update({
+      where: { id: user.staffId },
+      data: dto
     });
   }
 

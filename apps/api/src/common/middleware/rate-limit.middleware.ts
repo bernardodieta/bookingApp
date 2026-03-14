@@ -50,6 +50,10 @@ export class RateLimitMiddleware implements NestMiddleware {
       };
     }
 
+    if (method === 'POST' && normalizedPath === '/public/plan-requests') {
+      return { key: 'public/plan-requests', ttlMs: 60_000, limit: 5 };
+    }
+
     return {
       key: req.baseUrl || req.path,
       ttlMs: this.ttlMs,

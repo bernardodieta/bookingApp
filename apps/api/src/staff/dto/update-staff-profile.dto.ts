@@ -1,17 +1,6 @@
-import { IsBoolean, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
-export class CreateStaffDto {
-  @IsString()
-  @IsNotEmpty()
-  fullName!: string;
-
-  @IsEmail()
-  email!: string;
-
-  @IsOptional()
-  @IsBoolean()
-  active?: boolean;
-
+export class UpdateStaffProfileDto {
   @IsOptional()
   @IsString()
   university?: string;

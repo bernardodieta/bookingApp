@@ -450,6 +450,20 @@ button:disabled {
   min-height: 90px;
 }
 
+/* Landing page */
+.landing-section { max-width: 1100px; margin: 0 auto; padding: 64px 24px; }
+.landing-hero { text-align: center; padding: 80px 24px 64px; }
+.landing-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+.landing-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.landing-pricing { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.landing-plan-card { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 28px 24px; display: grid; gap: 16px; }
+.landing-plan-card.recommended { border: 2px solid var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+
+@media (max-width: 768px) {
+  .landing-steps { grid-template-columns: 1fr; }
+  .landing-pricing { grid-template-columns: 1fr; }
+}
+
 .public-mobile-menu-btn,
 .public-sidebar-overlay,
 .public-mobile-cta {

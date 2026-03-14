@@ -169,6 +169,12 @@ model Staff {
   fullName               String
   email                  String
   active                 Boolean                 @default(true)
+  university             String?
+  degree                 String?
+  specialty              String?
+  bio                    String?
+  graduationYear         Int?
+  photoUrl               String?
   user                   User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
   tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   availabilityRules      AvailabilityRule[]
@@ -448,4 +454,28 @@ model CalendarEventLink {
   @@index([provider, syncStatus])
   @@unique([tenantId, bookingId, accountId])
   @@unique([accountId, provider, externalEventId])
+}
+
+enum PlanRequestStatus {
+  pending
+  contacted
+  converted
+  rejected
+}
+
+model PlanRequest {
+  id             String            @id @default(cuid())
+  name           String
+  email          String
+  phone          String?
+  businessName   String
+  requestedPlan  Plan
+  message        String?
+  status         PlanRequestStatus @default(pending)
+  notes          String?
+  createdAt      DateTime          @default(now())
+  respondedAt    DateTime?
+
+  @@index([status])
+  @@index([createdAt])
 }

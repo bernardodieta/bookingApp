@@ -5,6 +5,7 @@ import { Roles, RolesGuard } from '../common/guards/roles.guard';
 import { AuthUser } from '../common/types/auth-user.type';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
+import { UpdateStaffProfileDto } from './dto/update-staff-profile.dto';
 import { StaffService } from './staff.service';
 
 type RequestWithUser = Request & { user: AuthUser };
@@ -23,6 +24,18 @@ export class StaffController {
   @Get()
   list(@Req() req: RequestWithUser) {
     return this.staffService.list(req.user);
+  }
+
+  @Get('me')
+  @Roles('staff', 'owner')
+  getMyProfile(@Req() req: RequestWithUser) {
+    return this.staffService.getMyProfile(req.user);
+  }
+
+  @Patch('me')
+  @Roles('staff', 'owner')
+  updateMyProfile(@Req() req: RequestWithUser, @Body() body: UpdateStaffProfileDto) {
+    return this.staffService.updateMyProfile(req.user, body);
   }
 
   @Patch(':id')

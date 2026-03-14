@@ -36,17 +36,10 @@ declare global {
   }
 }
 
-type LoginMode = 'login' | 'register' | 'staff-register';
+type LoginMode = 'login' | 'staff-register';
 
 const loginSchema = z.object({
   apiUrl: z.string().url('API URL inválida.'),
-  email: z.string().trim().email('Email inválido.'),
-  password: z.string().min(8, 'Password debe tener al menos 8 caracteres.')
-});
-
-const registerSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  tenantName: z.string().trim().min(2, 'Nombre de negocio requerido.'),
   email: z.string().trim().email('Email inválido.'),
   password: z.string().min(8, 'Password debe tener al menos 8 caracteres.')
 });
@@ -76,7 +69,6 @@ export default function LoginPage() {
   const [apiUrl, setApiUrl] = useState('http://localhost:3001');
   const [email, setEmail] = useState('owner@demo.com');
   const [password, setPassword] = useState('Password123');
-  const [tenantName, setTenantName] = useState('Mi negocio');
   const [tenantSlug, setTenantSlug] = useState('');
   const [mode, setMode] = useState<LoginMode>('login');
   const [loading, setLoading] = useState(false);
@@ -113,7 +105,6 @@ export default function LoginPage() {
 
     const normalizedApiUrl = apiUrl.trim();
     const normalizedEmail = email.trim();
-    const normalizedTenantName = tenantName.trim();
     const normalizedTenantSlug = tenantSlug.trim();
 
     let endpoint = '/auth/login';
@@ -132,23 +123,6 @@ export default function LoginPage() {
         setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
         return;
       }
-    } else if (mode === 'register') {
-      const parsed = registerSchema.safeParse({
-        apiUrl: normalizedApiUrl,
-        tenantName: normalizedTenantName,
-        email: normalizedEmail,
-        password
-      });
-      if (!parsed.success) {
-        setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
-        return;
-      }
-      endpoint = '/auth/register';
-      requestBody = {
-        tenantName: normalizedTenantName,
-        email: normalizedEmail,
-        password
-      };
     } else {
       const parsed = staffRegisterSchema.safeParse({
         apiUrl: normalizedApiUrl,
@@ -294,19 +268,16 @@ export default function LoginPage() {
 
   const modeLabels: Record<LoginMode, string> = {
     login: 'Ya tengo cuenta',
-    register: 'Crear negocio',
     'staff-register': 'Soy staff'
   };
 
   const headingMap: Record<LoginMode, { title: string; subtitle: string }> = {
     login: { title: 'Acceso', subtitle: 'Inicia sesión en tu panel de gestión.' },
-    register: { title: 'Crear negocio', subtitle: 'Registra tu negocio y entra en un paso.' },
     'staff-register': { title: 'Registro de staff', subtitle: 'Regístrate como miembro del equipo.' }
   };
 
   const submitLabel: Record<LoginMode, { idle: string; loading: string }> = {
     login: { idle: 'Entrar', loading: 'Ingresando...' },
-    register: { idle: 'Registrar y entrar', loading: 'Registrando...' },
     'staff-register': { idle: 'Registrarme como staff', loading: 'Registrando...' }
   };
 
@@ -357,7 +328,7 @@ export default function LoginPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr 1fr',
+              gridTemplateColumns: '1fr 1fr',
               borderRadius: 8,
               background: 'var(--surface-muted, #f1f5f9)',
               border: '1px solid var(--border, #e2e8f0)',
@@ -365,7 +336,7 @@ export default function LoginPage() {
               gap: 2
             }}
           >
-            {(['login', 'register', 'staff-register'] as const).map((m) => (
+            {(['login', 'staff-register'] as const).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -396,13 +367,6 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={onSubmit} style={{ display: 'grid', gap: 14 }}>
-            {mode === 'register' ? (
-              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
-                Nombre del negocio
-                <input value={tenantName} onChange={(e) => setTenantName(e.target.value)} style={{ width: '100%' }} placeholder="Mi negocio" />
-              </label>
-            ) : null}
-
             {mode === 'staff-register' ? (
               <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
                 Identificador del negocio (slug)

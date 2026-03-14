@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import * as crypto from 'node:crypto';
-import { Plan } from '@prisma/client';
+import { Plan, PlanRequestStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminCreateTenantDto } from './dto/admin-create-tenant.dto';
+import { UpdatePlanRequestDto } from './dto/update-plan-request.dto';
 
 @Injectable()
 export class AdminService {
@@ -116,6 +117,33 @@ export class AdminService {
     }
     await this.prisma.tenant.delete({ where: { id: tenantId } });
     return { deleted: true, name: tenant.name };
+  }
+
+  async listPlanRequests(status?: PlanRequestStatus) {
+    return this.prisma.planRequest.findMany({
+      where: status ? { status } : undefined,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async updatePlanRequest(id: string, dto: UpdatePlanRequestDto) {
+    const existing = await this.prisma.planRequest.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('Solicitud no encontrada.');
+    }
+
+    const data: Record<string, unknown> = {};
+    if (dto.status !== undefined) {
+      data.status = dto.status;
+      if (existing.status === 'pending' && dto.status !== 'pending') {
+        data.respondedAt = new Date();
+      }
+    }
+    if (dto.notes !== undefined) {
+      data.notes = dto.notes;
+    }
+
+    return this.prisma.planRequest.update({ where: { id }, data });
   }
 
   private hashPassword(password: string) {

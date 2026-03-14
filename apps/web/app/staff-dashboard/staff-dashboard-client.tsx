@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, LogOut, Link as LinkIcon } from 'lucide-react';
+import { CalendarDays, LogOut, Link as LinkIcon, UserCircle } from 'lucide-react';
 import { StaffBookingsSection } from './components/staff-bookings-section';
 import { StaffCalendarSection } from './components/staff-calendar-section';
+import { StaffProfileSection } from './components/staff-profile-section';
 
 const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
 const ROLE_KEY = 'apoint.dashboard.role';
 
-type ActiveTab = 'bookings' | 'calendar';
+type ActiveTab = 'bookings' | 'calendar' | 'profile';
 
 export default function StaffDashboardClient() {
   const router = useRouter();
@@ -63,104 +64,93 @@ export default function StaffDashboardClient() {
 
   if (!token) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#64748b' }}>Cargando...</p>
-      </div>
+      <main className="dashboard-layout">
+        <section className="dashboard-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+          <p style={{ color: '#64748b' }}>Cargando...</p>
+        </section>
+      </main>
     );
   }
 
-  const tabs: Array<{ key: ActiveTab; label: string; icon: React.ReactNode }> = [
-    { key: 'bookings', label: 'Mis Citas', icon: <CalendarDays size={16} /> },
-    { key: 'calendar', label: 'Mi Calendario', icon: <LinkIcon size={16} /> }
-  ];
-
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg, #f6f8fc)' }}>
-      {/* Header */}
-      <header
-        style={{
-          background: 'var(--surface, #fff)',
-          borderBottom: '1px solid var(--border, #e2e8f0)',
-          padding: '12px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              background: 'var(--primary, #2563eb)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff'
-            }}
-          >
+    <main className="dashboard-layout">
+      <aside className="dashboard-sidebar surface">
+        <div className="sidebar-brand">
+          <div className="sidebar-logo">
             <CalendarDays size={18} />
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Panel de Staff</h1>
-            <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>{staffName}</p>
+            <div style={{ fontWeight: 700 }}>Panel de Staff</div>
+            <div style={{ fontSize: 12, color: '#64748b' }}>{staffName}</div>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="btn btn-ghost"
-          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}
-        >
-          <LogOut size={14} />
-          Cerrar sesión
-        </button>
-      </header>
-
-      {/* Tab bar */}
-      <nav
-        style={{
-          background: 'var(--surface, #fff)',
-          borderBottom: '1px solid var(--border, #e2e8f0)',
-          padding: '0 24px',
-          display: 'flex',
-          gap: 4
-        }}
-      >
-        {tabs.map((tab) => (
+        <nav className="sidebar-nav">
           <button
-            key={tab.key}
             type="button"
-            onClick={() => setActiveTab(tab.key)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '12px 16px',
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              fontSize: 14,
-              fontWeight: activeTab === tab.key ? 600 : 400,
-              color: activeTab === tab.key ? 'var(--primary, #2563eb)' : '#64748b',
-              borderBottom: activeTab === tab.key ? '2px solid var(--primary, #2563eb)' : '2px solid transparent',
-              transition: 'all 0.15s'
-            }}
+            className={`sidebar-item ${activeTab === 'bookings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('bookings')}
           >
-            {tab.icon}
-            {tab.label}
+            <CalendarDays size={16} />
+            <span>Mis Citas</span>
           </button>
-        ))}
-      </nav>
 
-      {/* Content */}
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '24px 16px' }}>
-        {activeTab === 'bookings' && <StaffBookingsSection apiUrl={apiUrl} token={token} />}
-        {activeTab === 'calendar' && <StaffCalendarSection apiUrl={apiUrl} token={token} />}
-      </main>
-    </div>
+          <button
+            type="button"
+            className={`sidebar-item ${activeTab === 'calendar' ? 'active' : ''}`}
+            onClick={() => setActiveTab('calendar')}
+          >
+            <LinkIcon size={16} />
+            <span>Mi Calendario</span>
+          </button>
+
+          <button
+            type="button"
+            className={`sidebar-item ${activeTab === 'profile' ? 'active' : ''}`}
+            onClick={() => setActiveTab('profile')}
+          >
+            <UserCircle size={16} />
+            <span>Mi Perfil</span>
+          </button>
+
+          <button
+            type="button"
+            className="sidebar-item"
+            onClick={handleLogout}
+            style={{ marginTop: 'auto', color: '#ef4444' }}
+          >
+            <LogOut size={16} />
+            <span>Cerrar sesión</span>
+          </button>
+        </nav>
+      </aside>
+
+      <section className="dashboard-main">
+        <header className="dashboard-topbar surface">
+          <div className="topbar-left">
+            <div className="topbar-logo">
+              <CalendarDays size={16} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700 }}>Panel de Staff</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>{staffName}</div>
+            </div>
+          </div>
+
+          <div className="topbar-right">
+            <button type="button" onClick={handleLogout} className="btn btn-ghost">
+              <LogOut size={16} />
+              Cerrar sesión
+            </button>
+          </div>
+        </header>
+
+        <div className="dashboard-content">
+          {activeTab === 'bookings' && <StaffBookingsSection apiUrl={apiUrl} token={token} />}
+          {activeTab === 'calendar' && <StaffCalendarSection apiUrl={apiUrl} token={token} />}
+          {activeTab === 'profile' && <StaffProfileSection apiUrl={apiUrl} token={token} />}
+        </div>
+      </section>
+    </main>
   );
 }

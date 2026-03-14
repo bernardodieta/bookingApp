@@ -31,6 +31,12 @@ type ServiceItem = {
 type StaffItem = {
   id: string;
   fullName: string;
+  specialty?: string;
+  degree?: string;
+  university?: string;
+  graduationYear?: number;
+  bio?: string;
+  photoUrl?: string;
 };
 
 type FormField = {
@@ -723,33 +729,120 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
 
             {activeView === 'schedule' ? (
               <section style={{ display: 'grid', gap: 12 }}>
-                <div className="panel" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-                  <label>
-                    {t.service}
-                    <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} style={{ width: '100%' }}>
-                      <option value="">{t.select}</option>
-                      {services.map((entry) => (
-                        <option key={entry.id} value={entry.id}>
-                          {entry.name} ({entry.durationMinutes} min)
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    {t.professional}
-                    <select value={staffId} onChange={(e) => setStaffId(e.target.value)} style={{ width: '100%' }}>
-                      <option value="">{t.select}</option>
-                      {staff.map((entry) => (
-                        <option key={entry.id} value={entry.id}>
-                          {entry.fullName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    {t.date}
-                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '100%' }} />
-                  </label>
+                <div className="panel" style={{ display: 'grid', gap: 12 }}>
+                  <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                    <label>
+                      {t.service}
+                      <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} style={{ width: '100%' }}>
+                        <option value="">{t.select}</option>
+                        {services.map((entry) => (
+                          <option key={entry.id} value={entry.id}>
+                            {entry.name} ({entry.durationMinutes} min)
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      {t.date}
+                      <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '100%' }} />
+                    </label>
+                  </div>
+
+                  {staff.length > 1 ? (
+                    <div>
+                      <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 14 }}>{t.professional}</div>
+                      <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+                        {staff.map((entry) => {
+                          const isSelected = staffId === entry.id;
+                          const initials = entry.fullName
+                            .split(' ')
+                            .map((w) => w[0])
+                            .join('')
+                            .toUpperCase()
+                            .slice(0, 2);
+                          return (
+                            <button
+                              key={entry.id}
+                              type="button"
+                              onClick={() => setStaffId(entry.id)}
+                              aria-pressed={isSelected}
+                              style={{
+                                display: 'flex',
+                                gap: 12,
+                                alignItems: 'flex-start',
+                                padding: 14,
+                                borderRadius: 10,
+                                border: isSelected ? `2px solid ${brandPrimary}` : '1px solid var(--border)',
+                                background: isSelected ? brandTint : 'var(--surface)',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'border-color 0.15s, background 0.15s'
+                              }}
+                            >
+                              {entry.photoUrl ? (
+                                <img
+                                  src={entry.photoUrl}
+                                  alt={entry.fullName}
+                                  style={{
+                                    width: 48,
+                                    height: 48,
+                                    borderRadius: '50%',
+                                    objectFit: 'cover',
+                                    flexShrink: 0
+                                  }}
+                                />
+                              ) : (
+                                <div
+                                  style={{
+                                    width: 48,
+                                    height: 48,
+                                    borderRadius: '50%',
+                                    background: isSelected ? brandPrimary : '#e2e8f0',
+                                    color: isSelected ? '#fff' : '#64748b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontWeight: 700,
+                                    fontSize: 16,
+                                    flexShrink: 0
+                                  }}
+                                >
+                                  {initials}
+                                </div>
+                              )}
+                              <div style={{ display: 'grid', gap: 2, minWidth: 0 }}>
+                                <div style={{ fontWeight: 600, fontSize: 14 }}>{entry.fullName}</div>
+                                {entry.specialty ? (
+                                  <div style={{ fontSize: 12, color: brandPrimary, fontWeight: 500 }}>{entry.specialty}</div>
+                                ) : null}
+                                {entry.degree || entry.university ? (
+                                  <div style={{ fontSize: 12, color: '#64748b' }}>
+                                    {[entry.degree, entry.university].filter(Boolean).join(' · ')}
+                                    {entry.graduationYear ? ` (${entry.graduationYear})` : ''}
+                                  </div>
+                                ) : null}
+                                {entry.bio ? (
+                                  <div
+                                    style={{
+                                      fontSize: 12,
+                                      color: '#475569',
+                                      marginTop: 2,
+                                      overflow: 'hidden',
+                                      display: '-webkit-box',
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: 'vertical'
+                                    }}
+                                  >
+                                    {entry.bio}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="panel" style={{ display: 'grid', gap: 10 }}>

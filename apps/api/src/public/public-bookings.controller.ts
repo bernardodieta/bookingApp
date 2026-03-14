@@ -143,6 +143,16 @@ export class PublicBookingsController {
         tenantId: tenant.id,
         active: true
       },
+      select: {
+        id: true,
+        fullName: true,
+        specialty: true,
+        degree: true,
+        university: true,
+        graduationYear: true,
+        bio: true,
+        photoUrl: true
+      },
       orderBy: { createdAt: 'asc' }
     });
   }

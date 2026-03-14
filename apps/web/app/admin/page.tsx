@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { Building2, ClipboardList, Inbox, LogOut, Shield } from 'lucide-react';
 
 type Tenant = {
   id: string;
@@ -26,7 +27,28 @@ type AuditEntry = {
   actorUserId: string | null;
 };
 
-type ActiveView = 'tenants' | 'audit';
+type PlanRequest = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  businessName: string;
+  requestedPlan: 'free' | 'pro' | 'business';
+  message: string | null;
+  status: 'pending' | 'contacted' | 'converted' | 'rejected';
+  notes: string | null;
+  createdAt: string;
+  respondedAt: string | null;
+};
+
+const STATUS_META: Record<PlanRequest['status'], { label: string; color: string; bg: string }> = {
+  pending:   { label: 'Pendiente',   color: '#b45309', bg: '#fffbeb' },
+  contacted: { label: 'Contactado',  color: '#2563eb', bg: '#eff6ff' },
+  converted: { label: 'Convertido',  color: '#15803d', bg: '#f0fdf4' },
+  rejected:  { label: 'Rechazado',   color: '#b91c1c', bg: '#fef2f2' },
+};
+
+type ActiveView = 'tenants' | 'audit' | 'plan-requests';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -64,6 +86,13 @@ export default function SuperAdminPage() {
   const [newPlan, setNewPlan] = useState<Tenant['plan']>('free');
   const [customDomain, setCustomDomain] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // Plan requests state
+  const [planRequests, setPlanRequests] = useState<PlanRequest[]>([]);
+  const [prLoading, setPrLoading] = useState(false);
+  const [prError, setPrError] = useState('');
+  const [prFilter, setPrFilter] = useState<PlanRequest['status'] | ''>('');
+  const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
 
   // Audit state
   const [auditTenantId, setAuditTenantId] = useState('');
@@ -210,6 +239,38 @@ export default function SuperAdminPage() {
     }
   }
 
+  async function loadPlanRequests(status?: string) {
+    setPrLoading(true);
+    setPrError('');
+    try {
+      const url = new URL('/admin/plan-requests', API_BASE);
+      if (status) url.searchParams.set('status', status);
+      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${secret}` } });
+      if (!res.ok) throw new Error(await res.text() || `Error ${res.status}`);
+      setPlanRequests(await res.json() as PlanRequest[]);
+    } catch (err) {
+      setPrError(err instanceof Error ? err.message : 'Error al cargar solicitudes');
+    } finally {
+      setPrLoading(false);
+    }
+  }
+
+  async function updatePlanRequest(id: string, data: { status?: PlanRequest['status']; notes?: string }) {
+    setPrError('');
+    try {
+      const res = await fetch(`${API_BASE}/admin/plan-requests/${id}`, {
+        method: 'PATCH',
+        headers: headers(),
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await res.text() || `Error ${res.status}`);
+      const updated = await res.json() as PlanRequest;
+      setPlanRequests((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    } catch (err) {
+      setPrError(err instanceof Error ? err.message : 'Error al actualizar solicitud');
+    }
+  }
+
   useEffect(() => {
     if (!authed || !secret) return;
     const interval = setInterval(() => { void loadTenants(secret); }, 30_000);
@@ -222,7 +283,9 @@ export default function SuperAdminPage() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg, #f6f8fc)', padding: 24 }}>
         <div className="panel" style={{ width: '100%', maxWidth: 380, display: 'grid', gap: 20, padding: 32 }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🔐</div>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+              <Shield size={24} />
+            </div>
             <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Super Admin</h1>
             <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b' }}>Panel de administración de tenants</p>
           </div>
@@ -254,8 +317,8 @@ export default function SuperAdminPage() {
       {/* Sidebar */}
       <aside className="dashboard-sidebar surface">
         <div className="sidebar-brand">
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16 }}>
-            🔐
+          <div className="sidebar-logo" style={{ background: '#eaf1ff', color: '#1d4ed8' }}>
+            <Shield size={18} />
           </div>
           <div>
             <div style={{ fontWeight: 700 }}>Super Admin</div>
@@ -269,15 +332,23 @@ export default function SuperAdminPage() {
             className={`sidebar-item ${activeView === 'tenants' ? 'active' : ''}`}
             onClick={() => setActiveView('tenants')}
           >
-            <span style={{ fontSize: 14 }}>🏢</span>
+            <Building2 size={16} />
             <span>Tenants</span>
+          </button>
+          <button
+            type="button"
+            className={`sidebar-item ${activeView === 'plan-requests' ? 'active' : ''}`}
+            onClick={() => { setActiveView('plan-requests'); void loadPlanRequests(); }}
+          >
+            <Inbox size={16} />
+            <span>Solicitudes</span>
           </button>
           <button
             type="button"
             className={`sidebar-item ${activeView === 'audit' ? 'active' : ''}`}
             onClick={() => setActiveView('audit')}
           >
-            <span style={{ fontSize: 14 }}>📋</span>
+            <ClipboardList size={16} />
             <span>Auditoría</span>
           </button>
         </nav>
@@ -289,7 +360,7 @@ export default function SuperAdminPage() {
             onClick={() => { setAuthed(false); setSecret(''); setTenants([]); }}
             style={{ width: '100%', color: '#dc2626' }}
           >
-            <span style={{ fontSize: 14 }}>↩</span>
+            <LogOut size={16} />
             <span>Cerrar sesión</span>
           </button>
         </div>
@@ -297,6 +368,23 @@ export default function SuperAdminPage() {
 
       {/* Main content */}
       <section className="dashboard-main">
+        <header className="dashboard-topbar surface">
+          <div className="topbar-left">
+            <div className="topbar-logo" style={{ background: '#eaf1ff', color: '#1d4ed8' }}>
+              <Shield size={16} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700 }}>Super Admin</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>Gestión de plataforma</div>
+            </div>
+          </div>
+          <div className="topbar-right">
+            <button type="button" onClick={() => { setAuthed(false); setSecret(''); setTenants([]); }} className="btn btn-ghost">
+              <LogOut size={16} />
+              Cerrar sesión
+            </button>
+          </div>
+        </header>
         <div style={{ maxWidth: 1100, padding: '28px 24px' }}>
 
           {/* ── TENANTS VIEW ── */}
@@ -444,6 +532,115 @@ export default function SuperAdminPage() {
                 </div>
               </section>
             </>
+          ) : null}
+
+          {/* ── PLAN REQUESTS VIEW ── */}
+          {activeView === 'plan-requests' ? (
+            <section className="section-block">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+                <div>
+                  <h2 className="section-title" style={{ margin: 0 }}>Solicitudes de plan</h2>
+                  <p className="section-subtitle" style={{ margin: '4px 0 0' }}>{planRequests.length} solicitudes</p>
+                </div>
+                <button type="button" onClick={() => void loadPlanRequests(prFilter || undefined)} disabled={prLoading} className="btn btn-ghost">
+                  {prLoading ? '...' : '↻ Recargar'}
+                </button>
+              </div>
+
+              {/* Status filter tabs */}
+              <div className="tabbar">
+                {([['', 'Todas'], ['pending', 'Pendientes'], ['contacted', 'Contactadas'], ['converted', 'Convertidas'], ['rejected', 'Rechazadas']] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    className={`tab-btn ${prFilter === val ? 'active' : ''}`}
+                    onClick={() => { setPrFilter(val as PlanRequest['status'] | ''); void loadPlanRequests(val || undefined); }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {prError ? <div className="panel" style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', fontSize: 13, marginBottom: 12 }}>{prError}</div> : null}
+
+              <div className="panel table-wrap" style={{ padding: 0 }}>
+                <table className="table-base">
+                  <thead>
+                    <tr>
+                      {['Fecha', 'Nombre', 'Email', 'Teléfono', 'Negocio', 'Plan', 'Estado', 'Notas', 'Acciones'].map((h) => (
+                        <th key={h}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {planRequests.map((r) => {
+                      const sm = STATUS_META[r.status];
+                      return (
+                        <tr key={r.id}>
+                          <td style={{ whiteSpace: 'nowrap', fontSize: 12, color: '#64748b' }}>{new Date(r.createdAt).toLocaleDateString('es-MX')}</td>
+                          <td style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</td>
+                          <td style={{ fontSize: 12, color: '#64748b' }}>{r.email}</td>
+                          <td style={{ fontSize: 12, color: '#64748b' }}>{r.phone ?? '—'}</td>
+                          <td style={{ fontSize: 13 }}>{r.businessName}</td>
+                          <td><PlanBadge plan={r.requestedPlan} /></td>
+                          <td>
+                            <select
+                              value={r.status}
+                              onChange={(e) => void updatePlanRequest(r.id, { status: e.target.value as PlanRequest['status'] })}
+                              style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--border)', background: sm.bg, color: sm.color, fontWeight: 700 }}
+                            >
+                              <option value="pending">Pendiente</option>
+                              <option value="contacted">Contactado</option>
+                              <option value="converted">Convertido</option>
+                              <option value="rejected">Rechazado</option>
+                            </select>
+                          </td>
+                          <td>
+                            <input
+                              value={editingNotes[r.id] ?? r.notes ?? ''}
+                              onChange={(e) => setEditingNotes((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                              placeholder="Notas..."
+                              style={{ fontSize: 12, padding: '4px 6px', width: 140 }}
+                            />
+                          </td>
+                          <td>
+                            {editingNotes[r.id] !== undefined && editingNotes[r.id] !== (r.notes ?? '') ? (
+                              <button
+                                type="button"
+                                className="btn btn-primary"
+                                style={{ fontSize: 11, padding: '4px 10px' }}
+                                onClick={() => {
+                                  void updatePlanRequest(r.id, { notes: editingNotes[r.id] });
+                                  setEditingNotes((prev) => { const n = { ...prev }; delete n[r.id]; return n; });
+                                }}
+                              >
+                                Guardar
+                              </button>
+                            ) : null}
+                            {r.message ? (
+                              <button
+                                type="button"
+                                className="btn btn-ghost"
+                                style={{ fontSize: 11, padding: '4px 8px', marginLeft: 4 }}
+                                title={r.message}
+                                onClick={() => window.alert(`Mensaje:\n${r.message}`)}
+                              >
+                                Ver msg
+                              </button>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {!planRequests.length && !prLoading ? (
+                  <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8' }}>
+                    No hay solicitudes.
+                  </div>
+                ) : null}
+              </div>
+            </section>
           ) : null}
 
           {/* ── AUDIT VIEW ── */}

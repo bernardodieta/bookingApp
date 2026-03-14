@@ -10,6 +10,12 @@ type StaffRecord = {
   active: boolean;
   userId: string | null;
   createdAt: string;
+  university?: string | null;
+  degree?: string | null;
+  specialty?: string | null;
+  bio?: string | null;
+  graduationYear?: number | null;
+  photoUrl?: string | null;
 };
 
 type StaffManagementSectionProps = {
@@ -29,6 +35,12 @@ export function StaffManagementSection({ apiUrl, token, onStaffChanged }: StaffM
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editActive, setEditActive] = useState(true);
+  const [editSpecialty, setEditSpecialty] = useState('');
+  const [editDegree, setEditDegree] = useState('');
+  const [editUniversity, setEditUniversity] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editGraduationYear, setEditGraduationYear] = useState('');
+  const [editPhotoUrl, setEditPhotoUrl] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
 
@@ -65,6 +77,12 @@ export function StaffManagementSection({ apiUrl, token, onStaffChanged }: StaffM
     setEditName(member.fullName);
     setEditEmail(member.email);
     setEditActive(member.active);
+    setEditSpecialty(member.specialty ?? '');
+    setEditDegree(member.degree ?? '');
+    setEditUniversity(member.university ?? '');
+    setEditBio(member.bio ?? '');
+    setEditGraduationYear(member.graduationYear ? String(member.graduationYear) : '');
+    setEditPhotoUrl(member.photoUrl ?? '');
     setEditError('');
   }
 
@@ -73,6 +91,12 @@ export function StaffManagementSection({ apiUrl, token, onStaffChanged }: StaffM
     setEditName('');
     setEditEmail('');
     setEditActive(true);
+    setEditSpecialty('');
+    setEditDegree('');
+    setEditUniversity('');
+    setEditBio('');
+    setEditGraduationYear('');
+    setEditPhotoUrl('');
     setEditError('');
   }
 
@@ -87,7 +111,13 @@ export function StaffManagementSection({ apiUrl, token, onStaffChanged }: StaffM
         body: JSON.stringify({
           fullName: editName.trim(),
           email: editEmail.trim(),
-          active: editActive
+          active: editActive,
+          specialty: editSpecialty.trim() || null,
+          degree: editDegree.trim() || null,
+          university: editUniversity.trim() || null,
+          bio: editBio.trim() || null,
+          graduationYear: editGraduationYear.trim() ? Number(editGraduationYear) : null,
+          photoUrl: editPhotoUrl.trim() || null
         })
       });
       if (!res.ok) {
@@ -191,6 +221,7 @@ export function StaffManagementSection({ apiUrl, token, onStaffChanged }: StaffM
               <tr>
                 <th>Nombre</th>
                 <th>Email</th>
+                <th>Especialidad</th>
                 <th>Estado</th>
                 <th>Cuenta</th>
                 <th>Acciones</th>
@@ -201,60 +232,123 @@ export function StaffManagementSection({ apiUrl, token, onStaffChanged }: StaffM
                 <tr key={member.id}>
                   {editId === member.id ? (
                     <>
-                      <td>
-                        <input
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          style={{ width: '100%', minWidth: 120 }}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="email"
-                          value={editEmail}
-                          onChange={(e) => setEditEmail(e.target.value)}
-                          style={{ width: '100%', minWidth: 140 }}
-                        />
-                      </td>
-                      <td>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-                          <input
-                            type="checkbox"
-                            checked={editActive}
-                            onChange={(e) => setEditActive(e.target.checked)}
-                          />
-                          {editActive ? 'Activo' : 'Inactivo'}
-                        </label>
-                      </td>
-                      <td style={{ fontSize: 12, color: '#94a3b8' }}>—</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            disabled={editLoading || !editName.trim() || !editEmail.trim()}
-                            onClick={handleSaveEdit}
-                            style={{ fontSize: 12 }}
-                          >
-                            {editLoading ? 'Guardando...' : 'Guardar'}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-ghost"
-                            disabled={editLoading}
-                            onClick={cancelEdit}
-                            style={{ fontSize: 12 }}
-                          >
-                            Cancelar
-                          </button>
+                      <td colSpan={6}>
+                        <div style={{ display: 'grid', gap: 10, padding: '8px 0' }}>
+                          <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+                            <label style={{ fontSize: 12 }}>
+                              Nombre
+                              <input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                style={{ width: '100%' }}
+                              />
+                            </label>
+                            <label style={{ fontSize: 12 }}>
+                              Email
+                              <input
+                                type="email"
+                                value={editEmail}
+                                onChange={(e) => setEditEmail(e.target.value)}
+                                style={{ width: '100%' }}
+                              />
+                            </label>
+                            <label style={{ fontSize: 12 }}>
+                              Especialidad
+                              <input
+                                value={editSpecialty}
+                                onChange={(e) => setEditSpecialty(e.target.value)}
+                                placeholder="Ej: Dermatología"
+                                style={{ width: '100%' }}
+                              />
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, alignSelf: 'end', paddingBottom: 6 }}>
+                              <input
+                                type="checkbox"
+                                checked={editActive}
+                                onChange={(e) => setEditActive(e.target.checked)}
+                              />
+                              {editActive ? 'Activo' : 'Inactivo'}
+                            </label>
+                          </div>
+                          <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+                            <label style={{ fontSize: 12 }}>
+                              Título / Grado
+                              <input
+                                value={editDegree}
+                                onChange={(e) => setEditDegree(e.target.value)}
+                                placeholder="Ej: Lic. en Medicina"
+                                style={{ width: '100%' }}
+                              />
+                            </label>
+                            <label style={{ fontSize: 12 }}>
+                              Universidad
+                              <input
+                                value={editUniversity}
+                                onChange={(e) => setEditUniversity(e.target.value)}
+                                placeholder="Ej: UNAM"
+                                style={{ width: '100%' }}
+                              />
+                            </label>
+                            <label style={{ fontSize: 12 }}>
+                              Año de graduación
+                              <input
+                                type="number"
+                                value={editGraduationYear}
+                                onChange={(e) => setEditGraduationYear(e.target.value)}
+                                placeholder="Ej: 2018"
+                                min={1950}
+                                style={{ width: '100%' }}
+                              />
+                            </label>
+                            <label style={{ fontSize: 12 }}>
+                              URL de foto
+                              <input
+                                value={editPhotoUrl}
+                                onChange={(e) => setEditPhotoUrl(e.target.value)}
+                                placeholder="https://..."
+                                style={{ width: '100%' }}
+                              />
+                            </label>
+                          </div>
+                          <label style={{ fontSize: 12 }}>
+                            Bio
+                            <textarea
+                              value={editBio}
+                              onChange={(e) => setEditBio(e.target.value)}
+                              placeholder="Breve descripción profesional..."
+                              maxLength={500}
+                              style={{ width: '100%', minHeight: 60 }}
+                            />
+                          </label>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              disabled={editLoading || !editName.trim() || !editEmail.trim()}
+                              onClick={handleSaveEdit}
+                              style={{ fontSize: 12 }}
+                            >
+                              {editLoading ? 'Guardando...' : 'Guardar'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              disabled={editLoading}
+                              onClick={cancelEdit}
+                              style={{ fontSize: 12 }}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                          {editError && <div style={{ color: '#991b1b', fontSize: 11 }}>{editError}</div>}
                         </div>
-                        {editError && <div style={{ color: '#991b1b', fontSize: 11, marginTop: 4 }}>{editError}</div>}
                       </td>
                     </>
                   ) : (
                     <>
                       <td style={{ fontWeight: 500 }}>{member.fullName}</td>
                       <td style={{ fontSize: 13 }}>{member.email}</td>
+                      <td style={{ fontSize: 13, color: '#64748b' }}>{member.specialty || '—'}</td>
                       <td>
                         <span
                           style={{
@@ -306,7 +400,7 @@ export function StaffManagementSection({ apiUrl, token, onStaffChanged }: StaffM
               ))}
               {!staff.length && !loading ? (
                 <tr>
-                  <td colSpan={5} className="table-empty">
+                  <td colSpan={6} className="table-empty">
                     No hay miembros de staff. Crea uno desde Operaciones &gt; Crear staff.
                   </td>
                 </tr>
