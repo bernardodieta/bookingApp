@@ -4,6 +4,8 @@ import { CustomerPortalService } from './customer-portal.service';
 import { RegisterCustomerAccountDto } from './dto/register-customer-account.dto';
 import { LoginCustomerAccountDto } from './dto/login-customer-account.dto';
 import { GoogleCustomerLoginDto } from './dto/google-customer-login.dto';
+import { UnifiedLoginDto } from './dto/unified-login.dto';
+import { UnifiedRegisterDto } from './dto/unified-register.dto';
 import { CustomerPortalAuthGuard } from './customer-portal-auth.guard';
 import { CustomerPortalAuthUser } from './customer-portal-auth-user.type';
 import { ConfirmClaimCodeDto } from './dto/confirm-claim-code.dto';
@@ -36,6 +38,30 @@ export class CustomerPortalController {
     @Body() body: GoogleCustomerLoginDto
   ) {
     return this.customerPortalService.loginWithGoogle(slugOrDomain, body);
+  }
+
+  @Post('unified-login')
+  unifiedLogin(
+    @Param('slugOrDomain') slugOrDomain: string,
+    @Body() body: UnifiedLoginDto
+  ) {
+    return this.customerPortalService.unifiedLogin(slugOrDomain, body);
+  }
+
+  @Post('unified-google')
+  unifiedLoginWithGoogle(
+    @Param('slugOrDomain') slugOrDomain: string,
+    @Body() body: GoogleCustomerLoginDto
+  ) {
+    return this.customerPortalService.unifiedLoginWithGoogle(slugOrDomain, body);
+  }
+
+  @Post('unified-register')
+  unifiedRegister(
+    @Param('slugOrDomain') slugOrDomain: string,
+    @Body() body: UnifiedRegisterDto
+  ) {
+    return this.customerPortalService.unifiedRegister(slugOrDomain, body);
   }
 
   @Get('me')

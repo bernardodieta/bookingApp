@@ -15,6 +15,8 @@ type CustomerPortalAuthResponse = {
   accessToken: string;
   tokenType: string;
   expiresIn: string;
+  loginType?: 'staff' | 'customer';
+  user?: { sub?: string; tenantId?: string; email?: string; role?: string; staffId?: string };
 };
 
 type BookingItem = {
@@ -70,6 +72,17 @@ type PortalView = 'bookings' | 'waitlist' | 'more' | 'booking';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 const TODAY = new Date().toISOString().slice(0, 10);
+
+const DASHBOARD_TOKEN_KEY = 'apoint.dashboard.token';
+const DASHBOARD_API_URL_KEY = 'apoint.dashboard.apiUrl';
+const DASHBOARD_ROLE_KEY = 'apoint.dashboard.role';
+
+function handleStaffRedirect(payload: CustomerPortalAuthResponse) {
+  localStorage.setItem(DASHBOARD_TOKEN_KEY, payload.accessToken);
+  localStorage.setItem(DASHBOARD_API_URL_KEY, API_BASE);
+  localStorage.setItem(DASHBOARD_ROLE_KEY, 'staff');
+  window.location.href = '/staff-dashboard';
+}
 
 const bookingFormSchema = z.object({
   serviceId: z.string().min(1, 'Selecciona un servicio.'),
@@ -422,7 +435,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
     setLoading(true);
 
     try {
-      const response = await fetch(new URL(`/public/${params.slug}/customer-portal/register`, apiBase).toString(), {
+      const response = await fetch(new URL(`/public/${params.slug}/customer-portal/unified-register`, apiBase).toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -438,6 +451,12 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       }
 
       const payload = (await response.json()) as CustomerPortalAuthResponse;
+
+      if (payload.loginType === 'staff') {
+        handleStaffRedirect(payload);
+        return;
+      }
+
       setToken(payload.accessToken);
       setSuccess(copy.registerSuccess);
       await loadPortalData(payload.accessToken);
@@ -462,7 +481,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
     setLoading(true);
 
     try {
-      const response = await fetch(new URL(`/public/${params.slug}/customer-portal/login`, apiBase).toString(), {
+      const response = await fetch(new URL(`/public/${params.slug}/customer-portal/unified-login`, apiBase).toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -474,6 +493,12 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       }
 
       const payload = (await response.json()) as CustomerPortalAuthResponse;
+
+      if (payload.loginType === 'staff') {
+        handleStaffRedirect(payload);
+        return;
+      }
+
       setToken(payload.accessToken);
       setSuccess(copy.loginSuccess);
       await loadPortalData(payload.accessToken);
@@ -532,7 +557,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
     setGoogleLoading(true);
 
     try {
-      const response = await fetch(new URL(`/public/${params.slug}/customer-portal/google`, apiBase).toString(), {
+      const response = await fetch(new URL(`/public/${params.slug}/customer-portal/unified-google`, apiBase).toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken })
@@ -544,6 +569,12 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       }
 
       const payload = (await response.json()) as CustomerPortalAuthResponse;
+
+      if (payload.loginType === 'staff') {
+        handleStaffRedirect(payload);
+        return;
+      }
+
       setToken(payload.accessToken);
       setSuccess(copy.googleSuccess);
       await loadPortalData(payload.accessToken);

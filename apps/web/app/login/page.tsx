@@ -36,17 +36,8 @@ declare global {
   }
 }
 
-type LoginMode = 'login' | 'staff-register';
-
 const loginSchema = z.object({
   apiUrl: z.string().url('API URL inválida.'),
-  email: z.string().trim().email('Email inválido.'),
-  password: z.string().min(8, 'Password debe tener al menos 8 caracteres.')
-});
-
-const staffRegisterSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  tenantSlug: z.string().trim().min(1, 'Identificador del negocio requerido.'),
   email: z.string().trim().email('Email inválido.'),
   password: z.string().min(8, 'Password debe tener al menos 8 caracteres.')
 });
@@ -69,14 +60,11 @@ export default function LoginPage() {
   const [apiUrl, setApiUrl] = useState('http://localhost:3001');
   const [email, setEmail] = useState('owner@demo.com');
   const [password, setPassword] = useState('Password123');
-  const [tenantSlug, setTenantSlug] = useState('');
-  const [mode, setMode] = useState<LoginMode>('login');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
-  const [googleInitKey, setGoogleInitKey] = useState(0);
   const [googleButtonNode, setGoogleButtonNode] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -105,52 +93,29 @@ export default function LoginPage() {
 
     const normalizedApiUrl = apiUrl.trim();
     const normalizedEmail = email.trim();
-    const normalizedTenantSlug = tenantSlug.trim();
 
-    let endpoint = '/auth/login';
-    let requestBody: Record<string, string> = {
+    const parsed = loginSchema.safeParse({
+      apiUrl: normalizedApiUrl,
       email: normalizedEmail,
       password
-    };
-
-    if (mode === 'login') {
-      const parsed = loginSchema.safeParse({
-        apiUrl: normalizedApiUrl,
-        email: normalizedEmail,
-        password
-      });
-      if (!parsed.success) {
-        setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
-        return;
-      }
-    } else {
-      const parsed = staffRegisterSchema.safeParse({
-        apiUrl: normalizedApiUrl,
-        tenantSlug: normalizedTenantSlug,
-        email: normalizedEmail,
-        password
-      });
-      if (!parsed.success) {
-        setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
-        return;
-      }
-      endpoint = '/auth/staff/register';
-      requestBody = {
-        tenantSlug: normalizedTenantSlug,
-        email: normalizedEmail,
-        password
-      };
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
+      return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch(new URL(endpoint, normalizedApiUrl).toString(), {
+      const response = await fetch(new URL('/auth/login', normalizedApiUrl).toString(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+          email: normalizedEmail,
+          password
+        })
       });
 
       if (!response.ok) {
@@ -216,7 +181,7 @@ export default function LoginPage() {
   }
 
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || !googleScriptLoaded || mode !== 'login' || !googleButtonNode) {
+    if (!GOOGLE_CLIENT_ID || !googleScriptLoaded || !googleButtonNode) {
       return;
     }
 
@@ -264,22 +229,7 @@ export default function LoginPage() {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [googleScriptLoaded, googleButtonNode, mode, googleInitKey]);
-
-  const modeLabels: Record<LoginMode, string> = {
-    login: 'Ya tengo cuenta',
-    'staff-register': 'Soy staff'
-  };
-
-  const headingMap: Record<LoginMode, { title: string; subtitle: string }> = {
-    login: { title: 'Acceso', subtitle: 'Inicia sesión en tu panel de gestión.' },
-    'staff-register': { title: 'Registro de staff', subtitle: 'Regístrate como miembro del equipo.' }
-  };
-
-  const submitLabel: Record<LoginMode, { idle: string; loading: string }> = {
-    login: { idle: 'Entrar', loading: 'Ingresando...' },
-    'staff-register': { idle: 'Registrarme como staff', loading: 'Registrando...' }
-  };
+  }, [googleScriptLoaded, googleButtonNode]);
 
   return (
     <>
@@ -314,67 +264,18 @@ export default function LoginPage() {
             <Building2 size={24} />
           </div>
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.3px' }}>
-            {headingMap[mode].title}
+            Acceso
           </h1>
           <p style={{ margin: '6px 0 0', fontSize: 14, color: '#64748b' }}>
-            {headingMap[mode].subtitle}
+            Inicia sesión en tu panel de gestión.
           </p>
         </div>
 
         {/* Card */}
         <div className="panel" style={{ width: '100%', maxWidth: 440, padding: '28px 28px 24px', display: 'grid', gap: 18 }}>
 
-          {/* Mode toggle */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              borderRadius: 8,
-              background: 'var(--surface-muted, #f1f5f9)',
-              border: '1px solid var(--border, #e2e8f0)',
-              padding: 3,
-              gap: 2
-            }}
-          >
-            {(['login', 'staff-register'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => {
-                  setMode(m);
-                  setError('');
-                  setGoogleReady(false);
-                  if (m === 'login') setGoogleInitKey((v) => v + 1);
-                }}
-                disabled={loading}
-                style={{
-                  padding: '8px 0',
-                  borderRadius: 6,
-                  border: 'none',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontWeight: 600,
-                  fontSize: 13,
-                  background: mode === m ? 'var(--surface, #fff)' : 'transparent',
-                  color: mode === m ? 'var(--primary, #2563eb)' : '#64748b',
-                  boxShadow: mode === m ? '0 1px 3px rgba(0,0,0,0.09)' : 'none',
-                  transition: 'all 0.15s'
-                }}
-              >
-                {modeLabels[m]}
-              </button>
-            ))}
-          </div>
-
           {/* Form */}
           <form onSubmit={onSubmit} style={{ display: 'grid', gap: 14 }}>
-            {mode === 'staff-register' ? (
-              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
-                Identificador del negocio (slug)
-                <input value={tenantSlug} onChange={(e) => setTenantSlug(e.target.value)} style={{ width: '100%' }} placeholder="mi-negocio" />
-                <small style={{ color: '#94a3b8' }}>Pide este dato al dueño del negocio.</small>
-              </label>
-            ) : null}
-
             <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
               Email
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%' }} autoComplete="email" />
@@ -388,7 +289,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 style={{ width: '100%' }}
                 minLength={8}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                autoComplete="current-password"
               />
             </label>
 
@@ -408,38 +309,34 @@ export default function LoginPage() {
               disabled={loading}
               style={{ width: '100%', justifyContent: 'center', marginTop: 2, padding: '10px 0', fontSize: 15 }}
             >
-              {loading ? submitLabel[mode].loading : submitLabel[mode].idle}
+              {loading ? 'Ingresando...' : 'Entrar'}
             </button>
           </form>
 
-          {mode === 'login' ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#94a3b8', fontSize: 12 }}>
-                <div style={{ flex: 1, height: 1, background: 'var(--border, #e2e8f0)' }} />
-                o continúa con
-                <div style={{ flex: 1, height: 1, background: 'var(--border, #e2e8f0)' }} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                {GOOGLE_CLIENT_ID ? (
-                  <>
-                    <div ref={setGoogleButtonNode} />
-                    {googleScriptLoaded && !googleReady ? <small style={{ color: '#94a3b8' }}>Cargando botón de Google...</small> : null}
-                    {googleLoading ? <small style={{ color: '#94a3b8' }}>Validando sesión de Google...</small> : null}
-                  </>
-                ) : (
-                  <small style={{ color: '#94a3b8', textAlign: 'center' }}>
-                    Configura NEXT_PUBLIC_GOOGLE_CLIENT_ID para habilitar Google SSO.
-                  </small>
-                )}
-              </div>
-            </>
-          ) : null}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#94a3b8', fontSize: 12 }}>
+            <div style={{ flex: 1, height: 1, background: 'var(--border, #e2e8f0)' }} />
+            o continúa con
+            <div style={{ flex: 1, height: 1, background: 'var(--border, #e2e8f0)' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            {GOOGLE_CLIENT_ID ? (
+              <>
+                <div ref={setGoogleButtonNode} />
+                {googleScriptLoaded && !googleReady ? <small style={{ color: '#94a3b8' }}>Cargando botón de Google...</small> : null}
+                {googleLoading ? <small style={{ color: '#94a3b8' }}>Validando sesión de Google...</small> : null}
+              </>
+            ) : (
+              <small style={{ color: '#94a3b8', textAlign: 'center' }}>
+                Configura NEXT_PUBLIC_GOOGLE_CLIENT_ID para habilitar Google SSO.
+              </small>
+            )}
+          </div>
 
           {error ? <div className="status-error">{error}</div> : null}
         </div>
 
         <p style={{ margin: '20px 0 0', fontSize: 13, color: '#64748b', textAlign: 'center' }}>
-          ¿Eres cliente? Ingresa desde la página pública del negocio en Mis citas.
+          ¿Eres staff o cliente? Ingresá desde la página pública del negocio.
         </p>
       </div>
     </>

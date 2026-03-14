@@ -22,7 +22,9 @@ function createMocks() {
     log: jest.fn()
   };
 
-  return { prisma, notificationsService, auditService };
+  const authService = {};
+
+  return { prisma, notificationsService, auditService, authService };
 }
 
 function createServiceWithMocks() {
@@ -30,7 +32,8 @@ function createServiceWithMocks() {
   const service = new CustomerPortalService(
     mocks.prisma as never,
     mocks.auditService as never,
-    mocks.notificationsService as never
+    mocks.notificationsService as never,
+    mocks.authService as never
   );
 
   return { service, mocks };

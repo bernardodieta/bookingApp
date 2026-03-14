@@ -4,14 +4,18 @@ import * as crypto from 'node:crypto';
 import * as jwt from 'jsonwebtoken';
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
 import { AuditService } from '../audit/audit.service';
+import { AuthService } from '../auth/auth.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterCustomerAccountDto } from './dto/register-customer-account.dto';
 import { LoginCustomerAccountDto } from './dto/login-customer-account.dto';
 import { GoogleCustomerLoginDto } from './dto/google-customer-login.dto';
+import { UnifiedLoginDto } from './dto/unified-login.dto';
+import { UnifiedRegisterDto } from './dto/unified-register.dto';
 import { CustomerPortalAuthUser } from './customer-portal-auth-user.type';
 
 const ACCESS_EXPIRES_IN = '30d';
+const STAFF_ACCESS_EXPIRES_IN = '2h';
 const CLAIM_CODE_TTL_MINUTES = 10;
 
 type GoogleTokenInfo = {
@@ -29,7 +33,8 @@ export class CustomerPortalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
-    private readonly notificationsService: NotificationsService
+    private readonly notificationsService: NotificationsService,
+    private readonly authService: AuthService
   ) {}
 
   private get customerAccountDelegate() {
@@ -330,6 +335,305 @@ export class CustomerPortalService {
       email: account.email,
       scope: 'customer'
     });
+  }
+
+  // ── Unified login/register methods ───────────────────────────
+
+  async unifiedLogin(slugOrDomain: string, payload: UnifiedLoginDto) {
+    const tenant = await this.findTenantBySlugOrDomain(slugOrDomain);
+    const normalizedEmail = payload.email.toLowerCase().trim();
+
+    // 1) Try staff login first
+    const staffResult = await this.tryStaffLogin(tenant.id, normalizedEmail, payload.password);
+    if (staffResult) {
+      await this.auditPortalEvent({
+        tenantId: tenant.id,
+        action: 'UNIFIED_LOGIN_SUCCESS',
+        entityId: staffResult.user.sub,
+        metadata: { method: 'password', loginType: 'staff', email: normalizedEmail } as Prisma.InputJsonValue
+      });
+      return staffResult;
+    }
+
+    // 2) Fallback to customer login
+    const account = (await this.customerAccountDelegate.findUnique({
+      where: {
+        tenantId_email: {
+          tenantId: tenant.id,
+          email: normalizedEmail
+        }
+      }
+    })) as {
+      id: string;
+      tenantId: string;
+      email: string;
+      passwordHash: string | null;
+      isActive: boolean;
+    } | null;
+
+    if (!account || !account.passwordHash || account.passwordHash !== this.hashPassword(payload.password)) {
+      await this.auditPortalEvent({
+        tenantId: tenant.id,
+        action: 'UNIFIED_LOGIN_FAILED',
+        metadata: { reason: 'INVALID_CREDENTIALS', email: normalizedEmail } as Prisma.InputJsonValue
+      });
+      throw new UnauthorizedException('Credenciales inválidas.');
+    }
+
+    if (!account.isActive) {
+      throw new UnauthorizedException('Cuenta inactiva.');
+    }
+
+    await this.customerAccountDelegate.update({
+      where: { id: account.id },
+      data: { lastLoginAt: new Date() }
+    });
+
+    await this.auditPortalEvent({
+      tenantId: tenant.id,
+      action: 'UNIFIED_LOGIN_SUCCESS',
+      entityId: account.id,
+      metadata: { method: 'password', loginType: 'customer', email: normalizedEmail } as Prisma.InputJsonValue
+    });
+
+    return this.issueUnifiedToken(
+      { sub: account.id, tenantId: tenant.id, email: account.email, scope: 'customer' },
+      'customer'
+    );
+  }
+
+  async unifiedLoginWithGoogle(slugOrDomain: string, payload: GoogleCustomerLoginDto) {
+    const tenant = await this.findTenantBySlugOrDomain(slugOrDomain);
+
+    let tokenInfo: GoogleTokenInfo;
+    try {
+      tokenInfo = await this.verifyGoogleIdToken(payload.idToken);
+    } catch (error) {
+      await this.auditPortalEvent({
+        tenantId: tenant.id,
+        action: 'UNIFIED_GOOGLE_LOGIN_FAILED',
+        metadata: { reason: 'TOKEN_VALIDATION_FAILED' } as Prisma.InputJsonValue
+      });
+      throw error;
+    }
+
+    const email = tokenInfo.email?.toLowerCase().trim();
+    const sub = tokenInfo.sub?.trim();
+
+    if (!email || !sub) {
+      throw new UnauthorizedException('No se pudo validar la identidad de Google.');
+    }
+
+    const isEmailVerified = tokenInfo.email_verified === true || tokenInfo.email_verified === 'true';
+    if (!isEmailVerified) {
+      throw new UnauthorizedException('Google no confirmó el email.');
+    }
+
+    // 1) Try staff login
+    const staffRecord = await this.prisma.staff.findUnique({
+      where: { tenantId_email: { tenantId: tenant.id, email } }
+    });
+
+    if (staffRecord && staffRecord.active && staffRecord.userId) {
+      const user = await this.prisma.user.findUnique({ where: { id: staffRecord.userId } });
+      if (user) {
+        await this.auditPortalEvent({
+          tenantId: tenant.id,
+          action: 'UNIFIED_LOGIN_SUCCESS',
+          entityId: user.id,
+          metadata: { method: 'google', loginType: 'staff', email } as Prisma.InputJsonValue
+        });
+        return this.issueUnifiedStaffToken(user, staffRecord.id, tenant.id);
+      }
+    }
+
+    // 2) Fallback to customer Google flow (upsert)
+    const fullName = tokenInfo.name?.trim() || email.split('@')[0];
+
+    const account = await this.prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.upsert({
+        where: { tenantId_email: { tenantId: tenant.id, email } },
+        update: { fullName },
+        create: { tenantId: tenant.id, fullName, email }
+      });
+
+      return (await (tx as Prisma.TransactionClient & {
+        customerAccount: { upsert: (...args: unknown[]) => Promise<unknown> };
+      }).customerAccount.upsert({
+        where: { tenantId_email: { tenantId: tenant.id, email } },
+        update: { customerId: customer.id, googleSub: sub, isActive: true, lastLoginAt: new Date() },
+        create: { tenantId: tenant.id, customerId: customer.id, email, googleSub: sub, isActive: true, lastLoginAt: new Date() }
+      })) as { id: string; email: string };
+    });
+
+    await this.auditPortalEvent({
+      tenantId: tenant.id,
+      action: 'UNIFIED_LOGIN_SUCCESS',
+      entityId: account.id,
+      metadata: { method: 'google', loginType: 'customer', email } as Prisma.InputJsonValue
+    });
+
+    return this.issueUnifiedToken(
+      { sub: account.id, tenantId: tenant.id, email: account.email, scope: 'customer' },
+      'customer'
+    );
+  }
+
+  async unifiedRegister(slugOrDomain: string, payload: UnifiedRegisterDto) {
+    const tenant = await this.findTenantBySlugOrDomain(slugOrDomain);
+    const normalizedEmail = payload.email.toLowerCase().trim();
+
+    // 1) Check if there's a pre-invited staff without a user account
+    const staffRecord = await this.prisma.staff.findUnique({
+      where: { tenantId_email: { tenantId: tenant.id, email: normalizedEmail } }
+    });
+
+    if (staffRecord && staffRecord.active && !staffRecord.userId) {
+      // Staff registration flow
+      const existingUser = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (existingUser) {
+        throw new BadRequestException('El correo ya está registrado.');
+      }
+
+      const passwordHash = this.hashPassword(payload.password);
+      const user = await this.prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            tenantId: tenant.id,
+            email: normalizedEmail,
+            passwordHash,
+            role: 'staff'
+          }
+        });
+        await tx.staff.update({
+          where: { id: staffRecord.id },
+          data: { userId: newUser.id }
+        });
+        return newUser;
+      });
+
+      await this.auditPortalEvent({
+        tenantId: tenant.id,
+        action: 'UNIFIED_REGISTER_STAFF',
+        entityId: user.id,
+        metadata: { email: normalizedEmail, staffId: staffRecord.id } as Prisma.InputJsonValue
+      });
+
+      return this.issueUnifiedStaffToken(user, staffRecord.id, tenant.id);
+    }
+
+    if (staffRecord && staffRecord.active && staffRecord.userId) {
+      throw new BadRequestException('Ya existe una cuenta para este correo.');
+    }
+
+    // 2) Customer registration flow (delegate to existing method logic)
+    const accountExists = (await this.customerAccountDelegate.findUnique({
+      where: { tenantId_email: { tenantId: tenant.id, email: normalizedEmail } }
+    })) as { passwordHash: string | null } | null;
+
+    if (accountExists?.passwordHash) {
+      throw new BadRequestException('Ya existe una cuenta para este correo.');
+    }
+
+    const fullName = payload.fullName?.trim() || normalizedEmail.split('@')[0];
+
+    const account = await this.prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.upsert({
+        where: { tenantId_email: { tenantId: tenant.id, email: normalizedEmail } },
+        update: { fullName },
+        create: { tenantId: tenant.id, email: normalizedEmail, fullName }
+      });
+
+      return await (tx as Prisma.TransactionClient & {
+        customerAccount: { upsert: (...args: unknown[]) => Promise<unknown> };
+      }).customerAccount.upsert({
+        where: { tenantId_email: { tenantId: tenant.id, email: normalizedEmail } },
+        update: {
+          customerId: customer.id,
+          isActive: true,
+          passwordHash: this.hashPassword(payload.password),
+          lastLoginAt: new Date()
+        },
+        create: {
+          tenantId: tenant.id,
+          customerId: customer.id,
+          email: normalizedEmail,
+          passwordHash: this.hashPassword(payload.password),
+          isActive: true,
+          lastLoginAt: new Date()
+        }
+      }) as { id: string; email: string };
+    });
+
+    await this.auditPortalEvent({
+      tenantId: tenant.id,
+      action: 'UNIFIED_REGISTER_CUSTOMER',
+      entityId: account.id,
+      metadata: { email: normalizedEmail } as Prisma.InputJsonValue
+    });
+
+    return this.issueUnifiedToken(
+      { sub: account.id, tenantId: tenant.id, email: account.email, scope: 'customer' },
+      'customer'
+    );
+  }
+
+  private async tryStaffLogin(
+    tenantId: string,
+    email: string,
+    password: string
+  ): Promise<ReturnType<typeof this.issueUnifiedStaffToken> | null> {
+    const staffRecord = await this.prisma.staff.findUnique({
+      where: { tenantId_email: { tenantId, email } }
+    });
+
+    if (!staffRecord || !staffRecord.active || !staffRecord.userId) {
+      return null;
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: staffRecord.userId } });
+    if (!user || user.passwordHash !== this.hashPassword(password)) {
+      return null;
+    }
+
+    return this.issueUnifiedStaffToken(user, staffRecord.id, tenantId);
+  }
+
+  private issueUnifiedStaffToken(
+    user: { id: string; email: string; role: string },
+    staffId: string,
+    tenantId: string
+  ) {
+    const payload = {
+      sub: user.id,
+      tenantId,
+      email: user.email,
+      role: user.role as 'staff' | 'owner',
+      staffId
+    };
+    const accessToken = jwt.sign(payload, this.getStaffAccessSecret(), { expiresIn: STAFF_ACCESS_EXPIRES_IN });
+    return {
+      accessToken,
+      tokenType: 'Bearer' as const,
+      expiresIn: STAFF_ACCESS_EXPIRES_IN,
+      loginType: 'staff' as const,
+      user: payload
+    };
+  }
+
+  private issueUnifiedToken(user: CustomerPortalAuthUser, loginType: 'customer') {
+    const accessToken = jwt.sign(user, this.getAccessSecret(), { expiresIn: ACCESS_EXPIRES_IN });
+    return {
+      accessToken,
+      tokenType: 'Bearer' as const,
+      expiresIn: ACCESS_EXPIRES_IN,
+      loginType,
+      user
+    };
+  }
+
+  private getStaffAccessSecret() {
+    return process.env.JWT_ACCESS_SECRET ?? 'dev_access_secret';
   }
 
   async getMe(user: CustomerPortalAuthUser) {
