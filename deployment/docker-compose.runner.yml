@@ -1,0 +1,25 @@
+services:
+  github-runner:
+    build: ./runner
+    container_name: apoint-github-runner
+    restart: unless-stopped
+    environment:
+      - GITHUB_URL=https://github.com/bernardodieta/bookingApp
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - RUNNER_NAME=apoint-runner
+      - RUNNER_LABELS=self-hosted,Linux,X64,docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - runner-data:/home/runner/actions-runner
+      - runner-cache:/home/runner/.cache
+    group_add:
+      - "110"
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8G
+
+volumes:
+  runner-data:
+  runner-cache:

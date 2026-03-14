@@ -1,0 +1,119 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-apoint
+  cancel-in-progress: false
+
+env:
+  COMPOSE_PROJECT_NAME: deployment
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64, docker]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env file
+        working-directory: deployment
+        run: |
+          cat > .env <<'EOF'
+          NODE_ENV=production
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          PORT=3001
+          DATABASE_URL=postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/${{ secrets.POSTGRES_DB }}
+          REDIS_URL=redis://redis:6379
+          JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+          JWT_CUSTOMER_SECRET=${{ secrets.JWT_CUSTOMER_SECRET }}
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          PUBLIC_GOOGLE_LOGIN_RATE_LIMIT_MAX=${{ secrets.PUBLIC_GOOGLE_LOGIN_RATE_LIMIT_MAX }}
+          PUBLIC_GOOGLE_LOGIN_RATE_LIMIT_WINDOW_MS=${{ secrets.PUBLIC_GOOGLE_LOGIN_RATE_LIMIT_WINDOW_MS }}
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_FROM_EMAIL=${{ secrets.SENDGRID_FROM_EMAIL }}
+          SMTP_HOST=${{ secrets.SMTP_HOST }}
+          SMTP_PORT=${{ secrets.SMTP_PORT }}
+          SMTP_SECURE=${{ secrets.SMTP_SECURE }}
+          SMTP_USER=${{ secrets.SMTP_USER }}
+          SMTP_PASS=${{ secrets.SMTP_PASS }}
+          SMTP_FROM_EMAIL=${{ secrets.SMTP_FROM_EMAIL }}
+          NOTIFICATIONS_BUSINESS_EMAIL=${{ secrets.NOTIFICATIONS_BUSINESS_EMAIL }}
+          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          CALENDAR_TOKENS_ENCRYPTION_KEY=${{ secrets.CALENDAR_TOKENS_ENCRYPTION_KEY }}
+          CALENDAR_OAUTH_STATE_SECRET=${{ secrets.CALENDAR_OAUTH_STATE_SECRET }}
+          GOOGLE_CALENDAR_CLIENT_ID=${{ secrets.GOOGLE_CALENDAR_CLIENT_ID }}
+          GOOGLE_CALENDAR_CLIENT_SECRET=${{ secrets.GOOGLE_CALENDAR_CLIENT_SECRET }}
+          GOOGLE_CALENDAR_REDIRECT_URI=${{ secrets.GOOGLE_CALENDAR_REDIRECT_URI }}
+          GOOGLE_CALENDAR_SCOPES=${{ secrets.GOOGLE_CALENDAR_SCOPES }}
+          GOOGLE_CALENDAR_WEBHOOK_URL=${{ secrets.GOOGLE_CALENDAR_WEBHOOK_URL }}
+          GOOGLE_CALENDAR_WEBHOOK_TTL_SECONDS=${{ secrets.GOOGLE_CALENDAR_WEBHOOK_TTL_SECONDS }}
+          MICROSOFT_CALENDAR_CLIENT_ID=${{ secrets.MICROSOFT_CALENDAR_CLIENT_ID }}
+          MICROSOFT_CALENDAR_CLIENT_SECRET=${{ secrets.MICROSOFT_CALENDAR_CLIENT_SECRET }}
+          MICROSOFT_CALENDAR_REDIRECT_URI=${{ secrets.MICROSOFT_CALENDAR_REDIRECT_URI }}
+          MICROSOFT_CALENDAR_SCOPES=${{ secrets.MICROSOFT_CALENDAR_SCOPES }}
+          MICROSOFT_CALENDAR_WEBHOOK_URL=${{ secrets.MICROSOFT_CALENDAR_WEBHOOK_URL }}
+          MICROSOFT_CALENDAR_WEBHOOK_EXPIRATION_HOURS=${{ secrets.MICROSOFT_CALENDAR_WEBHOOK_EXPIRATION_HOURS }}
+          GOOGLE_CALENDAR_WEBHOOK_TOKEN=${{ secrets.GOOGLE_CALENDAR_WEBHOOK_TOKEN }}
+          MICROSOFT_CALENDAR_WEBHOOK_CLIENT_STATE=${{ secrets.MICROSOFT_CALENDAR_WEBHOOK_CLIENT_STATE }}
+          CALENDAR_SYNC_OUTBOUND_AUTO_ENABLED=${{ secrets.CALENDAR_SYNC_OUTBOUND_AUTO_ENABLED }}
+          CALENDAR_SYNC_OUTBOUND_INTERVAL_MS=${{ secrets.CALENDAR_SYNC_OUTBOUND_INTERVAL_MS }}
+          CALENDAR_SYNC_OUTBOUND_BATCH_SIZE=${{ secrets.CALENDAR_SYNC_OUTBOUND_BATCH_SIZE }}
+          CALENDAR_SYNC_OUTBOUND_MAX_ATTEMPTS=${{ secrets.CALENDAR_SYNC_OUTBOUND_MAX_ATTEMPTS }}
+          CALENDAR_SYNC_OUTBOUND_RETRY_BASE_MS=${{ secrets.CALENDAR_SYNC_OUTBOUND_RETRY_BASE_MS }}
+          CALENDAR_SYNC_OUTBOUND_RETRY_MAX_MS=${{ secrets.CALENDAR_SYNC_OUTBOUND_RETRY_MAX_MS }}
+          CALENDAR_INBOUND_UNLINKED_POLICY=${{ secrets.CALENDAR_INBOUND_UNLINKED_POLICY }}
+          NEXT_PUBLIC_API_URL=https://api-bookingapp.0es3cloud.com
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          NEXT_PUBLIC_APP_URL=https://bookingapp.0es3cloud.com
+          EOF
+
+      - name: Build images
+        working-directory: deployment
+        run: docker compose --env-file .env build api web
+
+      - name: Run database migrations
+        working-directory: deployment
+        run: |
+          docker compose --env-file .env up -d postgres redis
+          docker compose --env-file .env up --force-recreate api-migrate
+          echo "Migrations completed."
+
+      - name: Stop existing app containers
+        working-directory: deployment
+        run: |
+          docker rm -f apoint-api 2>/dev/null || true
+          docker rm -f apoint-web 2>/dev/null || true
+          sleep 2
+
+      - name: Deploy API
+        working-directory: deployment
+        run: docker compose --env-file .env up -d --force-recreate --no-deps api
+
+      - name: Deploy Web
+        working-directory: deployment
+        run: docker compose --env-file .env up -d --force-recreate --no-deps web
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          echo "=== Container status ==="
+          docker ps --filter "name=apoint-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          echo ""
+          echo "=== API health check ==="
+          curl -sf http://10.10.10.5:3005/health || echo "WARNING: API health check failed"
+
+      - name: Cleanup .env
+        if: always()
+        working-directory: deployment
+        run: rm -f .env
+
+      - name: Cleanup dangling images
+        if: always()
+        run: docker image prune -f

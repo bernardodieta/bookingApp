@@ -103,3 +103,21 @@ Prisma schema at `apps/api/prisma/schema.prisma`. Key models: `Tenant`, `User`, 
 ### Environment
 
 Config via `.env` (local), `.env.staging`, `.env.prod`. Use `.env.example` as template. Validate with `npm run qa:preflight:*` scripts. Generate JWT secrets with `npm run qa:secrets:local`.
+
+## Key Conventions
+
+- **Validation**: Zod on frontend forms, `class-validator` + `class-transformer` DTOs on backend
+- **DateTime**: Luxon (`luxon`) for all date/time handling in the API
+- **Email**: SendGrid primary, Nodemailer SMTP fallback
+- **State management**: No global store — React hooks + localStorage. Direct fetch calls to API.
+- **Custom domains**: Middleware detects custom domain from request header and rewrites to `/public/{hostname}`
+
+## Environment Setup
+
+Copy `.env.example` to `.env`. Key variables: `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_CUSTOMER_SECRET`, `GOOGLE_CLIENT_ID`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `CALENDAR_TOKENS_ENCRYPTION_KEY`.
+
+Use `npm run qa:secrets:local` to generate/rotate local JWT secrets and `npm run qa:email:local` to configure local SMTP.
+
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`): Node 20 → install → lint → build. Runs on push/PR to main.
