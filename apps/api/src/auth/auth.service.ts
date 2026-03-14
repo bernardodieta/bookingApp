@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import * as crypto from 'node:crypto';
 import * as jwt from 'jsonwebtoken';
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
@@ -18,6 +18,7 @@ type GoogleTokenInfo = {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly googleOAuthClient = new OAuth2Client();
 
   constructor(private readonly prisma: PrismaService) {}
@@ -57,11 +58,16 @@ export class AuthService {
   }
 
   async login(payload: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: payload.email.toLowerCase() } });
+    const normalizedEmail = payload.email.toLowerCase();
+    this.logger.log(`[login] Attempt for email=${normalizedEmail}`);
+
+    const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
 
     if (!user || user.passwordHash !== this.hashPassword(payload.password)) {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
+
+    this.logger.log(`[login] User found id=${user.id} role=${user.role} tenantId=${user.tenantId}`);
 
     const staffRecord = await this.findLinkedStaff(user.id);
 
@@ -181,7 +187,12 @@ export class AuthService {
   }
 
   private async findLinkedStaff(userId: string) {
-    return this.prisma.staff.findUnique({ where: { userId } });
+    try {
+      return await this.prisma.staff.findUnique({ where: { userId } });
+    } catch (err) {
+      this.logger.warn(`[findLinkedStaff] Failed for userId=${userId}: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
   }
 
   private hashPassword(password: string) {
