@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, CalendarDays, ChevronDown, ChevronRight, ClipboardList, CreditCard, LayoutDashboard, Link2, LogOut, Settings, UserCircle2, Users, Wrench } from 'lucide-react';
+import { Building2, CalendarDays, ChevronDown, ChevronRight, ClipboardList, CreditCard, LayoutDashboard, Link2, LogOut, Settings, Users, Wrench } from 'lucide-react';
 import { OverviewSection } from './components/overview-section';
 import { AgendaSection } from './components/agenda-section';
 import { PaymentsSection } from './components/payments-section';
@@ -82,7 +82,6 @@ export default function DashboardPage() {
   const [settingsView, setSettingsView] = useState<SettingsView>('branding');
   const [globalToast, setGlobalToast] = useState<GlobalToastItem | null>(null);
   const [globalToastQueue, setGlobalToastQueue] = useState<GlobalToastItem[]>([]);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [date, setDate] = useState(today);
   const [staffId, setStaffId] = useState('');
   const [status, setStatus] = useState('');
@@ -2009,43 +2008,20 @@ export default function DashboardPage() {
             <Link2 size={16} />
             <span>Integraciones</span>
           </button>
+
+          <button
+            type="button"
+            className="sidebar-item"
+            onClick={onLogout}
+            style={{ marginTop: 'auto', color: '#ef4444' }}
+          >
+            <LogOut size={16} />
+            <span>Cerrar sesión</span>
+          </button>
         </nav>
       </aside>
 
       <section className="dashboard-main">
-        <header className="dashboard-topbar surface">
-          <div className="topbar-left">
-            <div className="topbar-logo" style={{ background: brandTint, color: brandPrimary }}>
-              {logoUrl ? <img src={logoUrl} alt="Logo" style={{ width: 20, height: 20, objectFit: 'contain' }} /> : <Building2 size={16} />}
-            </div>
-            <div>
-              <div style={{ fontWeight: 700 }}>{tenantSettings?.name ?? 'Apoint'}</div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>Calendario, pagos y operación</div>
-            </div>
-          </div>
-
-          <div className="topbar-right">
-            <div style={{ position: 'relative' }}>
-              <button type="button" className="btn btn-ghost" onClick={() => setUserMenuOpen((current) => !current)}>
-                <UserCircle2 size={16} />
-                Usuario
-              </button>
-              {userMenuOpen ? (
-                <div className="panel" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: 220, zIndex: 10 }}>
-                  <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Sesión activa</div>
-                  <div style={{ fontWeight: 600, marginBottom: 8 }}>{tenantSettings?.name ?? 'Negocio'}</div>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>API: {apiUrl}</div>
-                </div>
-              ) : null}
-            </div>
-
-            <button type="button" onClick={onLogout} className="btn btn-ghost">
-              <LogOut size={16} />
-              Logout
-            </button>
-          </div>
-        </header>
-
         <div className="dashboard-content">
       {globalToast ? (
         <div
@@ -2068,7 +2044,7 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      {activeSection === 'overview' ? (
+      <div style={{ display: activeSection === 'overview' ? 'block' : 'none' }}>
         <OverviewSection
           onSubmit={onSubmit}
           apiUrl={apiUrl}
@@ -2106,17 +2082,17 @@ export default function DashboardPage() {
           setRescheduleDrafts={setRescheduleDrafts}
           reports={reports}
         />
-      ) : null}
+      </div>
 
-      {activeSection === 'agenda' ? (
+      <div style={{ display: activeSection === 'agenda' ? 'block' : 'none' }}>
         <AgendaSection
           apiUrl={apiUrl}
           token={token}
           staffOptions={staffOptions}
         />
-      ) : null}
+      </div>
 
-      {activeSection === 'payments' ? (
+      <div style={{ display: activeSection === 'payments' ? 'block' : 'none' }}>
         <PaymentsSection
           paymentsView={paymentsView}
           token={token}
@@ -2161,9 +2137,9 @@ export default function DashboardPage() {
           setSaleNoteError={setSaleNoteError}
           saleNote={saleNote}
         />
-      ) : null}
+      </div>
 
-      {activeSection === 'operations' ? (
+      <div style={{ display: activeSection === 'operations' ? 'block' : 'none' }}>
         <OperationsSection
           operationsView={operationsView}
           token={token}
@@ -2293,18 +2269,18 @@ export default function DashboardPage() {
           onSaveAvailabilityException={onSaveAvailabilityException}
           onDeleteAvailabilityException={onDeleteAvailabilityException}
         />
-      ) : null}
+      </div>
 
-      {activeSection === 'staff-management' ? (
+      <div style={{ display: activeSection === 'staff-management' ? 'block' : 'none' }}>
         <StaffManagementSection
           apiUrl={apiUrl}
           token={token}
           tenantSlug={tenantSettings?.slug}
           onStaffChanged={() => void reloadStaffOptions()}
         />
-      ) : null}
+      </div>
 
-      {activeSection === 'settings' ? (
+      <div style={{ display: activeSection === 'settings' ? 'block' : 'none' }}>
         <SettingsSection
           settingsView={settingsView}
           onGlobalToast={showGlobalToast}
@@ -2338,15 +2314,15 @@ export default function DashboardPage() {
           bookingFormFieldsText={bookingFormFieldsText}
           setBookingFormFieldsText={setBookingFormFieldsText}
         />
-      ) : null}
+      </div>
 
-      {activeSection === 'reporte' ? (
+      <div style={{ display: activeSection === 'reporte' ? 'block' : 'none' }}>
         <ReporteSection apiUrl={apiUrl} token={token} staffOptions={staffOptions} />
-      ) : null}
+      </div>
 
-      {activeSection === 'integrations' ? (
+      <div style={{ display: activeSection === 'integrations' ? 'block' : 'none' }}>
         <IntegrationsSection apiUrl={apiUrl} token={token} staffOptions={staffOptions} />
-      ) : null}
+      </div>
         </div>
       </section>
     </main>

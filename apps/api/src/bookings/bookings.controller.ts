@@ -38,6 +38,24 @@ export class BookingsController {
     return this.bookingsService.cancel(req.user, id, body);
   }
 
+  @Patch(':id/confirm')
+  @Roles('owner', 'staff')
+  confirm(@Req() req: RequestWithUser, @Param('id') id: string) {
+    return this.bookingsService.confirm(req.user, id);
+  }
+
+  @Patch(':id/complete')
+  @Roles('owner', 'staff')
+  complete(@Req() req: RequestWithUser, @Param('id') id: string) {
+    return this.bookingsService.complete(req.user, id);
+  }
+
+  @Patch(':id/no-show')
+  @Roles('owner', 'staff')
+  noShow(@Req() req: RequestWithUser, @Param('id') id: string) {
+    return this.bookingsService.noShow(req.user, id);
+  }
+
   @Patch(':id/reschedule')
   @Roles('owner')
   reschedule(@Req() req: RequestWithUser, @Param('id') id: string, @Body() body: RescheduleBookingDto) {

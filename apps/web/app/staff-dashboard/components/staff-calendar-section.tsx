@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Link as LinkIcon, Trash2, RefreshCw } from 'lucide-react';
+import { Calendar, Link as LinkIcon, Trash2, RefreshCw } from 'lucide-react';
 
 type CalendarAccount = {
   id: string;
@@ -118,7 +118,7 @@ export function StaffCalendarSection({ apiUrl, token }: StaffCalendarSectionProp
 
   return (
     <section>
-      <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Mi Calendario</h2>
+      <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Sincronización</h2>
       <p style={{ margin: '0 0 16px', fontSize: 14, color: '#64748b' }}>
         Vincula tu calendario para que las citas se sincronicen automáticamente.
       </p>
@@ -159,7 +159,12 @@ export function StaffCalendarSection({ apiUrl, token }: StaffCalendarSectionProp
         </button>
       </div>
 
-      {loading && <p style={{ color: '#94a3b8', fontSize: 14 }}>Cargando calendarios...</p>}
+      {loading && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div className="skeleton" style={{ height: 72 }} />
+          <div className="skeleton" style={{ height: 72 }} />
+        </div>
+      )}
 
       {/* Connected accounts */}
       {accounts.length > 0 ? (
@@ -224,8 +229,14 @@ export function StaffCalendarSection({ apiUrl, token }: StaffCalendarSectionProp
         </div>
       ) : (
         !loading && (
-          <div className="panel" style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>
-            No tienes calendarios vinculados. Conecta uno para sincronizar tus citas automáticamente.
+          <div className="panel" style={{ padding: 32, textAlign: 'center' }}>
+            <Calendar size={36} style={{ color: '#94a3b8', marginBottom: 10 }} />
+            <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#374151' }}>
+              Sin calendarios vinculados
+            </p>
+            <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>
+              Conecta Google Calendar o Microsoft Outlook para que tus citas se sincronicen automáticamente.
+            </p>
           </div>
         )
       )}

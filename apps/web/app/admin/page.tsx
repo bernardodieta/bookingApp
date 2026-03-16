@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { Building2, ClipboardList, Inbox, LogOut, Shield } from 'lucide-react';
+import { Building2, CalendarDays, ClipboardList, Inbox, LogOut, Shield, Users, X } from 'lucide-react';
 
 type Tenant = {
   id: string;
@@ -190,11 +190,12 @@ export default function SuperAdminPage() {
     }
   }
 
-  async function handleDelete(tenantId: string, name: string) {
-    if (!window.confirm(`¿Eliminar permanentemente el tenant "${name}"? Esta acción no se puede deshacer.`)) return;
+  async function handleDeleteConfirm() {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/admin/tenants/${tenantId}`, {
+      const res = await fetch(`${API_BASE}/admin/tenants/${deleteTarget.id}`, {
         method: 'DELETE',
         headers: headers()
       });
@@ -202,9 +203,13 @@ export default function SuperAdminPage() {
         const text = await res.text();
         throw new Error(text || `Error ${res.status}`);
       }
-      setTenants((prev) => prev.filter((t) => t.id !== tenantId));
+      setTenants((prev) => prev.filter((t) => t.id !== deleteTarget.id));
+      setDeleteTarget(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo eliminar el tenant');
+      setDeleteTarget(null);
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -271,8 +276,16 @@ export default function SuperAdminPage() {
     }
   }
 
+  // Delete modal state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Message expand state
+  const [expandedMessage, setExpandedMessage] = useState<string | null>(null);
+
   useEffect(() => {
     if (!authed || !secret) return;
+    void loadPlanRequests();
     const interval = setInterval(() => { void loadTenants(secret); }, 30_000);
     return () => clearInterval(interval);
   }, [authed, secret]);
@@ -342,6 +355,11 @@ export default function SuperAdminPage() {
           >
             <Inbox size={16} />
             <span>Solicitudes</span>
+            {planRequests.filter((r) => r.status === 'pending').length > 0 && (
+              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, lineHeight: '18px', background: '#fef3c7', color: '#b45309', borderRadius: 999, padding: '0 6px' }}>
+                {planRequests.filter((r) => r.status === 'pending').length}
+              </span>
+            )}
           </button>
           <button
             type="button"
@@ -368,28 +386,10 @@ export default function SuperAdminPage() {
 
       {/* Main content */}
       <section className="dashboard-main">
-        <header className="dashboard-topbar surface">
-          <div className="topbar-left">
-            <div className="topbar-logo" style={{ background: '#eaf1ff', color: '#1d4ed8' }}>
-              <Shield size={16} />
-            </div>
-            <div>
-              <div style={{ fontWeight: 700 }}>Super Admin</div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>Gestión de plataforma</div>
-            </div>
-          </div>
-          <div className="topbar-right">
-            <button type="button" onClick={() => { setAuthed(false); setSecret(''); setTenants([]); }} className="btn btn-ghost">
-              <LogOut size={16} />
-              Cerrar sesión
-            </button>
-          </div>
-        </header>
         <div style={{ maxWidth: 1100, padding: '28px 24px' }}>
 
           {/* ── TENANTS VIEW ── */}
-          {activeView === 'tenants' ? (
-            <>
+          <div style={{ display: activeView === 'tenants' ? 'block' : 'none' }}>
               <section className="section-block">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
                   <div>
@@ -450,6 +450,31 @@ export default function SuperAdminPage() {
                     </form>
                   </div>
                 ) : null}
+
+                {/* Global stats */}
+                <div className="stats-strip">
+                  <div className="stat-card">
+                    <div>
+                      <div className="stat-label">Total tenants</div>
+                      <div className="stat-value">{tenants.length}</div>
+                    </div>
+                    <Building2 size={20} style={{ color: '#94a3b8' }} />
+                  </div>
+                  <div className="stat-card">
+                    <div>
+                      <div className="stat-label">Total bookings</div>
+                      <div className="stat-value">{tenants.reduce((sum, t) => sum + t.bookingsCount, 0)}</div>
+                    </div>
+                    <CalendarDays size={20} style={{ color: '#94a3b8' }} />
+                  </div>
+                  <div className="stat-card">
+                    <div>
+                      <div className="stat-label">Total staff</div>
+                      <div className="stat-value">{tenants.reduce((sum, t) => sum + t.staffCount, 0)}</div>
+                    </div>
+                    <Users size={20} style={{ color: '#94a3b8' }} />
+                  </div>
+                </div>
 
                 {/* Plan summary */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginBottom: 16 }}>
@@ -513,7 +538,7 @@ export default function SuperAdminPage() {
                           <td>
                             <button
                               type="button"
-                              onClick={() => void handleDelete(t.id, t.name)}
+                              onClick={() => setDeleteTarget({ id: t.id, name: t.name })}
                               className="btn btn-ghost"
                               style={{ fontSize: 11, color: '#dc2626', borderColor: '#fca5a5' }}
                             >
@@ -531,11 +556,10 @@ export default function SuperAdminPage() {
                   ) : null}
                 </div>
               </section>
-            </>
-          ) : null}
+          </div>
 
           {/* ── PLAN REQUESTS VIEW ── */}
-          {activeView === 'plan-requests' ? (
+          <div style={{ display: activeView === 'plan-requests' ? 'block' : 'none' }}>
             <section className="section-block">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
                 <div>
@@ -576,7 +600,7 @@ export default function SuperAdminPage() {
                     {planRequests.map((r) => {
                       const sm = STATUS_META[r.status];
                       return (
-                        <tr key={r.id}>
+                        <tr key={r.id} style={r.status === 'pending' ? { borderLeft: '3px solid #f59e0b' } : undefined}>
                           <td style={{ whiteSpace: 'nowrap', fontSize: 12, color: '#64748b' }}>{new Date(r.createdAt).toLocaleDateString('es-MX')}</td>
                           <td style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</td>
                           <td style={{ fontSize: 12, color: '#64748b' }}>{r.email}</td>
@@ -623,10 +647,15 @@ export default function SuperAdminPage() {
                                 className="btn btn-ghost"
                                 style={{ fontSize: 11, padding: '4px 8px', marginLeft: 4 }}
                                 title={r.message}
-                                onClick={() => window.alert(`Mensaje:\n${r.message}`)}
+                                onClick={() => setExpandedMessage(expandedMessage === r.id ? null : r.id)}
                               >
-                                Ver msg
+                                {expandedMessage === r.id ? 'Ocultar' : 'Ver msg'}
                               </button>
+                            ) : null}
+                            {expandedMessage === r.id && r.message ? (
+                              <div style={{ marginTop: 6, padding: '8px 10px', borderRadius: 6, background: '#f8fafc', border: '1px solid var(--border)', fontSize: 12, color: '#374151', maxWidth: 260, whiteSpace: 'pre-wrap' }}>
+                                {r.message}
+                              </div>
                             ) : null}
                           </td>
                         </tr>
@@ -641,10 +670,10 @@ export default function SuperAdminPage() {
                 ) : null}
               </div>
             </section>
-          ) : null}
+          </div>
 
           {/* ── AUDIT VIEW ── */}
-          {activeView === 'audit' ? (
+          <div style={{ display: activeView === 'audit' ? 'block' : 'none' }}>
             <section className="section-block">
               <h2 className="section-title">Auditoría del sistema</h2>
               <p className="section-subtitle">Consulta logs de acciones de cualquier tenant.</p>
@@ -732,7 +761,44 @@ export default function SuperAdminPage() {
                 ) : null}
               </div>
             </section>
-          ) : null}
+          </div>
+
+          {/* Delete confirmation modal */}
+          {deleteTarget && (
+            <div
+              className="modal-overlay"
+              onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}
+            >
+              <div className="modal-content">
+                <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#991b1b' }}>
+                  Eliminar tenant
+                </h3>
+                <p style={{ margin: '0 0 16px', fontSize: 14, color: '#374151' }}>
+                  ¿Eliminar permanentemente el tenant <strong>&quot;{deleteTarget.name}&quot;</strong>? Esta acción no se puede deshacer.
+                </p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={deleteLoading}
+                    onClick={() => void handleDeleteConfirm()}
+                    style={{ background: 'var(--danger)', fontSize: 13 }}
+                  >
+                    {deleteLoading ? 'Eliminando...' : 'Eliminar permanentemente'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={deleteLoading}
+                    onClick={() => setDeleteTarget(null)}
+                    style={{ fontSize: 13 }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
       </section>

@@ -1250,21 +1250,76 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                   {copy.bookNow}
                 </button>
               </div>
-            ) : bookings.map((booking) => {
-              const statusMeta = getBookingStatusMeta(booking.status, locale);
+            ) : (() => {
+              const now = new Date();
+              const todayStr = now.toDateString();
+              const upcomingBookings = bookings.filter((b) => new Date(b.startAt) >= now && b.status !== 'cancelled');
+              const pastOrCancelled = bookings.filter((b) => new Date(b.startAt) < now || b.status === 'cancelled');
               return (
-                <article key={booking.id} className="panel" style={{ display: 'grid', gap: 8, padding: 16 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                    <strong style={{ fontSize: 15 }}>{booking.service?.name ?? copy.fallbackService}</strong>
-                    <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 10px', ...statusMeta.style }}>
-                      {statusMeta.label}
-                    </span>
-                  </div>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#555', fontSize: 13 }}><Clock size={13} /> {formatDateTime(booking.startAt, locale)}</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#555', fontSize: 13 }}><User size={13} /> {booking.staff?.fullName ?? 'N/A'}</span>
-                </article>
+                <>
+                  {upcomingBookings.length > 0 && (
+                    <>
+                      <h3 style={{ margin: '4px 0 4px', fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                        {locale === 'en' ? 'Upcoming' : 'Próximas'} ({upcomingBookings.length})
+                      </h3>
+                      {upcomingBookings.map((booking) => {
+                        const statusMeta = getBookingStatusMeta(booking.status, locale);
+                        const isBookingToday = new Date(booking.startAt).toDateString() === todayStr;
+                        const durationMin = booking.service?.durationMinutes;
+                        return (
+                          <article key={booking.id} className="panel" style={{ display: 'grid', gap: 8, padding: 16, borderLeft: isBookingToday ? '3px solid var(--primary)' : undefined }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <strong style={{ fontSize: 15 }}>{booking.service?.name ?? copy.fallbackService}</strong>
+                                {isBookingToday && (
+                                  <span style={{ fontSize: 10, fontWeight: 700, background: 'var(--primary)', color: '#fff', borderRadius: 999, padding: '2px 6px' }}>
+                                    {locale === 'en' ? 'Today' : 'Hoy'}
+                                  </span>
+                                )}
+                              </div>
+                              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 10px', ...statusMeta.style }}>
+                                {statusMeta.label}
+                              </span>
+                            </div>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#555', fontSize: 13 }}>
+                              <Clock size={13} /> {formatDateTime(booking.startAt, locale)} — {formatTime(booking.endAt)}
+                              {durationMin ? <span style={{ color: '#94a3b8' }}>({durationMin} min)</span> : null}
+                            </span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#555', fontSize: 13 }}><User size={13} /> {booking.staff?.fullName ?? 'N/A'}</span>
+                          </article>
+                        );
+                      })}
+                    </>
+                  )}
+                  {pastOrCancelled.length > 0 && (
+                    <>
+                      <h3 style={{ margin: '8px 0 4px', fontSize: 13, fontWeight: 600, color: '#64748b' }}>
+                        {locale === 'en' ? 'Past' : 'Anteriores'} ({pastOrCancelled.length})
+                      </h3>
+                      {pastOrCancelled.map((booking) => {
+                        const statusMeta = getBookingStatusMeta(booking.status, locale);
+                        const durationMin = booking.service?.durationMinutes;
+                        return (
+                          <article key={booking.id} className="panel" style={{ display: 'grid', gap: 8, padding: 16, opacity: 0.75 }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                              <strong style={{ fontSize: 15 }}>{booking.service?.name ?? copy.fallbackService}</strong>
+                              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 10px', ...statusMeta.style }}>
+                                {statusMeta.label}
+                              </span>
+                            </div>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#555', fontSize: 13 }}>
+                              <Clock size={13} /> {formatDateTime(booking.startAt, locale)} — {formatTime(booking.endAt)}
+                              {durationMin ? <span style={{ color: '#94a3b8' }}>({durationMin} min)</span> : null}
+                            </span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#555', fontSize: 13 }}><User size={13} /> {booking.staff?.fullName ?? 'N/A'}</span>
+                          </article>
+                        );
+                      })}
+                    </>
+                  )}
+                </>
               );
-            })}
+            })()}
           </div>
         ) : null}
 
@@ -1321,6 +1376,11 @@ export default function CustomerBookingsPage({ params }: PageProps) {
         {activeView === 'more' ? (
           <div style={{ display: 'grid', gap: 16 }}>
 
+            {/* Section header - Account */}
+            <h3 style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {locale === 'en' ? 'Account' : 'Cuenta'}
+            </h3>
+
             {/* Vincular historial */}
             <section className="panel" style={{ display: 'grid', gap: 12, padding: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1345,6 +1405,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                 disabled={claimLoading}
                 style={{ width: '100%', justifyContent: 'center' }}
               >
+                <Send size={13} />
                 {claimLoading ? copy.processing : copy.requestCode}
               </button>
               <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500 }}>
@@ -1363,21 +1424,38 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                 disabled={claimLoading}
                 style={{ width: '100%', justifyContent: 'center' }}
               >
+                <CheckCircle2 size={13} />
                 {claimLoading ? copy.processing : copy.confirmClaim}
               </button>
               {claimMessage ? <div className="status-success">{claimMessage}</div> : null}
             </section>
+
+            {/* Section header - Session */}
+            <h3 style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {locale === 'en' ? 'Session' : 'Sesión'}
+            </h3>
 
             {/* Cerrar sesión */}
             <section
               className="panel"
               style={{ padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
             >
-              <div>
-                <strong style={{ display: 'block', fontSize: 14 }}>{copy.navLogout}</strong>
-                <span style={{ fontSize: 12, color: '#64748b' }}>
-                  {locale === 'en' ? 'Clear your current session.' : 'Cierra tu sesión actual.'}
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36, height: 36, borderRadius: 9,
+                    background: '#fef2f2', color: '#b91c1c',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                  }}
+                >
+                  <LogOut size={16} />
+                </div>
+                <div>
+                  <strong style={{ display: 'block', fontSize: 14 }}>{copy.navLogout}</strong>
+                  <span style={{ fontSize: 12, color: '#64748b' }}>
+                    {locale === 'en' ? 'Clear your current session.' : 'Cierra tu sesión actual.'}
+                  </span>
+                </div>
               </div>
               <button
                 type="button"
@@ -1415,6 +1493,21 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
           {/* Scrollable content */}
           <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'grid', gap: 16, alignContent: 'start', maxWidth: 580, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+
+            {/* Step indicator */}
+            {!submitSuccess && (
+              <div className="step-indicator">
+                <div className={`step-dot ${serviceId && staffId && bookingDate ? 'completed' : 'active'}`}>
+                  {serviceId && staffId && bookingDate ? '✓' : '1'}
+                </div>
+                <div className={`step-line ${serviceId && staffId && bookingDate ? 'completed' : ''}`} />
+                <div className={`step-dot ${selectedSlot ? 'completed' : serviceId && staffId && bookingDate ? 'active' : ''}`}>
+                  {selectedSlot ? '✓' : '2'}
+                </div>
+                <div className={`step-line ${selectedSlot ? 'completed' : ''}`} />
+                <div className={`step-dot ${selectedSlot ? 'active' : ''}`}>3</div>
+              </div>
+            )}
 
             {submitSuccess ? (
               /* Success state */

@@ -131,21 +131,39 @@ export function OverviewSection(props: OverviewSectionProps) {
       <Notice tone="error" message={props.bookingActionError} withMargin onClose={() => props.setBookingActionError('')} />
       <Notice tone="success" message={props.bookingActionSuccess} withMargin onClose={() => props.setBookingActionSuccess('')} />
 
-      {props.data ? (
+      {props.loading && !props.data ? (
         <section className="section-block">
           <div className="section-grid section-grid-3" style={{ marginBottom: 16 }}>
-            <article className="panel">
-              <strong>Total citas</strong>
-              <div>{props.data.summary.totalAppointments}</div>
-            </article>
-            <article className="panel">
-              <strong>Minutos agendados</strong>
-              <div>{props.data.summary.totalScheduledMinutes}</div>
-            </article>
-            <article className="panel">
-              <strong>Período</strong>
-              <div>{new Date(props.data.period.start).toLocaleString()} → {new Date(props.data.period.end).toLocaleString()}</div>
-            </article>
+            <div className="skeleton" style={{ height: 64 }} />
+            <div className="skeleton" style={{ height: 64 }} />
+            <div className="skeleton" style={{ height: 64 }} />
+          </div>
+          <div className="skeleton" style={{ height: 40, marginBottom: 16 }} />
+          <div className="skeleton" style={{ height: 200 }} />
+        </section>
+      ) : null}
+
+      {props.data ? (
+        <section className="section-block">
+          <div className="stats-strip">
+            <div className="stat-card">
+              <div>
+                <div className="stat-label">Total citas</div>
+                <div className="stat-value">{props.data.summary.totalAppointments}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div>
+                <div className="stat-label">Minutos agendados</div>
+                <div className="stat-value">{props.data.summary.totalScheduledMinutes}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div>
+                <div className="stat-label">Período</div>
+                <div style={{ fontSize: 12, color: '#64748b' }}>{new Date(props.data.period.start).toLocaleString()} → {new Date(props.data.period.end).toLocaleString()}</div>
+              </div>
+            </div>
           </div>
 
           <div className="panel" style={{ marginBottom: 16 }}>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CalendarDays, ChevronDown, ChevronRight, Clock, RefreshCw } from 'lucide-react';
 
 type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show' | 'rescheduled' | string;
 
@@ -20,30 +21,66 @@ type StaffBooking = {
 type StaffBookingsSectionProps = {
   apiUrl: string;
   token: string;
+  staffName: string;
 };
 
-const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  pending:     { label: 'Pendiente',     color: '#b45309', bg: '#fef9c3' },
-  confirmed:   { label: 'Confirmada',    color: '#166534', bg: '#dcfce7' },
-  cancelled:   { label: 'Cancelada',     color: '#991b1b', bg: '#fee2e2' },
-  completed:   { label: 'Completada',    color: '#1e3a5f', bg: '#dbeafe' },
-  rescheduled: { label: 'Reprogramada',  color: '#6d28d9', bg: '#ede9fe' },
-  no_show:     { label: 'No asistió',    color: '#4b5563', bg: '#f3f4f6' }
+const STATUS_META: Record<string, { label: string; color: string; bg: string; borderClass: string }> = {
+  pending:     { label: 'Pendiente',     color: '#b45309', bg: '#fef9c3', borderClass: 'booking-card-pending' },
+  confirmed:   { label: 'Confirmada',    color: '#166534', bg: '#dcfce7', borderClass: 'booking-card-confirmed' },
+  cancelled:   { label: 'Cancelada',     color: '#991b1b', bg: '#fee2e2', borderClass: 'booking-card-cancelled' },
+  completed:   { label: 'Completada',    color: '#1e3a5f', bg: '#dbeafe', borderClass: 'booking-card-completed' },
+  rescheduled: { label: 'Reprogramada',  color: '#6d28d9', bg: '#ede9fe', borderClass: '' },
+  no_show:     { label: 'No asistió',    color: '#4b5563', bg: '#f3f4f6', borderClass: '' }
 };
 
 function statusMeta(s: string) {
-  return STATUS_META[s] ?? { label: s, color: '#555', bg: '#f5f5f5' };
+  return STATUS_META[s] ?? { label: s, color: '#555', bg: '#f5f5f5', borderClass: '' };
 }
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-export function StaffBookingsSection({ apiUrl, token }: StaffBookingsSectionProps) {
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+}
+
+function isToday(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+}
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Buenos días';
+  if (h < 19) return 'Buenas tardes';
+  return 'Buenas noches';
+}
+
+function SkeletonBookings() {
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      <div className="skeleton" style={{ height: 28, width: '45%' }} />
+      <div className="skeleton" style={{ height: 18, width: '30%' }} />
+      <div className="stats-strip">
+        <div className="skeleton" style={{ height: 72 }} />
+        <div className="skeleton" style={{ height: 72 }} />
+        <div className="skeleton" style={{ height: 72 }} />
+      </div>
+      <div className="skeleton" style={{ height: 80 }} />
+      <div className="skeleton" style={{ height: 80 }} />
+      <div className="skeleton" style={{ height: 80 }} />
+    </div>
+  );
+}
+
+export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookingsSectionProps) {
   const [bookings, setBookings] = useState<StaffBooking[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [showPast, setShowPast] = useState(false);
 
   // Cancel state
   const [cancelId, setCancelId] = useState<string | null>(null);
@@ -53,6 +90,7 @@ export function StaffBookingsSection({ apiUrl, token }: StaffBookingsSectionProp
   const [cancelSuccess, setCancelSuccess] = useState('');
 
   const abortRef = useRef<AbortController | null>(null);
+  const modalRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     if (!token.trim()) return;
@@ -88,6 +126,20 @@ export function StaffBookingsSection({ apiUrl, token }: StaffBookingsSectionProp
     void load();
   }, [load]);
 
+  // Close cancel modal on Escape
+  useEffect(() => {
+    if (!cancelId) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setCancelId(null);
+        setCancelReason('');
+        setCancelError('');
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [cancelId]);
+
   async function handleCancel() {
     if (!cancelId) return;
     setCancelLoading(true);
@@ -120,16 +172,88 @@ export function StaffBookingsSection({ apiUrl, token }: StaffBookingsSectionProp
     }
   }
 
-  const upcoming = bookings.filter((b) => new Date(b.startAt) >= new Date() && b.status !== 'cancelled');
-  const past = bookings.filter((b) => new Date(b.startAt) < new Date() || b.status === 'cancelled');
+  async function handleQuickAction(bookingId: string, action: 'confirm' | 'complete' | 'no-show') {
+    try {
+      const res = await fetch(`${apiUrl}/bookings/${bookingId}/${action}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Error ${res.status}`);
+      }
+      const updated = (await res.json()) as StaffBooking;
+      setBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, status: updated.status } : b)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar cita');
+    }
+  }
+
+  // Compute grouped bookings
+  const now = new Date();
+  const todayBookings = bookings.filter((b) => isToday(b.startAt) && b.status !== 'cancelled');
+  const upcomingBookings = bookings.filter(
+    (b) => new Date(b.startAt) > now && !isToday(b.startAt) && b.status !== 'cancelled'
+  );
+  const pastBookings = bookings.filter(
+    (b) => (new Date(b.startAt) < now && !isToday(b.startAt)) || b.status === 'cancelled'
+  );
+
+  // Stats
+  const todayCount = todayBookings.length;
+  const pendingCount = bookings.filter((b) => b.status === 'pending').length;
+  const nextBooking = [...todayBookings, ...upcomingBookings]
+    .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
+    .find((b) => new Date(b.startAt) >= now);
+
+  const displayName = staffName.includes('@') ? staffName.split('@')[0] : staffName;
 
   return (
     <section>
-      <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Mis Citas</h2>
-      <p style={{ margin: '0 0 16px', fontSize: 14, color: '#64748b' }}>Todas las citas asignadas a ti.</p>
+      {/* Greeting */}
+      <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#0f172a' }}>
+        {getGreeting()}, {displayName}
+      </h2>
+      <p style={{ margin: '0 0 16px', fontSize: 14, color: '#64748b' }}>
+        {loading ? 'Cargando tus citas...' : `Tienes ${todayCount} cita${todayCount !== 1 ? 's' : ''} para hoy`}
+      </p>
+
+      {/* Stats strip */}
+      {!loading && (
+        <div className="stats-strip">
+          <div className="stat-card">
+            <div>
+              <div className="stat-label">Citas hoy</div>
+              <div className="stat-value">{todayCount}</div>
+            </div>
+            <CalendarDays size={20} style={{ color: '#94a3b8' }} />
+          </div>
+          <div className="stat-card" style={pendingCount > 0 ? { borderColor: '#f59e0b' } : undefined}>
+            <div>
+              <div className="stat-label">Pendientes</div>
+              <div className="stat-value" style={pendingCount > 0 ? { color: 'var(--warning)' } : undefined}>
+                {pendingCount}
+              </div>
+            </div>
+            <Clock size={20} style={{ color: pendingCount > 0 ? 'var(--warning)' : '#94a3b8' }} />
+          </div>
+          <div className="stat-card">
+            <div>
+              <div className="stat-label">Siguiente cita</div>
+              {nextBooking ? (
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                  {fmtTime(nextBooking.startAt)} · {nextBooking.customerName}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: '#94a3b8' }}>Sin citas</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
@@ -147,106 +271,157 @@ export function StaffBookingsSection({ apiUrl, token }: StaffBookingsSectionProp
           type="button"
           onClick={() => void load()}
           className="btn btn-ghost"
-          style={{ fontSize: 13 }}
+          style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px' }}
+          title="Actualizar"
         >
-          Actualizar
+          <RefreshCw size={13} />
         </button>
       </div>
 
       {cancelSuccess && <div className="status-success" style={{ marginBottom: 12 }}>{cancelSuccess}</div>}
       {error && <div className="status-error" style={{ marginBottom: 12 }}>{error}</div>}
-      {loading && <p style={{ color: '#94a3b8', fontSize: 14 }}>Cargando citas...</p>}
 
-      {/* Cancel modal */}
+      {loading && <SkeletonBookings />}
+
+      {/* Cancel modal overlay */}
       {cancelId && (
         <div
-          className="panel"
-          style={{
-            marginBottom: 16,
-            padding: 16,
-            border: '1px solid var(--danger, #b91c1c)',
-            borderRadius: 8
+          className="modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setCancelId(null);
+              setCancelReason('');
+              setCancelError('');
+            }
           }}
         >
-          <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 600, color: '#991b1b' }}>
-            Cancelar cita
-          </h3>
-          <label style={{ display: 'grid', gap: 4, fontSize: 13, fontWeight: 500, color: '#374151' }}>
-            Razón (opcional)
-            <textarea
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              rows={2}
-              style={{ width: '100%', resize: 'vertical' }}
-              placeholder="Motivo de la cancelación..."
-            />
-          </label>
-          {cancelError && <div className="status-error" style={{ marginTop: 8 }}>{cancelError}</div>}
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={cancelLoading}
-              onClick={handleCancel}
-              style={{ background: 'var(--danger, #b91c1c)', fontSize: 13 }}
-            >
-              {cancelLoading ? 'Cancelando...' : 'Confirmar cancelación'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              disabled={cancelLoading}
-              onClick={() => {
-                setCancelId(null);
-                setCancelReason('');
-                setCancelError('');
-              }}
-              style={{ fontSize: 13 }}
-            >
-              Volver
-            </button>
+          <div className="modal-content" ref={modalRef}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: '#991b1b' }}>
+              Cancelar cita
+            </h3>
+            <label style={{ display: 'grid', gap: 4, fontSize: 13, fontWeight: 500, color: '#374151' }}>
+              Razón (opcional)
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={2}
+                style={{ width: '100%', resize: 'vertical' }}
+                placeholder="Motivo de la cancelación..."
+                autoFocus
+              />
+            </label>
+            {cancelError && <div className="status-error" style={{ marginTop: 8 }}>{cancelError}</div>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={cancelLoading}
+                onClick={handleCancel}
+                style={{ background: 'var(--danger, #b91c1c)', fontSize: 13 }}
+              >
+                {cancelLoading ? 'Cancelando...' : 'Confirmar cancelación'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={cancelLoading}
+                onClick={() => {
+                  setCancelId(null);
+                  setCancelReason('');
+                  setCancelError('');
+                }}
+                style={{ fontSize: 13 }}
+              >
+                Volver
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Upcoming bookings */}
-      {upcoming.length > 0 && (
+      {!loading && (
         <>
+          {/* Today's bookings */}
           <h3 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600, color: '#374151' }}>
-            Próximas ({upcoming.length})
+            Hoy ({todayBookings.length})
           </h3>
-          <div style={{ display: 'grid', gap: 8, marginBottom: 20 }}>
-            {upcoming.map((b) => (
-              <BookingCard key={b.id} booking={b} onCancel={() => setCancelId(b.id)} />
-            ))}
-          </div>
-        </>
-      )}
+          {todayBookings.length > 0 ? (
+            <div style={{ display: 'grid', gap: 8, marginBottom: 20 }}>
+              {todayBookings.map((b) => (
+                <BookingCard key={b.id} booking={b} isToday onCancel={() => setCancelId(b.id)} onAction={handleQuickAction} />
+              ))}
+            </div>
+          ) : (
+            <div className="panel" style={{ padding: 24, textAlign: 'center', marginBottom: 20 }}>
+              <CalendarDays size={28} style={{ color: '#94a3b8', marginBottom: 8 }} />
+              <p style={{ margin: 0, fontSize: 14, color: '#94a3b8' }}>Sin citas para hoy. ¡Día tranquilo!</p>
+            </div>
+          )}
 
-      {/* Past bookings */}
-      {past.length > 0 && (
-        <>
-          <h3 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600, color: '#374151' }}>
-            Anteriores / Canceladas ({past.length})
-          </h3>
-          <div style={{ display: 'grid', gap: 8 }}>
-            {past.map((b) => (
-              <BookingCard key={b.id} booking={b} />
-            ))}
-          </div>
-        </>
-      )}
+          {/* Upcoming bookings */}
+          {upcomingBookings.length > 0 && (
+            <>
+              <h3 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600, color: '#374151' }}>
+                Próximas ({upcomingBookings.length})
+              </h3>
+              <div style={{ display: 'grid', gap: 8, marginBottom: 20 }}>
+                {upcomingBookings.map((b) => (
+                  <BookingCard key={b.id} booking={b} onCancel={() => setCancelId(b.id)} onAction={handleQuickAction} />
+                ))}
+              </div>
+            </>
+          )}
 
-      {!loading && bookings.length === 0 && (
-        <div className="panel" style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>
-          No tienes citas registradas.
-        </div>
+          {/* Past / Cancelled bookings — collapsible */}
+          {pastBookings.length > 0 && (
+            <>
+              <button
+                type="button"
+                className="collapsible-toggle"
+                onClick={() => setShowPast(!showPast)}
+                style={{ marginBottom: 8 }}
+              >
+                {showPast ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                Anteriores / Canceladas ({pastBookings.length})
+              </button>
+              {showPast && (
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {pastBookings.map((b) => (
+                    <BookingCard key={b.id} booking={b} onAction={handleQuickAction} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {bookings.length === 0 && (
+            <div className="panel" style={{ padding: 32, textAlign: 'center' }}>
+              <CalendarDays size={36} style={{ color: '#94a3b8', marginBottom: 10 }} />
+              <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#374151' }}>
+                Aún no tienes citas asignadas
+              </p>
+              <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>
+                Las citas aparecerán aquí cuando el negocio te asigne reservas.
+              </p>
+            </div>
+          )}
+        </>
       )}
     </section>
   );
 }
 
-function BookingCard({ booking, onCancel }: { booking: StaffBooking; onCancel?: () => void }) {
+function BookingCard({
+  booking,
+  onCancel,
+  onAction,
+  isToday: todayFlag
+}: {
+  booking: StaffBooking;
+  onCancel?: () => void;
+  onAction?: (id: string, action: 'confirm' | 'complete' | 'no-show') => void;
+  isToday?: boolean;
+}) {
   const meta = statusMeta(booking.status);
   const canCancel =
     onCancel &&
@@ -254,55 +429,128 @@ function BookingCard({ booking, onCancel }: { booking: StaffBooking; onCancel?: 
     booking.status !== 'completed' &&
     booking.status !== 'no_show';
 
+  const isPast = new Date(booking.startAt) < new Date();
+  const borderClass = todayFlag ? 'booking-card-today' : meta.borderClass;
+
   return (
     <div
-      className="panel"
+      className={`panel ${borderClass}`}
       style={{
         padding: '14px 16px',
         display: 'grid',
-        gridTemplateColumns: '1fr auto',
-        gap: 8,
-        alignItems: 'start'
+        gap: 8
       }}
     >
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <strong style={{ fontSize: 14 }}>{booking.customerName}</strong>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: meta.color,
-              background: meta.bg,
-              padding: '2px 8px',
-              borderRadius: 99
-            }}
-          >
-            {meta.label}
-          </span>
-        </div>
-        <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
-          {booking.service.name} &middot; {fmt(booking.startAt)} — {fmt(booking.endAt)}
-        </p>
-        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#94a3b8' }}>{booking.customerEmail}</p>
-        {booking.notes && (
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>{booking.notes}</p>
-        )}
-        {booking.cancellationReason && (
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#991b1b' }}>
-            Razón: {booking.cancellationReason}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'start' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <strong style={{ fontSize: 14 }}>{booking.customerName}</strong>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: meta.color,
+                background: meta.bg,
+                padding: '2px 8px',
+                borderRadius: 99
+              }}
+            >
+              {meta.label}
+            </span>
+          </div>
+          <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+            {booking.service.name} · {fmt(booking.startAt)} — {fmtTime(booking.endAt)}
           </p>
-        )}
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#94a3b8' }}>{booking.customerEmail}</p>
+          {booking.notes && (
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>{booking.notes}</p>
+          )}
+          {booking.cancellationReason && (
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#991b1b' }}>
+              Razón: {booking.cancellationReason}
+            </p>
+          )}
+        </div>
       </div>
-      {canCancel && (
-        <button
-          type="button"
-          onClick={onCancel}
-          className="btn btn-ghost"
-          style={{ fontSize: 12, color: 'var(--danger, #b91c1c)', whiteSpace: 'nowrap' }}
-        >
-          Cancelar
-        </button>
+      {/* Action buttons */}
+      {onAction && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {booking.status === 'pending' && (
+            <>
+              <button
+                type="button"
+                onClick={() => onAction(booking.id, 'confirm')}
+                className="btn btn-ghost"
+                style={{ fontSize: 12, color: 'var(--success)', borderColor: '#bbf7d0', padding: '4px 10px' }}
+              >
+                Confirmar
+              </button>
+              {canCancel && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, color: 'var(--danger)', borderColor: '#fecaca', padding: '4px 10px' }}
+                >
+                  Cancelar
+                </button>
+              )}
+            </>
+          )}
+          {booking.status === 'confirmed' && !isPast && (
+            <>
+              <button
+                type="button"
+                onClick={() => onAction(booking.id, 'complete')}
+                className="btn btn-ghost"
+                style={{ fontSize: 12, color: '#1e3a5f', borderColor: '#bfdbfe', padding: '4px 10px' }}
+              >
+                Completar
+              </button>
+              {canCancel && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, color: 'var(--danger)', borderColor: '#fecaca', padding: '4px 10px' }}
+                >
+                  Cancelar
+                </button>
+              )}
+            </>
+          )}
+          {(booking.status === 'confirmed' || booking.status === 'rescheduled') && isPast && (
+            <>
+              <button
+                type="button"
+                onClick={() => onAction(booking.id, 'complete')}
+                className="btn btn-ghost"
+                style={{ fontSize: 12, color: '#1e3a5f', borderColor: '#bfdbfe', padding: '4px 10px' }}
+              >
+                Completar
+              </button>
+              <button
+                type="button"
+                onClick={() => onAction(booking.id, 'no-show')}
+                className="btn btn-ghost"
+                style={{ fontSize: 12, color: '#4b5563', borderColor: '#d1d5db', padding: '4px 10px' }}
+              >
+                No asistió
+              </button>
+            </>
+          )}
+          {/* For other non-terminal states with cancel option */}
+          {booking.status !== 'pending' && booking.status !== 'confirmed' && canCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="btn btn-ghost"
+              style={{ fontSize: 12, color: 'var(--danger)', borderColor: '#fecaca', padding: '4px 10px' }}
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

@@ -541,6 +541,102 @@ export class BookingsService {
     };
   }
 
+  async confirm(user: AuthUser, bookingId: string) {
+    const booking = await this.prisma.booking.findFirst({
+      where: { id: bookingId, tenantId: user.tenantId }
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Reserva no encontrada.');
+    }
+    if (user.role === 'staff' && user.staffId && booking.staffId !== user.staffId) {
+      throw new BadRequestException('No puedes confirmar reservas de otro miembro del staff.');
+    }
+    if (booking.status !== BookingStatus.pending) {
+      throw new BadRequestException('Solo se pueden confirmar reservas pendientes.');
+    }
+
+    const updated = await this.prisma.booking.update({
+      where: { id: booking.id },
+      data: { status: BookingStatus.confirmed }
+    });
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      actorUserId: user.sub,
+      action: 'BOOKING_CONFIRMED',
+      entity: 'booking',
+      entityId: booking.id,
+      metadata: { previousStatus: booking.status } as Prisma.InputJsonValue
+    });
+
+    return updated;
+  }
+
+  async complete(user: AuthUser, bookingId: string) {
+    const booking = await this.prisma.booking.findFirst({
+      where: { id: bookingId, tenantId: user.tenantId }
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Reserva no encontrada.');
+    }
+    if (user.role === 'staff' && user.staffId && booking.staffId !== user.staffId) {
+      throw new BadRequestException('No puedes completar reservas de otro miembro del staff.');
+    }
+    if (booking.status !== BookingStatus.confirmed && booking.status !== BookingStatus.rescheduled) {
+      throw new BadRequestException('Solo se pueden completar reservas confirmadas o reprogramadas.');
+    }
+
+    const updated = await this.prisma.booking.update({
+      where: { id: booking.id },
+      data: { status: BookingStatus.completed }
+    });
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      actorUserId: user.sub,
+      action: 'BOOKING_COMPLETED',
+      entity: 'booking',
+      entityId: booking.id,
+      metadata: { previousStatus: booking.status } as Prisma.InputJsonValue
+    });
+
+    return updated;
+  }
+
+  async noShow(user: AuthUser, bookingId: string) {
+    const booking = await this.prisma.booking.findFirst({
+      where: { id: bookingId, tenantId: user.tenantId }
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Reserva no encontrada.');
+    }
+    if (user.role === 'staff' && user.staffId && booking.staffId !== user.staffId) {
+      throw new BadRequestException('No puedes marcar como no asistió reservas de otro miembro del staff.');
+    }
+    if (booking.status === BookingStatus.cancelled || booking.status === BookingStatus.no_show) {
+      throw new BadRequestException('Esta reserva no puede marcarse como no asistió.');
+    }
+
+    const updated = await this.prisma.booking.update({
+      where: { id: booking.id },
+      data: { status: BookingStatus.no_show }
+    });
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      actorUserId: user.sub,
+      action: 'BOOKING_NO_SHOW',
+      entity: 'booking',
+      entityId: booking.id,
+      metadata: { previousStatus: booking.status } as Prisma.InputJsonValue
+    });
+
+    return updated;
+  }
+
   async cancel(user: AuthUser, bookingId: string, payload: CancelBookingDto) {
     const [booking, tenantSettings] = await Promise.all([
       this.prisma.booking.findFirst({

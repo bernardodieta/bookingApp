@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { UserCircle } from 'lucide-react';
 
 type StaffProfileSectionProps = {
   apiUrl: string;
@@ -86,11 +87,20 @@ export function StaffProfileSection({ apiUrl, token }: StaffProfileSectionProps)
     }
   }
 
+  const [photoError, setPhotoError] = useState(false);
+
   if (loading) {
     return (
-      <div className="panel" style={{ padding: 24 }}>
-        <p style={{ color: '#64748b' }}>Cargando perfil...</p>
-      </div>
+      <section style={{ display: 'grid', gap: 16 }}>
+        <div className="panel" style={{ padding: 24 }}>
+          <div className="skeleton" style={{ height: 24, width: '40%', marginBottom: 12 }} />
+          <div className="skeleton" style={{ height: 16, width: '60%', marginBottom: 20 }} />
+          <div className="skeleton" style={{ height: 48, marginBottom: 14 }} />
+          <div className="skeleton" style={{ height: 40, marginBottom: 14 }} />
+          <div className="skeleton" style={{ height: 40, marginBottom: 14 }} />
+          <div className="skeleton" style={{ height: 80 }} />
+        </div>
+      </section>
     );
   }
 
@@ -102,9 +112,21 @@ export function StaffProfileSection({ apiUrl, token }: StaffProfileSectionProps)
           Estos datos se muestran a los clientes cuando eligen profesional para su cita.
         </p>
 
-        <div style={{ marginBottom: 16, padding: 12, borderRadius: 8, background: '#f8fafc', border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 13, color: '#64748b' }}>Nombre</div>
-          <div style={{ fontWeight: 600 }}>{fullName}</div>
+        <div style={{ marginBottom: 16, padding: 12, borderRadius: 8, background: '#f8fafc', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          {photoUrl && !photoError ? (
+            <img
+              src={photoUrl}
+              alt={fullName}
+              onError={() => setPhotoError(true)}
+              style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+            />
+          ) : (
+            <UserCircle size={56} style={{ color: '#94a3b8', flexShrink: 0 }} />
+          )}
+          <div>
+            <div style={{ fontSize: 13, color: '#64748b' }}>Nombre</div>
+            <div style={{ fontWeight: 600 }}>{fullName}</div>
+          </div>
         </div>
 
         <form onSubmit={handleSave} style={{ display: 'grid', gap: 14 }}>
