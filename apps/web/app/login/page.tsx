@@ -43,9 +43,37 @@ const loginSchema = z.object({
   password: z.string().min(8, 'Password debe tener al menos 8 caracteres.')
 });
 
+const registerSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  tenantName: z.string().trim().min(1, 'Nombre del negocio es obligatorio.'),
+  email: z.string().trim().email('Email inválido.'),
+  password: z.string().min(8, 'Password debe tener al menos 8 caracteres.')
+});
+
+const staffRegisterSchema = z.object({
+  apiUrl: z.string().url('API URL inválida.'),
+  tenantSlug: z.string().trim().min(1, 'Slug del negocio es obligatorio.'),
+  email: z.string().trim().email('Email inválido.'),
+  password: z.string().min(8, 'Password debe tener al menos 8 caracteres.')
+});
+
 type AuthResponse = {
   accessToken: string;
   user?: { role?: string; staffId?: string };
+};
+
+type AuthMode = 'login' | 'register' | 'staff-register';
+
+const MODE_LABELS: Record<AuthMode, string> = {
+  login: 'Iniciar sesión',
+  register: 'Registrar negocio',
+  'staff-register': 'Registro staff',
+};
+
+const MODE_SUBTITLES: Record<AuthMode, string> = {
+  login: 'Inicia sesión en tu panel de gestión.',
+  register: 'Crea tu negocio y empieza a recibir reservas.',
+  'staff-register': 'Registrate como miembro del equipo de un negocio.',
 };
 
 function redirectByRole(router: ReturnType<typeof useRouter>, role?: string) {
@@ -58,11 +86,15 @@ function redirectByRole(router: ReturnType<typeof useRouter>, role?: string) {
 
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<AuthMode>('login');
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
   const [email, setEmail] = useState('owner@demo.com');
   const [password, setPassword] = useState('Password123');
+  const [tenantName, setTenantName] = useState('');
+  const [tenantSlug, setTenantSlug] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
@@ -88,53 +120,105 @@ export default function LoginPage() {
     redirectByRole(router, role);
   }
 
+  function switchMode(newMode: AuthMode) {
+    setMode(newMode);
+    setError('');
+    setSuccess('');
+    if (newMode === 'login') {
+      setEmail('owner@demo.com');
+      setPassword('Password123');
+    } else {
+      setEmail('');
+      setPassword('');
+    }
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError('');
+    setSuccess('');
 
     const normalizedApiUrl = apiUrl.trim();
     const normalizedEmail = email.trim();
 
-    const parsed = loginSchema.safeParse({
-      apiUrl: normalizedApiUrl,
-      email: normalizedEmail,
-      password
-    });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const response = await fetch(new URL('/auth/login', normalizedApiUrl).toString(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          email: normalizedEmail,
-          password
-        })
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+    if (mode === 'login') {
+      const parsed = loginSchema.safeParse({ apiUrl: normalizedApiUrl, email: normalizedEmail, password });
+      if (!parsed.success) {
+        setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
+        return;
       }
 
-      const payload = (await response.json()) as AuthResponse;
-      if (!payload.accessToken) {
-        throw new Error('No se recibió accessToken.');
+      setLoading(true);
+      try {
+        const response = await fetch(new URL('/auth/login', normalizedApiUrl).toString(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: normalizedEmail, password })
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `Error ${response.status}`);
+        }
+        const payload = (await response.json()) as AuthResponse;
+        if (!payload.accessToken) throw new Error('No se recibió accessToken.');
+        handleAuthSuccess(payload, normalizedApiUrl);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión');
+      } finally {
+        setLoading(false);
+      }
+    } else if (mode === 'register') {
+      const parsed = registerSchema.safeParse({ apiUrl: normalizedApiUrl, tenantName: tenantName.trim(), email: normalizedEmail, password });
+      if (!parsed.success) {
+        setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
+        return;
       }
 
-      handleAuthSuccess(payload, normalizedApiUrl);
-    } catch (loginError) {
-      const message = loginError instanceof Error ? loginError.message : 'No se pudo iniciar sesión';
-      setError(message);
-    } finally {
-      setLoading(false);
+      setLoading(true);
+      try {
+        const response = await fetch(new URL('/auth/register', normalizedApiUrl).toString(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantName: tenantName.trim(), email: normalizedEmail, password })
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `Error ${response.status}`);
+        }
+        const payload = (await response.json()) as AuthResponse;
+        if (!payload.accessToken) throw new Error('No se recibió accessToken.');
+        handleAuthSuccess(payload, normalizedApiUrl);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'No se pudo registrar el negocio');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      const parsed = staffRegisterSchema.safeParse({ apiUrl: normalizedApiUrl, tenantSlug: tenantSlug.trim(), email: normalizedEmail, password });
+      if (!parsed.success) {
+        setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const response = await fetch(new URL('/auth/staff/register', normalizedApiUrl).toString(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantSlug: tenantSlug.trim(), email: normalizedEmail, password })
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `Error ${response.status}`);
+        }
+        const payload = (await response.json()) as AuthResponse;
+        if (!payload.accessToken) throw new Error('No se recibió accessToken.');
+        handleAuthSuccess(payload, normalizedApiUrl);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'No se pudo registrar como staff');
+      } finally {
+        setLoading(false);
+      }
     }
   }
 
@@ -157,9 +241,7 @@ export default function LoginPage() {
     try {
       const response = await fetch(new URL('/auth/google', normalizedApiUrl).toString(), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken })
       });
 
@@ -169,10 +251,7 @@ export default function LoginPage() {
       }
 
       const payload = (await response.json()) as AuthResponse;
-      if (!payload.accessToken) {
-        throw new Error('No se recibió accessToken.');
-      }
-
+      if (!payload.accessToken) throw new Error('No se recibió accessToken.');
       handleAuthSuccess(payload, normalizedApiUrl);
     } catch (googleError) {
       setError(googleError instanceof Error ? googleError.message : 'No se pudo iniciar con Google');
@@ -232,6 +311,26 @@ export default function LoginPage() {
     };
   }, [googleScriptLoaded, googleButtonNode]);
 
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    flex: 1,
+    padding: '8px 4px',
+    fontSize: 13,
+    fontWeight: 600,
+    border: 'none',
+    cursor: 'pointer',
+    borderRadius: 8,
+    transition: 'all 0.15s',
+    background: active ? 'var(--surface, #fff)' : 'transparent',
+    color: active ? 'var(--primary, #2563eb)' : '#64748b',
+    boxShadow: active ? '0 1px 3px rgba(0,0,0,0.09)' : 'none',
+  });
+
+  const buttonLabel = mode === 'login'
+    ? (loading ? 'Ingresando...' : 'Entrar')
+    : mode === 'register'
+      ? (loading ? 'Registrando...' : 'Crear negocio')
+      : (loading ? 'Registrando...' : 'Registrar staff');
+
   return (
     <>
       {GOOGLE_CLIENT_ID ? <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={() => setGoogleScriptLoaded(true)} /> : null}
@@ -265,18 +364,58 @@ export default function LoginPage() {
             <Building2 size={24} />
           </div>
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.3px' }}>
-            Acceso
+            {MODE_LABELS[mode]}
           </h1>
           <p style={{ margin: '6px 0 0', fontSize: 14, color: '#64748b' }}>
-            Inicia sesión en tu panel de gestión.
+            {MODE_SUBTITLES[mode]}
           </p>
         </div>
 
         {/* Card */}
         <div className="panel" style={{ width: '100%', maxWidth: 440, padding: '28px 28px 24px', display: 'grid', gap: 18 }}>
 
+          {/* Mode tabs */}
+          <div style={{ display: 'flex', gap: 4, background: 'var(--bg, #f1f5f9)', borderRadius: 10, padding: 4 }}>
+            {(['login', 'register', 'staff-register'] as AuthMode[]).map((m) => (
+              <button key={m} type="button" style={tabStyle(mode === m)} onClick={() => switchMode(m)}>
+                {MODE_LABELS[m]}
+              </button>
+            ))}
+          </div>
+
           {/* Form */}
           <form onSubmit={onSubmit} style={{ display: 'grid', gap: 14 }}>
+            {mode === 'register' && (
+              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+                Nombre del negocio
+                <input
+                  type="text"
+                  value={tenantName}
+                  onChange={(e) => setTenantName(e.target.value)}
+                  placeholder="Ej: Barbería Don Juan"
+                  style={{ width: '100%' }}
+                  autoComplete="organization"
+                />
+              </label>
+            )}
+
+            {mode === 'staff-register' && (
+              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+                Slug del negocio
+                <input
+                  type="text"
+                  value={tenantSlug}
+                  onChange={(e) => setTenantSlug(e.target.value)}
+                  placeholder="Ej: barberia-don-juan"
+                  style={{ width: '100%' }}
+                  autoComplete="off"
+                />
+                <small style={{ color: '#94a3b8', fontSize: 12 }}>
+                  Preguntá al dueño del negocio cuál es su slug.
+                </small>
+              </label>
+            )}
+
             <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
               Email
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%' }} autoComplete="email" />
@@ -290,7 +429,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 style={{ width: '100%' }}
                 minLength={8}
-                autoComplete="current-password"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
             </label>
 
@@ -310,34 +449,39 @@ export default function LoginPage() {
               disabled={loading}
               style={{ width: '100%', justifyContent: 'center', marginTop: 2, padding: '10px 0', fontSize: 15 }}
             >
-              {loading ? 'Ingresando...' : 'Entrar'}
+              {buttonLabel}
             </button>
           </form>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#94a3b8', fontSize: 12 }}>
-            <div style={{ flex: 1, height: 1, background: 'var(--border, #e2e8f0)' }} />
-            o continúa con
-            <div style={{ flex: 1, height: 1, background: 'var(--border, #e2e8f0)' }} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            {GOOGLE_CLIENT_ID ? (
-              <>
-                <div ref={setGoogleButtonNode} />
-                {googleScriptLoaded && !googleReady ? <small style={{ color: '#94a3b8' }}>Cargando botón de Google...</small> : null}
-                {googleLoading ? <small style={{ color: '#94a3b8' }}>Validando sesión de Google...</small> : null}
-              </>
-            ) : (
-              <small style={{ color: '#94a3b8', textAlign: 'center' }}>
-                Configura NEXT_PUBLIC_GOOGLE_CLIENT_ID para habilitar Google SSO.
-              </small>
-            )}
-          </div>
+          {mode === 'login' && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#94a3b8', fontSize: 12 }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--border, #e2e8f0)' }} />
+                o continúa con
+                <div style={{ flex: 1, height: 1, background: 'var(--border, #e2e8f0)' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                {GOOGLE_CLIENT_ID ? (
+                  <>
+                    <div ref={setGoogleButtonNode} />
+                    {googleScriptLoaded && !googleReady ? <small style={{ color: '#94a3b8' }}>Cargando botón de Google...</small> : null}
+                    {googleLoading ? <small style={{ color: '#94a3b8' }}>Validando sesión de Google...</small> : null}
+                  </>
+                ) : (
+                  <small style={{ color: '#94a3b8', textAlign: 'center' }}>
+                    Configura NEXT_PUBLIC_GOOGLE_CLIENT_ID para habilitar Google SSO.
+                  </small>
+                )}
+              </div>
+            </>
+          )}
 
+          {success ? <div className="status-ok">{success}</div> : null}
           {error ? <div className="status-error">{error}</div> : null}
         </div>
 
         <p style={{ margin: '20px 0 0', fontSize: 13, color: '#64748b', textAlign: 'center' }}>
-          ¿Eres staff o cliente? Ingresá desde la página pública del negocio.
+          ¿Eres cliente? Ingresá desde la <strong>página pública</strong> del negocio.
         </p>
       </div>
     </>
