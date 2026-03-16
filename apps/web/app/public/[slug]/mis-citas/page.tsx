@@ -125,6 +125,22 @@ declare global {
   }
 }
 
+/** Parse NestJS error responses into a user-friendly string */
+function parseApiError(text: string, fallback: string): string {
+  try {
+    const json = JSON.parse(text);
+    if (Array.isArray(json.message)) {
+      return json.message.join('. ');
+    }
+    if (typeof json.message === 'string') {
+      return json.message;
+    }
+  } catch {
+    // not JSON
+  }
+  return text || fallback;
+}
+
 function formatDateTime(value: string, locale: 'es' | 'en' = 'es') {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -448,8 +464,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(parseApiError(await response.text(), copy.registerError));
       }
 
       const payload = (await response.json()) as CustomerPortalAuthResponse;
@@ -490,8 +505,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(parseApiError(await response.text(), copy.loginError));
       }
 
       const payload = (await response.json()) as CustomerPortalAuthResponse;
@@ -521,7 +535,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `Error ${response.status}`);
+      throw new Error(parseApiError(text, `Error ${response.status}`));
     }
 
     const payload = (await response.json()) as BookingItem[];
@@ -537,7 +551,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `Error ${response.status}`);
+      throw new Error(parseApiError(text, `Error ${response.status}`));
     }
 
     const payload = (await response.json()) as WaitlistItem[];
@@ -566,8 +580,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(parseApiError(await response.text(), copy.googleError));
       }
 
       const payload = (await response.json()) as CustomerPortalAuthResponse;
@@ -757,7 +770,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(parseApiError(text, `Error ${response.status}`));
       }
 
       const payload = (await response.json()) as { expiresInMinutes: number };
@@ -798,7 +811,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(parseApiError(text, `Error ${response.status}`));
       }
 
       const payload = (await response.json()) as { linkedBookings: number };
@@ -867,7 +880,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
           customFields: Object.keys(customFields).length ? customFields : undefined
         })
       });
-      if (!response.ok) { const text = await response.text(); throw new Error(text || `Error ${response.status}`); }
+      if (!response.ok) { const text = await response.text(); throw new Error(parseApiError(text, `Error ${response.status}`)); }
       const payload = (await response.json()) as BookingNewResponse;
       setSubmitSuccess(
         payload.waitlisted
@@ -922,7 +935,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
           notes: bookingNotes.trim() || undefined
         })
       });
-      if (!response.ok) { const text = await response.text(); throw new Error(text || `Error ${response.status}`); }
+      if (!response.ok) { const text = await response.text(); throw new Error(parseApiError(text, `Error ${response.status}`)); }
       setWlSuccess(locale === 'en' ? 'Added to waitlist!' : '¡Agregado a lista de espera!');
       if (token) void loadPortalData(token);
     } catch (err) {

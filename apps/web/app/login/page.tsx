@@ -38,23 +38,21 @@ declare global {
 }
 
 const loginSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  email: z.string().trim().email('Email inválido.'),
-  password: z.string().min(8, 'Password debe tener al menos 8 caracteres.')
-});
-
-const registerSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  tenantName: z.string().trim().min(1, 'Nombre del negocio es obligatorio.'),
-  email: z.string().trim().email('Email inválido.'),
-  password: z.string().min(8, 'Password debe tener al menos 8 caracteres.')
+  email: z.string().trim().min(1, 'El email es obligatorio.').email('Email inválido.'),
+  password: z.string().min(1, 'La contraseña es obligatoria.').min(8, 'La contraseña debe tener al menos 8 caracteres.')
 });
 
 const staffRegisterSchema = z.object({
-  apiUrl: z.string().url('API URL inválida.'),
-  tenantSlug: z.string().trim().min(1, 'Slug del negocio es obligatorio.'),
-  email: z.string().trim().email('Email inválido.'),
-  password: z.string().min(8, 'Password debe tener al menos 8 caracteres.')
+  tenantSlug: z.string().trim().min(1, 'El identificador del negocio es obligatorio.'),
+  email: z.string().trim().min(1, 'El email es obligatorio.').email('Email inválido.'),
+  password: z.string().min(1, 'La contraseña es obligatoria.').min(8, 'La contraseña debe tener al menos 8 caracteres.')
+});
+
+const customerRegisterSchema = z.object({
+  tenantSlug: z.string().trim().min(1, 'El identificador del negocio es obligatorio.'),
+  fullName: z.string().trim().min(1, 'El nombre es obligatorio.'),
+  email: z.string().trim().min(1, 'El email es obligatorio.').email('Email inválido.'),
+  password: z.string().min(1, 'La contraseña es obligatoria.').min(8, 'La contraseña debe tener al menos 8 caracteres.')
 });
 
 type AuthResponse = {
@@ -62,18 +60,18 @@ type AuthResponse = {
   user?: { role?: string; staffId?: string };
 };
 
-type AuthMode = 'login' | 'register' | 'staff-register';
+type AuthMode = 'login' | 'staff-register' | 'customer-register';
 
 const MODE_LABELS: Record<AuthMode, string> = {
   login: 'Iniciar sesión',
-  register: 'Registrar negocio',
   'staff-register': 'Registro staff',
+  'customer-register': 'Registro cliente',
 };
 
 const MODE_SUBTITLES: Record<AuthMode, string> = {
   login: 'Inicia sesión en tu panel de gestión.',
-  register: 'Crea tu negocio y empieza a recibir reservas.',
   'staff-register': 'Registrate como miembro del equipo de un negocio.',
+  'customer-register': 'Crea tu cuenta de cliente para gestionar tus reservas.',
 };
 
 function redirectByRole(router: ReturnType<typeof useRouter>, role?: string) {
@@ -84,17 +82,34 @@ function redirectByRole(router: ReturnType<typeof useRouter>, role?: string) {
   }
 }
 
+/** Parse NestJS error responses into a user-friendly string */
+function parseApiError(text: string, fallback: string): string {
+  try {
+    const json = JSON.parse(text);
+    if (Array.isArray(json.message)) {
+      return json.message.join('. ');
+    }
+    if (typeof json.message === 'string') {
+      return json.message;
+    }
+  } catch {
+    // not JSON
+  }
+  return text || fallback;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>('login');
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
   const [email, setEmail] = useState('owner@demo.com');
   const [password, setPassword] = useState('Password123');
-  const [tenantName, setTenantName] = useState('');
   const [tenantSlug, setTenantSlug] = useState('');
+  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
@@ -124,6 +139,7 @@ export default function LoginPage() {
     setMode(newMode);
     setError('');
     setSuccess('');
+    setFieldErrors({});
     if (newMode === 'login') {
       setEmail('owner@demo.com');
       setPassword('Password123');
@@ -137,14 +153,24 @@ export default function LoginPage() {
     event.preventDefault();
     setError('');
     setSuccess('');
+    setFieldErrors({});
 
     const normalizedApiUrl = apiUrl.trim();
-    const normalizedEmail = email.trim();
+    const apiUrlValid = z.string().url('API URL inválida.').safeParse(normalizedApiUrl);
+    if (!apiUrlValid.success) {
+      setError('API URL inválida.');
+      return;
+    }
 
     if (mode === 'login') {
-      const parsed = loginSchema.safeParse({ apiUrl: normalizedApiUrl, email: normalizedEmail, password });
+      const parsed = loginSchema.safeParse({ email, password });
       if (!parsed.success) {
-        setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
+        const errs: Record<string, string> = {};
+        for (const issue of parsed.error.issues) {
+          const key = issue.path[0] as string;
+          if (!errs[key]) errs[key] = issue.message;
+        }
+        setFieldErrors(errs);
         return;
       }
 
@@ -153,50 +179,28 @@ export default function LoginPage() {
         const response = await fetch(new URL('/auth/login', normalizedApiUrl).toString(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: normalizedEmail, password })
+          body: JSON.stringify({ email: email.trim(), password })
         });
         if (!response.ok) {
-          const text = await response.text();
-          throw new Error(text || `Error ${response.status}`);
+          throw new Error(parseApiError(await response.text(), 'No se pudo iniciar sesión.'));
         }
         const payload = (await response.json()) as AuthResponse;
         if (!payload.accessToken) throw new Error('No se recibió accessToken.');
         handleAuthSuccess(payload, normalizedApiUrl);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión');
+        setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión.');
       } finally {
         setLoading(false);
       }
-    } else if (mode === 'register') {
-      const parsed = registerSchema.safeParse({ apiUrl: normalizedApiUrl, tenantName: tenantName.trim(), email: normalizedEmail, password });
+    } else if (mode === 'staff-register') {
+      const parsed = staffRegisterSchema.safeParse({ tenantSlug, email, password });
       if (!parsed.success) {
-        setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const response = await fetch(new URL('/auth/register', normalizedApiUrl).toString(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantName: tenantName.trim(), email: normalizedEmail, password })
-        });
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(text || `Error ${response.status}`);
+        const errs: Record<string, string> = {};
+        for (const issue of parsed.error.issues) {
+          const key = issue.path[0] as string;
+          if (!errs[key]) errs[key] = issue.message;
         }
-        const payload = (await response.json()) as AuthResponse;
-        if (!payload.accessToken) throw new Error('No se recibió accessToken.');
-        handleAuthSuccess(payload, normalizedApiUrl);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'No se pudo registrar el negocio');
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      const parsed = staffRegisterSchema.safeParse({ apiUrl: normalizedApiUrl, tenantSlug: tenantSlug.trim(), email: normalizedEmail, password });
-      if (!parsed.success) {
-        setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.');
+        setFieldErrors(errs);
         return;
       }
 
@@ -205,17 +209,53 @@ export default function LoginPage() {
         const response = await fetch(new URL('/auth/staff/register', normalizedApiUrl).toString(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantSlug: tenantSlug.trim(), email: normalizedEmail, password })
+          body: JSON.stringify({ tenantSlug: tenantSlug.trim(), email: email.trim(), password })
         });
         if (!response.ok) {
-          const text = await response.text();
-          throw new Error(text || `Error ${response.status}`);
+          throw new Error(parseApiError(await response.text(), 'No se pudo registrar como staff.'));
         }
         const payload = (await response.json()) as AuthResponse;
         if (!payload.accessToken) throw new Error('No se recibió accessToken.');
         handleAuthSuccess(payload, normalizedApiUrl);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'No se pudo registrar como staff');
+        setError(err instanceof Error ? err.message : 'No se pudo registrar como staff.');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      const parsed = customerRegisterSchema.safeParse({ tenantSlug, fullName, email, password });
+      if (!parsed.success) {
+        const errs: Record<string, string> = {};
+        for (const issue of parsed.error.issues) {
+          const key = issue.path[0] as string;
+          if (!errs[key]) errs[key] = issue.message;
+        }
+        setFieldErrors(errs);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const slug = tenantSlug.trim();
+        const response = await fetch(new URL(`/public/${encodeURIComponent(slug)}/customer-portal/unified-register`, normalizedApiUrl).toString(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fullName: fullName.trim(), email: email.trim(), password })
+        });
+        if (!response.ok) {
+          throw new Error(parseApiError(await response.text(), 'No se pudo crear la cuenta.'));
+        }
+        const payload = (await response.json()) as AuthResponse;
+        if (!payload.accessToken) throw new Error('No se recibió accessToken.');
+
+        // Customer portal token — redirect to their portal
+        if (payload.user?.role === 'staff') {
+          handleAuthSuccess(payload, normalizedApiUrl);
+        } else {
+          setSuccess('Cuenta creada correctamente. Ahora podés iniciar sesión desde la página del negocio.');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'No se pudo crear la cuenta.');
       } finally {
         setLoading(false);
       }
@@ -236,6 +276,7 @@ export default function LoginPage() {
     }
 
     setError('');
+    setFieldErrors({});
     setGoogleLoading(true);
 
     try {
@@ -246,15 +287,14 @@ export default function LoginPage() {
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(parseApiError(await response.text(), 'No se pudo iniciar con Google.'));
       }
 
       const payload = (await response.json()) as AuthResponse;
       if (!payload.accessToken) throw new Error('No se recibió accessToken.');
       handleAuthSuccess(payload, normalizedApiUrl);
     } catch (googleError) {
-      setError(googleError instanceof Error ? googleError.message : 'No se pudo iniciar con Google');
+      setError(googleError instanceof Error ? googleError.message : 'No se pudo iniciar con Google.');
     } finally {
       setGoogleLoading(false);
     }
@@ -325,11 +365,17 @@ export default function LoginPage() {
     boxShadow: active ? '0 1px 3px rgba(0,0,0,0.09)' : 'none',
   });
 
+  const fieldErrorStyle: React.CSSProperties = {
+    fontSize: 12,
+    color: '#dc2626',
+    margin: '2px 0 0',
+  };
+
   const buttonLabel = mode === 'login'
     ? (loading ? 'Ingresando...' : 'Entrar')
-    : mode === 'register'
-      ? (loading ? 'Registrando...' : 'Crear negocio')
-      : (loading ? 'Registrando...' : 'Registrar staff');
+    : mode === 'staff-register'
+      ? (loading ? 'Registrando...' : 'Crear cuenta staff')
+      : (loading ? 'Registrando...' : 'Crear cuenta');
 
   return (
     <>
@@ -376,7 +422,7 @@ export default function LoginPage() {
 
           {/* Mode tabs */}
           <div style={{ display: 'flex', gap: 4, background: 'var(--bg, #f1f5f9)', borderRadius: 10, padding: 4 }}>
-            {(['login', 'register', 'staff-register'] as AuthMode[]).map((m) => (
+            {(['login', 'staff-register', 'customer-register'] as AuthMode[]).map((m) => (
               <button key={m} type="button" style={tabStyle(mode === m)} onClick={() => switchMode(m)}>
                 {MODE_LABELS[m]}
               </button>
@@ -385,23 +431,9 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={onSubmit} style={{ display: 'grid', gap: 14 }}>
-            {mode === 'register' && (
+            {(mode === 'staff-register' || mode === 'customer-register') && (
               <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
-                Nombre del negocio
-                <input
-                  type="text"
-                  value={tenantName}
-                  onChange={(e) => setTenantName(e.target.value)}
-                  placeholder="Ej: Barbería Don Juan"
-                  style={{ width: '100%' }}
-                  autoComplete="organization"
-                />
-              </label>
-            )}
-
-            {mode === 'staff-register' && (
-              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
-                Slug del negocio
+                Identificador del negocio
                 <input
                   type="text"
                   value={tenantSlug}
@@ -410,15 +442,38 @@ export default function LoginPage() {
                   style={{ width: '100%' }}
                   autoComplete="off"
                 />
+                {fieldErrors.tenantSlug && <span style={fieldErrorStyle}>{fieldErrors.tenantSlug}</span>}
                 <small style={{ color: '#94a3b8', fontSize: 12 }}>
-                  Preguntá al dueño del negocio cuál es su slug.
+                  Pedile al negocio su identificador (slug).
                 </small>
+              </label>
+            )}
+
+            {mode === 'customer-register' && (
+              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+                Nombre completo
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Ej: Juan Pérez"
+                  style={{ width: '100%' }}
+                  autoComplete="name"
+                />
+                {fieldErrors.fullName && <span style={fieldErrorStyle}>{fieldErrors.fullName}</span>}
               </label>
             )}
 
             <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
               Email
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%' }} autoComplete="email" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{ width: '100%' }}
+                autoComplete="email"
+              />
+              {fieldErrors.email && <span style={fieldErrorStyle}>{fieldErrors.email}</span>}
             </label>
 
             <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
@@ -431,6 +486,7 @@ export default function LoginPage() {
                 minLength={8}
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
+              {fieldErrors.password && <span style={fieldErrorStyle}>{fieldErrors.password}</span>}
             </label>
 
             <details style={{ fontSize: 13 }}>
@@ -476,13 +532,9 @@ export default function LoginPage() {
             </>
           )}
 
-          {success ? <div className="status-ok">{success}</div> : null}
-          {error ? <div className="status-error">{error}</div> : null}
+          {success && <div className="status-ok" style={{ fontSize: 13, padding: '10px 12px' }}>{success}</div>}
+          {error && <div className="status-error" style={{ fontSize: 13, padding: '10px 12px' }}>{error}</div>}
         </div>
-
-        <p style={{ margin: '20px 0 0', fontSize: 13, color: '#64748b', textAlign: 'center' }}>
-          ¿Eres cliente? Ingresá desde la <strong>página pública</strong> del negocio.
-        </p>
       </div>
     </>
   );
