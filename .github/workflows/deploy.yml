@@ -13,7 +13,25 @@ env:
   COMPOSE_PROJECT_NAME: deployment
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=apps/api/prisma/schema.prisma
+      - name: Lint
+        run: npm run lint --if-present
+      - name: Build
+        run: npm run build --if-present
+
   deploy:
+    needs: validate
     runs-on: [self-hosted, Linux, X64, docker]
     steps:
       - uses: actions/checkout@v4
@@ -114,7 +132,7 @@ jobs:
           docker ps --filter "name=apoint-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
           echo ""
           echo "=== API health check ==="
-          curl -sf http://10.10.10.5:3005/health || echo "WARNING: API health check failed"
+          curl -sf http://172.17.0.1:3005/health || echo "WARNING: API health check failed"
 
       - name: Cleanup .env
         if: always()
