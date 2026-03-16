@@ -77,7 +77,7 @@ El doctor valida Node.js, archivos de entorno, servicios Docker (en scope local)
 ### 1) El dominio custom abre 404 o página incorrecta
 
 - Revisar DNS (host correcto, sin typo, propagación).
-- Confirmar middleware de web activo y deploy actualizado.
+- Confirmar middleware de web activo y deploy actualizado.aa
 - Confirmar `customDomain` exacto en tenant settings.
 - Mitigación temporal: compartir URL por slug (`/public/:slug`).
 
