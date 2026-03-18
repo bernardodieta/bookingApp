@@ -1,7 +1,10 @@
+import { type ServiceItem, type StaffMember } from '../dashboard-types';
 import { Notice } from './notice';
+import { QuickSetupWizard } from './quick-setup-wizard';
 
 type OperationsSectionProps = {
   operationsView:
+    | 'quick-setup'
     | 'quick-service'
     | 'quick-staff'
     | 'quick-booking'
@@ -9,7 +12,12 @@ type OperationsSectionProps = {
     | 'availability-rules'
     | 'availability-exceptions'
     | 'availability-overview';
+  apiUrl: string;
   token: string;
+  wizardOnServiceCreated: (service: ServiceItem) => void;
+  wizardOnStaffCreated: (staff: StaffMember) => void;
+  wizardOnNavigateToStaff: () => void;
+  wizardOnNavigateToServices: () => void;
   serviceLoading: boolean;
   staffLoading: boolean;
 
@@ -178,7 +186,7 @@ const DAY_OF_WEEK_LABEL: Record<number, string> = {
 };
 
 export function OperationsSection(props: OperationsSectionProps) {
-  const isQuickView = props.operationsView.startsWith('quick-');
+  const isQuickView = props.operationsView.startsWith('quick-') && props.operationsView !== 'quick-setup';
   const isAvailabilityView = props.operationsView.startsWith('availability-');
 
   const quickViewTitle: Record<'quick-service' | 'quick-staff' | 'quick-booking' | 'quick-waitlist', string> = {
@@ -202,6 +210,22 @@ export function OperationsSection(props: OperationsSectionProps) {
 
   return (
     <>
+      {props.operationsView === 'quick-setup' ? (
+        <section className="section-block" style={{ marginTop: 28 }}>
+          <h2 className="section-title">Configuración rápida</h2>
+          <p className="section-subtitle">Crea un servicio y un miembro del staff en pocos pasos.</p>
+          <QuickSetupWizard
+            apiUrl={props.apiUrl}
+            token={props.token}
+            serviceOptions={props.serviceOptions}
+            onServiceCreated={props.wizardOnServiceCreated}
+            onStaffCreated={props.wizardOnStaffCreated}
+            onNavigateToStaff={props.wizardOnNavigateToStaff}
+            onNavigateToServices={props.wizardOnNavigateToServices}
+          />
+        </section>
+      ) : null}
+
       {isQuickView ? (
         <section className="section-block" style={{ marginTop: 28 }}>
           <h2 className="section-title">{quickViewTitle[props.operationsView as 'quick-service' | 'quick-staff' | 'quick-booking' | 'quick-waitlist']}</h2>

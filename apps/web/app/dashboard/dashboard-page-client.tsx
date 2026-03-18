@@ -50,6 +50,7 @@ const API_URL_KEY = 'apoint.dashboard.apiUrl';
 const today = new Date().toISOString().slice(0, 10);
 
 type OperationsView =
+  | 'quick-setup'
   | 'quick-service'
   | 'quick-staff'
   | 'quick-booking'
@@ -1852,6 +1853,13 @@ export default function DashboardPage() {
             <div className="sidebar-submenu">
               <button
                 type="button"
+                className={`sidebar-subitem ${operationsView === 'quick-setup' ? 'active' : ''}`}
+                onClick={() => openOperationsView('quick-setup')}
+              >
+                ✨ Configuración rápida
+              </button>
+              <button
+                type="button"
                 className={`sidebar-subitem ${operationsView === 'quick-service' ? 'active' : ''}`}
                 onClick={() => openOperationsView('quick-service')}
               >
@@ -2142,7 +2150,28 @@ export default function DashboardPage() {
       <div style={{ display: activeSection === 'operations' ? 'block' : 'none' }}>
         <OperationsSection
           operationsView={operationsView}
+          apiUrl={apiUrl}
           token={token}
+          wizardOnServiceCreated={(service) => {
+            setServiceOptions((cur) => {
+              if (cur.some((s) => s.id === service.id)) return cur;
+              return [...cur, service];
+            });
+            if (!quickBookingServiceId) setQuickBookingServiceId(service.id);
+            if (!quickWaitlistServiceId) setQuickWaitlistServiceId(service.id);
+          }}
+          wizardOnStaffCreated={(staff) => {
+            setStaffOptions((cur) => {
+              if (cur.some((s) => s.id === staff.id)) return cur;
+              return [...cur, staff];
+            });
+            if (!quickBookingStaffId) setQuickBookingStaffId(staff.id);
+            if (!quickRuleStaffId) setQuickRuleStaffId(staff.id);
+            if (!quickExceptionStaffId) setQuickExceptionStaffId(staff.id);
+            if (!quickWaitlistStaffId) setQuickWaitlistStaffId(staff.id);
+          }}
+          wizardOnNavigateToStaff={() => setActiveSection('staff-management')}
+          wizardOnNavigateToServices={() => openOperationsView('quick-service')}
           serviceLoading={serviceLoading}
           staffLoading={staffLoading}
           onCreateService={onCreateService}
