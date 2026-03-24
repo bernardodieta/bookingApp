@@ -490,24 +490,24 @@ export function IntegrationsSection({ apiUrl, token, staffOptions }: Integration
         {metrics ? (
           <div className="section-grid section-grid-4">
             <div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>Cola pending</div>
+              <div style={{ fontSize: 12, color: '#9E9B93' }}>Cola pending</div>
               <strong>{metrics.queue.pending}</strong>
             </div>
             <div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>Dead-letter</div>
+              <div style={{ fontSize: 12, color: '#9E9B93' }}>Dead-letter</div>
               <strong>{metrics.queue.deadLetter}</strong>
             </div>
             <div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>Conflictos (ventana)</div>
+              <div style={{ fontSize: 12, color: '#9E9B93' }}>Conflictos (ventana)</div>
               <strong>{metrics.incidents.conflicts}</strong>
             </div>
             <div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>Lag promedio (min)</div>
+              <div style={{ fontSize: 12, color: '#9E9B93' }}>Lag promedio (min)</div>
               <strong>{metrics.lag.avgSyncLagMinutes ?? '-'}</strong>
             </div>
             {metrics.byProvider.map((provider) => (
               <div key={provider.provider} style={{ gridColumn: 'span 2' }}>
-                <div style={{ fontSize: 12, color: '#64748b' }}>{provider.provider.toUpperCase()}</div>
+                <div style={{ fontSize: 12, color: '#9E9B93' }}>{provider.provider.toUpperCase()}</div>
                 <div>
                   {provider.connectedAccounts}/{provider.totalAccounts} conectadas · {provider.erroredAccounts} error · {provider.staleAccounts} stale
                 </div>
@@ -515,7 +515,7 @@ export function IntegrationsSection({ apiUrl, token, staffOptions }: Integration
             ))}
           </div>
         ) : (
-          <div style={{ fontSize: 13, color: '#64748b' }}>Sin métricas por ahora.</div>
+          <div style={{ fontSize: 13, color: '#9E9B93' }}>Sin métricas por ahora.</div>
         )}
       </div>
 
@@ -583,15 +583,15 @@ export function IntegrationsSection({ apiUrl, token, staffOptions }: Integration
         <h3 style={{ marginTop: 0 }}>Conflictos inbound</h3>
         <div className="section-grid section-grid-4" style={{ marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>Total</div>
+            <div style={{ fontSize: 12, color: '#9E9B93' }}>Total</div>
             <strong>{conflictStats.total}</strong>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>Pendientes</div>
+            <div style={{ fontSize: 12, color: '#9E9B93' }}>Pendientes</div>
             <strong>{conflictStats.pending}</strong>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>Resueltos</div>
+            <div style={{ fontSize: 12, color: '#9E9B93' }}>Resueltos</div>
             <strong>{conflictStats.resolved}</strong>
           </div>
         </div>

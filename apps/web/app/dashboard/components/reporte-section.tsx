@@ -187,7 +187,7 @@ export default function ReporteSection({ apiUrl, token, staffOptions }: Props) {
       </form>
 
       {error ? (
-        <div className="panel" style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', fontSize: 13, marginBottom: 12 }}>
+        <div className="panel" style={{ background: '#FCEBEB', border: '1.5px solid #fca5a5', color: '#E24B4A', fontSize: 13, marginBottom: 12 }}>
           {error}
         </div>
       ) : null}
@@ -197,21 +197,21 @@ export default function ReporteSection({ apiUrl, token, staffOptions }: Props) {
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
             {[
-              { label: 'Total citas', value: data.total, color: '#0f172a', bg: '#f8fafc' },
-              { label: 'Confirmadas', value: byStatus('confirmed'), color: '#1d4ed8', bg: '#eff6ff' },
-              { label: 'Completadas', value: byStatus('completed'), color: '#15803d', bg: '#f0fdf4' },
-              { label: 'Canceladas',  value: byStatus('cancelled'),  color: '#b91c1c', bg: '#fef2f2' },
+              { label: 'Total citas', value: data.total, color: '#1A1917', bg: '#f8fafc' },
+              { label: 'Confirmadas', value: byStatus('confirmed'), color: '#1A8E69', bg: '#EFF8F5' },
+              { label: 'Completadas', value: byStatus('completed'), color: '#2EBF8F', bg: '#EFF8F5' },
+              { label: 'Canceladas',  value: byStatus('cancelled'),  color: '#E24B4A', bg: '#FCEBEB' },
             ].map((card) => (
               <div key={card.label} className="panel" style={{ padding: '12px 16px', background: card.bg, borderColor: 'transparent' }}>
-                <div style={{ fontSize: 12, color: '#64748b' }}>{card.label}</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: card.color }}>{card.value}</div>
+                <div style={{ fontSize: 12, color: '#9E9B93' }}>{card.label}</div>
+                <div style={{ fontSize: 24, fontWeight: 600, fontFamily: 'var(--font-display)', color: card.color }}>{card.value}</div>
               </div>
             ))}
           </div>
 
           {/* Preview table */}
           <div className="panel table-wrap" style={{ padding: 0 }}>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: '10px 14px', borderBottom: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 13, fontWeight: 600 }}>Vista previa — {data.total} citas</span>
               {data.bookings.length ? (
                 <button type="button" onClick={handleDownload} className="btn btn-ghost" style={{ fontSize: 12 }}>
@@ -238,20 +238,20 @@ export default function ReporteSection({ apiUrl, token, staffOptions }: Props) {
                     </td>
                     <td>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{b.customer?.name ?? '—'}</div>
-                      <div style={{ fontSize: 11, color: '#64748b' }}>{b.customer?.email ?? ''}</div>
+                      <div style={{ fontSize: 11, color: '#9E9B93' }}>{b.customer?.email ?? ''}</div>
                     </td>
                     <td style={{ fontSize: 13 }}>{b.service?.name ?? '—'}</td>
                     <td style={{ fontSize: 13 }}>{b.staff?.fullName ?? '—'}</td>
                     <td>
                       <span style={{
-                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                        background: b.status === 'cancelled' ? '#fef2f2' : b.status === 'completed' ? '#f0fdf4' : '#eff6ff',
-                        color: b.status === 'cancelled' ? '#b91c1c' : b.status === 'completed' ? '#15803d' : '#1d4ed8'
+                        fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4,
+                        background: b.status === 'cancelled' ? '#FCEBEB' : b.status === 'completed' ? '#EFF8F5' : '#EFF8F5',
+                        color: b.status === 'cancelled' ? '#E24B4A' : b.status === 'completed' ? '#2EBF8F' : '#1A8E69'
                       }}>
                         {STATUS_LABELS[b.status] ?? b.status}
                       </span>
                     </td>
-                    <td style={{ fontSize: 12, color: '#64748b', maxWidth: 220 }}>
+                    <td style={{ fontSize: 12, color: '#9E9B93', maxWidth: 220 }}>
                       {b.cancellationReason ?? '—'}
                     </td>
                   </tr>
@@ -259,7 +259,7 @@ export default function ReporteSection({ apiUrl, token, staffOptions }: Props) {
               </tbody>
             </table>
             {!data.bookings.length ? (
-              <div style={{ padding: '32px 20px', textAlign: 'center', color: '#94a3b8' }}>
+              <div style={{ padding: '32px 20px', textAlign: 'center', color: '#9E9B93' }}>
                 Sin citas en el período seleccionado.
               </div>
             ) : null}

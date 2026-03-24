@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, CalendarDays, ChevronDown, ChevronRight, ClipboardList, CreditCard, LayoutDashboard, Link2, LogOut, Settings, Users, Wrench } from 'lucide-react';
+import { Building2, CalendarDays, ClipboardList, CreditCard, LayoutDashboard, Link2, LogOut, Settings, Users, Wrench } from 'lucide-react';
 import { OverviewSection } from './components/overview-section';
 import { AgendaSection } from './components/agenda-section';
 import { PaymentsSection } from './components/payments-section';
@@ -49,18 +49,6 @@ const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
 const today = new Date().toISOString().slice(0, 10);
 
-type OperationsView =
-  | 'quick-setup'
-  | 'quick-service'
-  | 'quick-staff'
-  | 'quick-booking'
-  | 'quick-waitlist'
-  | 'availability-rules'
-  | 'availability-exceptions'
-  | 'availability-overview';
-
-type SettingsView = 'branding' | 'widget' | 'rules' | 'form';
-type PaymentsView = 'register' | 'history';
 type GlobalToastTone = 'success' | 'error';
 type GlobalToastItem = { message: string; tone: GlobalToastTone };
 
@@ -74,13 +62,6 @@ export default function DashboardPage() {
   const [token, setToken] = useState('');
   const [range, setRange] = useState<'day' | 'week' | 'month'>('day');
   const [activeSection, setActiveSection] = useState<'overview' | 'agenda' | 'reporte' | 'payments' | 'operations' | 'staff-management' | 'settings' | 'integrations'>('overview');
-  const [operationsOpen, setOperationsOpen] = useState(true);
-  const [operationsAvailabilityOpen, setOperationsAvailabilityOpen] = useState(true);
-  const [operationsView, setOperationsView] = useState<OperationsView>('quick-service');
-  const [paymentsOpen, setPaymentsOpen] = useState(true);
-  const [paymentsView, setPaymentsView] = useState<PaymentsView>('register');
-  const [settingsOpen, setSettingsOpen] = useState(true);
-  const [settingsView, setSettingsView] = useState<SettingsView>('branding');
   const [globalToast, setGlobalToast] = useState<GlobalToastItem | null>(null);
   const [globalToastQueue, setGlobalToastQueue] = useState<GlobalToastItem[]>([]);
   const [date, setDate] = useState(today);
@@ -103,7 +84,7 @@ export default function DashboardPage() {
   const [tenantSettingsSuccess, setTenantSettingsSuccess] = useState('');
   const [tenantSettings, setTenantSettings] = useState<TenantSettingsResponse | null>(null);
   const [logoUrl, setLogoUrl] = useState('');
-  const [primaryColor, setPrimaryColor] = useState('#2563eb');
+  const [primaryColor, setPrimaryColor] = useState('#2EBF8F');
   const [customDomain, setCustomDomain] = useState('');
   const [widgetEnabled, setWidgetEnabled] = useState(false);
   const [timeZone, setTimeZone] = useState('UTC');
@@ -646,7 +627,7 @@ export default function DashboardPage() {
       const payload = (await response.json()) as TenantSettingsResponse;
       setTenantSettings(payload);
       setLogoUrl(payload.logoUrl ?? '');
-      setPrimaryColor(payload.primaryColor ?? '#2563eb');
+      setPrimaryColor(payload.primaryColor ?? '#2EBF8F');
       setCustomDomain(payload.customDomain ?? '');
       setWidgetEnabled(payload.widgetEnabled ?? false);
       setTimeZone(payload.timeZone ?? 'UTC');
@@ -737,7 +718,7 @@ export default function DashboardPage() {
     }
 
     if (primaryColor.trim() && !/^#[0-9a-fA-F]{6}$/.test(primaryColor.trim())) {
-      setTenantSettingsError('primaryColor debe estar en formato HEX, por ejemplo #2563eb.');
+      setTenantSettingsError('primaryColor debe estar en formato HEX, por ejemplo #2EBF8F.');
       return;
     }
 
@@ -776,7 +757,7 @@ export default function DashboardPage() {
       const payload = (await response.json()) as TenantSettingsResponse;
       setTenantSettings(payload);
       setLogoUrl(payload.logoUrl ?? '');
-      setPrimaryColor(payload.primaryColor ?? '#2563eb');
+      setPrimaryColor(payload.primaryColor ?? '#2EBF8F');
       setCustomDomain(payload.customDomain ?? '');
       setWidgetEnabled(payload.widgetEnabled ?? false);
       setTimeZone(payload.timeZone ?? 'UTC');
@@ -968,8 +949,7 @@ export default function DashboardPage() {
     }
   }
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
+  const loadDashboardData = useCallback(async () => {
     setError('');
     setReportsError('');
 
@@ -1051,6 +1031,20 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
+  }, [apiUrl, range, date, staffId, status, token]);
+
+  // Auto-fetch on first load when token is ready
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  useEffect(() => {
+    if (token.trim() && !initialLoadDone) {
+      setInitialLoadDone(true);
+      void loadDashboardData();
+    }
+  }, [token, initialLoadDone, loadDashboardData]);
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    await loadDashboardData();
   }
 
   async function onCreateService(event: FormEvent) {
@@ -1791,25 +1785,7 @@ export default function DashboardPage() {
     }
   }
 
-  function openOperationsView(view: OperationsView) {
-    setActiveSection('operations');
-    setOperationsOpen(true);
-    setOperationsView(view);
-  }
-
-  function openSettingsView(view: SettingsView) {
-    setActiveSection('settings');
-    setSettingsOpen(true);
-    setSettingsView(view);
-  }
-
-  function openPaymentsView(view: PaymentsView) {
-    setActiveSection('payments');
-    setPaymentsOpen(true);
-    setPaymentsView(view);
-  }
-
-  const brandPrimary = /^#[0-9a-fA-F]{6}$/.test(primaryColor.trim()) ? primaryColor.trim() : '#2563eb';
+  const brandPrimary = /^#[0-9a-fA-F]{6}$/.test(primaryColor.trim()) ? primaryColor.trim() : '#2EBF8F';
   const brandTint = `${brandPrimary}1A`;
 
   return (
@@ -1820,8 +1796,8 @@ export default function DashboardPage() {
             {logoUrl ? <img src={logoUrl} alt="Logo" style={{ width: 22, height: 22, objectFit: 'contain' }} /> : <Building2 size={18} />}
           </div>
           <div>
-            <div style={{ fontWeight: 700 }}>{tenantSettings?.name ?? 'Apoint'}</div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>Panel de gestión</div>
+            <div style={{ fontWeight: 600 }}>{tenantSettings?.name ?? 'Apoint'}</div>
+            <div style={{ fontSize: 12, color: '#9E9B93' }}>Panel de gestión</div>
           </div>
         </div>
 
@@ -1836,183 +1812,32 @@ export default function DashboardPage() {
             <span>Agenda</span>
           </button>
 
-          <button
-            type="button"
-            className={`sidebar-item ${activeSection === 'operations' ? 'active' : ''}`}
-            onClick={() => {
-              setOperationsOpen((current) => !current);
-              setActiveSection('operations');
-            }}
-          >
+          <button type="button" className={`sidebar-item ${activeSection === 'operations' ? 'active' : ''}`} onClick={() => setActiveSection('operations')}>
             <Wrench size={16} />
-            <span style={{ flex: 1, textAlign: 'left' }}>Operaciones</span>
-            {operationsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            <span>Operaciones</span>
           </button>
-
-          {operationsOpen ? (
-            <div className="sidebar-submenu">
-              <button
-                type="button"
-                className={`sidebar-subitem ${operationsView === 'quick-setup' ? 'active' : ''}`}
-                onClick={() => openOperationsView('quick-setup')}
-              >
-                ✨ Configuración rápida
-              </button>
-              <button
-                type="button"
-                className={`sidebar-subitem ${operationsView === 'quick-service' ? 'active' : ''}`}
-                onClick={() => openOperationsView('quick-service')}
-              >
-                Crear servicio
-              </button>
-              <button
-                type="button"
-                className={`sidebar-subitem ${operationsView === 'quick-staff' ? 'active' : ''}`}
-                onClick={() => openOperationsView('quick-staff')}
-              >
-                Crear staff
-              </button>
-              <button
-                type="button"
-                className={`sidebar-subitem ${operationsView === 'quick-booking' ? 'active' : ''}`}
-                onClick={() => openOperationsView('quick-booking')}
-              >
-                Crear cita
-              </button>
-              <button
-                type="button"
-                className={`sidebar-subitem ${operationsView === 'quick-waitlist' ? 'active' : ''}`}
-                onClick={() => openOperationsView('quick-waitlist')}
-              >
-                Lista de espera
-              </button>
-
-              <button type="button" className="sidebar-subgroup-toggle" onClick={() => setOperationsAvailabilityOpen((current) => !current)}>
-                <span style={{ flex: 1, textAlign: 'left' }}>Disponibilidad</span>
-                {operationsAvailabilityOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              </button>
-
-              {operationsAvailabilityOpen ? (
-                <div className="sidebar-submenu-nested">
-                  <button
-                    type="button"
-                    className={`sidebar-subitem ${operationsView === 'availability-overview' ? 'active' : ''}`}
-                    onClick={() => openOperationsView('availability-overview')}
-                  >
-                    Panel disponibilidad
-                  </button>
-                  <button
-                    type="button"
-                    className={`sidebar-subitem ${operationsView === 'availability-rules' ? 'active' : ''}`}
-                    onClick={() => openOperationsView('availability-rules')}
-                  >
-                    Reglas
-                  </button>
-                  <button
-                    type="button"
-                    className={`sidebar-subitem ${operationsView === 'availability-exceptions' ? 'active' : ''}`}
-                    onClick={() => openOperationsView('availability-exceptions')}
-                  >
-                    Excepciones
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
 
           <button type="button" className={`sidebar-item ${activeSection === 'staff-management' ? 'active' : ''}`} onClick={() => setActiveSection('staff-management')}>
             <Users size={16} />
-            <span style={{ flex: 1, textAlign: 'left' }}>Equipo</span>
+            <span>Equipo</span>
           </button>
 
-          <button
-            type="button"
-            className={`sidebar-item ${activeSection === 'payments' ? 'active' : ''}`}
-            onClick={() => {
-              setPaymentsOpen((current) => !current);
-              setActiveSection('payments');
-            }}
-          >
+          <button type="button" className={`sidebar-item ${activeSection === 'payments' ? 'active' : ''}`} onClick={() => setActiveSection('payments')}>
             <CreditCard size={16} />
-            <span style={{ flex: 1, textAlign: 'left' }}>Pagos</span>
-            {paymentsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            <span>Pagos</span>
           </button>
 
-          {paymentsOpen ? (
-            <div className="sidebar-submenu">
-              <button
-                type="button"
-                className={`sidebar-subitem ${paymentsView === 'register' ? 'active' : ''}`}
-                onClick={() => openPaymentsView('register')}
-              >
-                Registrar pago
-              </button>
-              <button
-                type="button"
-                className={`sidebar-subitem ${paymentsView === 'history' ? 'active' : ''}`}
-                onClick={() => openPaymentsView('history')}
-              >
-                Historial reciente
-              </button>
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            className={`sidebar-item ${activeSection === 'settings' ? 'active' : ''}`}
-            onClick={() => {
-              setSettingsOpen((current) => !current);
-              setActiveSection('settings');
-            }}
-          >
+          <button type="button" className={`sidebar-item ${activeSection === 'settings' ? 'active' : ''}`} onClick={() => setActiveSection('settings')}>
             <Settings size={16} />
-            <span style={{ flex: 1, textAlign: 'left' }}>Configuración</span>
-            {settingsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            <span>Configuración</span>
           </button>
-
-          {settingsOpen ? (
-            <div className="sidebar-submenu">
-              <button
-                type="button"
-                className={`sidebar-subitem ${settingsView === 'branding' ? 'active' : ''}`}
-                onClick={() => openSettingsView('branding')}
-              >
-                Branding
-              </button>
-              <button
-                type="button"
-                className={`sidebar-subitem ${settingsView === 'widget' ? 'active' : ''}`}
-                onClick={() => openSettingsView('widget')}
-              >
-                Widget
-              </button>
-              <button
-                type="button"
-                className={`sidebar-subitem ${settingsView === 'rules' ? 'active' : ''}`}
-                onClick={() => openSettingsView('rules')}
-              >
-                Reglas
-              </button>
-              <button
-                type="button"
-                className={`sidebar-subitem ${settingsView === 'form' ? 'active' : ''}`}
-                onClick={() => openSettingsView('form')}
-              >
-                Formulario público
-              </button>
-            </div>
-          ) : null}
 
           <button type="button" className={`sidebar-item ${activeSection === 'reporte' ? 'active' : ''}`} onClick={() => setActiveSection('reporte')}>
             <ClipboardList size={16} />
             <span>Reporte</span>
           </button>
 
-          <button
-            type="button"
-            className={`sidebar-item ${activeSection === 'integrations' ? 'active' : ''}`}
-            onClick={() => setActiveSection('integrations')}
-          >
+          <button type="button" className={`sidebar-item ${activeSection === 'integrations' ? 'active' : ''}`} onClick={() => setActiveSection('integrations')}>
             <Link2 size={16} />
             <span>Integraciones</span>
           </button>
@@ -2040,9 +1865,9 @@ export default function DashboardPage() {
             right: 20,
             bottom: 20,
             zIndex: 50,
-            background: globalToast.tone === 'error' ? '#7f1d1d' : '#0f172a',
+            background: globalToast.tone === 'error' ? '#7f1d1d' : '#1A1917',
             color: '#fff',
-            borderRadius: 10,
+            borderRadius: 8,
             padding: '10px 14px',
             fontSize: 13,
             boxShadow: globalToast.tone === 'error' ? '0 8px 24px rgba(127,29,29,0.35)' : '0 8px 24px rgba(15,23,42,0.25)'
@@ -2102,7 +1927,6 @@ export default function DashboardPage() {
 
       <div style={{ display: activeSection === 'payments' ? 'block' : 'none' }}>
         <PaymentsSection
-          paymentsView={paymentsView}
           token={token}
           paymentsLoading={paymentsLoading}
           loadPayments={loadPayments}
@@ -2149,29 +1973,8 @@ export default function DashboardPage() {
 
       <div style={{ display: activeSection === 'operations' ? 'block' : 'none' }}>
         <OperationsSection
-          operationsView={operationsView}
           apiUrl={apiUrl}
           token={token}
-          wizardOnServiceCreated={(service) => {
-            setServiceOptions((cur) => {
-              if (cur.some((s) => s.id === service.id)) return cur;
-              return [...cur, service];
-            });
-            if (!quickBookingServiceId) setQuickBookingServiceId(service.id);
-            if (!quickWaitlistServiceId) setQuickWaitlistServiceId(service.id);
-          }}
-          wizardOnStaffCreated={(staff) => {
-            setStaffOptions((cur) => {
-              if (cur.some((s) => s.id === staff.id)) return cur;
-              return [...cur, staff];
-            });
-            if (!quickBookingStaffId) setQuickBookingStaffId(staff.id);
-            if (!quickRuleStaffId) setQuickRuleStaffId(staff.id);
-            if (!quickExceptionStaffId) setQuickExceptionStaffId(staff.id);
-            if (!quickWaitlistStaffId) setQuickWaitlistStaffId(staff.id);
-          }}
-          wizardOnNavigateToStaff={() => setActiveSection('staff-management')}
-          wizardOnNavigateToServices={() => openOperationsView('quick-service')}
           serviceLoading={serviceLoading}
           staffLoading={staffLoading}
           onCreateService={onCreateService}
@@ -2311,7 +2114,6 @@ export default function DashboardPage() {
 
       <div style={{ display: activeSection === 'settings' ? 'block' : 'none' }}>
         <SettingsSection
-          settingsView={settingsView}
           onGlobalToast={showGlobalToast}
           apiUrl={apiUrl}
           tenantSettings={tenantSettings}

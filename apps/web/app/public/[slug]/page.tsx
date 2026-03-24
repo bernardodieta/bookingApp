@@ -264,7 +264,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
 
   const brandPrimary = useMemo(() => {
     const candidate = tenant?.primaryColor?.trim() ?? '';
-    return /^#[0-9a-fA-F]{6}$/.test(candidate) ? candidate : '#1d4ed8';
+    return /^#[0-9a-fA-F]{6}$/.test(candidate) ? candidate : '#1A8E69';
   }, [tenant?.primaryColor]);
 
   const brandTint = `${brandPrimary}1A`;
@@ -634,7 +634,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
           </div>
           <div>
             <strong>{tenant?.name ?? t.titleFallback}</strong>
-            <div style={{ fontSize: 12, color: '#64748b' }}>{locale === 'en' ? 'Customer booking panel' : 'Panel de reservas cliente'}</div>
+            <div style={{ fontSize: 12, color: '#9E9B93' }}>{locale === 'en' ? 'Customer booking panel' : 'Panel de reservas cliente'}</div>
           </div>
           <button type="button" className="public-mobile-menu-btn" onClick={() => setMobileMenuOpen(false)} aria-label="Close navigation menu">
             <X size={16} />
@@ -677,7 +677,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
             </div>
             <div>
               <strong>{tenant?.name ? `Reservas · ${tenant.name}` : t.titleFallback}</strong>
-              <div style={{ fontSize: 12, color: '#64748b' }}>{t.subtitle}</div>
+              <div style={{ fontSize: 12, color: '#9E9B93' }}>{t.subtitle}</div>
             </div>
           </div>
           {tenant?.logoUrl ? (
@@ -687,9 +687,9 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
               style={{
                 width: 40,
                 height: 40,
-                borderRadius: 10,
+                borderRadius: 6,
                 objectFit: 'contain',
-                border: '1px solid var(--border)',
+                border: '1.5px solid var(--border)',
                 background: '#fff'
               }}
             />
@@ -705,24 +705,24 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
               <section style={{ display: 'grid', gap: 12 }}>
                 <div className="panel" style={{ display: 'grid', gap: 8 }}>
                   <strong>{locale === 'en' ? 'Current setup' : 'Configuración actual'}</strong>
-                  <div style={{ color: '#475569' }}>
+                  <div style={{ color: '#5E5C55' }}>
                     {t.service}: <strong>{selectedService ? `${selectedService.name} (${selectedService.durationMinutes} min)` : t.none}</strong>
                   </div>
-                  <div style={{ color: '#475569' }}>
+                  <div style={{ color: '#5E5C55' }}>
                     {t.professional}: <strong>{selectedStaff?.fullName ?? t.none}</strong>
                   </div>
-                  <div style={{ color: '#475569' }}>
+                  <div style={{ color: '#5E5C55' }}>
                     {t.date}: <strong>{date}</strong>
                   </div>
-                  <div style={{ color: '#475569' }}>
+                  <div style={{ color: '#5E5C55' }}>
                     {t.selectedSlot}: <strong>{selectedSlot ? formatDateTime(selectedSlot, tenant?.timeZone) : t.none}</strong>
                   </div>
                 </div>
                 <div className="panel" style={{ display: 'grid', gap: 8 }}>
                   <strong>{locale === 'en' ? 'Recommended flow' : 'Flujo recomendado'}</strong>
-                  <div style={{ color: '#475569' }}>1. {locale === 'en' ? 'Choose service, professional and date in Schedule.' : 'Elige servicio, profesional y fecha en Agenda.'}</div>
-                  <div style={{ color: '#475569' }}>2. {locale === 'en' ? 'Pick a slot and continue to Book.' : 'Selecciona un horario y continúa a Reservar.'}</div>
-                  <div style={{ color: '#475569' }}>3. {locale === 'en' ? 'If no slots are available, use Waitlist.' : 'Si no hay disponibilidad, usa Lista de espera.'}</div>
+                  <div style={{ color: '#5E5C55' }}>1. {locale === 'en' ? 'Choose service, professional and date in Schedule.' : 'Elige servicio, profesional y fecha en Agenda.'}</div>
+                  <div style={{ color: '#5E5C55' }}>2. {locale === 'en' ? 'Pick a slot and continue to Book.' : 'Selecciona un horario y continúa a Reservar.'}</div>
+                  <div style={{ color: '#5E5C55' }}>3. {locale === 'en' ? 'If no slots are available, use Waitlist.' : 'Si no hay disponibilidad, usa Lista de espera.'}</div>
                 </div>
               </section>
             ) : null}
@@ -771,8 +771,8 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
                                 gap: 12,
                                 alignItems: 'flex-start',
                                 padding: 14,
-                                borderRadius: 10,
-                                border: isSelected ? `2px solid ${brandPrimary}` : '1px solid var(--border)',
+                                borderRadius: 6,
+                                border: isSelected ? `2px solid ${brandPrimary}` : '1.5px solid var(--border)',
                                 background: isSelected ? brandTint : 'var(--surface)',
                                 cursor: 'pointer',
                                 textAlign: 'left',
@@ -786,7 +786,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
                                   style={{
                                     width: 48,
                                     height: 48,
-                                    borderRadius: '50%',
+                                    borderRadius: 6,
                                     objectFit: 'cover',
                                     flexShrink: 0
                                   }}
@@ -796,13 +796,13 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
                                   style={{
                                     width: 48,
                                     height: 48,
-                                    borderRadius: '50%',
-                                    background: isSelected ? brandPrimary : '#e2e8f0',
-                                    color: isSelected ? '#fff' : '#64748b',
+                                    borderRadius: 6,
+                                    background: isSelected ? brandPrimary : '#D8D5CF',
+                                    color: isSelected ? '#fff' : '#9E9B93',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    fontWeight: 700,
+                                    fontWeight: 600,
                                     fontSize: 16,
                                     flexShrink: 0
                                   }}
@@ -816,7 +816,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
                                   <div style={{ fontSize: 12, color: brandPrimary, fontWeight: 500 }}>{entry.specialty}</div>
                                 ) : null}
                                 {entry.degree || entry.university ? (
-                                  <div style={{ fontSize: 12, color: '#64748b' }}>
+                                  <div style={{ fontSize: 12, color: '#9E9B93' }}>
                                     {[entry.degree, entry.university].filter(Boolean).join(' · ')}
                                     {entry.graduationYear ? ` (${entry.graduationYear})` : ''}
                                   </div>
@@ -825,7 +825,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
                                   <div
                                     style={{
                                       fontSize: 12,
-                                      color: '#475569',
+                                      color: '#5E5C55',
                                       marginTop: 2,
                                       overflow: 'hidden',
                                       display: '-webkit-box',
@@ -875,7 +875,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
                                     minWidth: 78,
                                     padding: '7px 10px',
                                     borderRadius: 8,
-                                    border: selectedSlot === slot.startAt ? `2px solid ${brandPrimary}` : '1px solid var(--border)',
+                                    border: selectedSlot === slot.startAt ? `2px solid ${brandPrimary}` : '1.5px solid var(--border)',
                                     background: selectedSlot === slot.startAt ? brandTint : 'var(--surface)',
                                     fontWeight: 600
                                   }}
@@ -973,7 +973,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
             {activeView === 'waitlist' ? (
               <form onSubmit={onJoinWaitlist} className="panel" style={{ display: 'grid', gap: 10 }}>
                 <strong>{t.waitlist}</strong>
-                <p style={{ margin: 0, color: '#64748b' }}>
+                <p style={{ margin: 0, color: '#9E9B93' }}>
                   {locale === 'en'
                     ? 'Use this option when no schedule works for you. We will notify you when a slot opens.'
                     : 'Usa esta opción cuando no te funcione el horario actual. Te avisaremos cuando se libere un cupo.'}
@@ -1000,7 +1000,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
             {activeView === 'portal' ? (
               <section className="panel" style={{ display: 'grid', gap: 10 }}>
                 <strong>{locale === 'en' ? 'My bookings portal' : 'Portal mis citas'}</strong>
-                <p style={{ margin: 0, color: '#475569' }}>
+                <p style={{ margin: 0, color: '#5E5C55' }}>
                   {locale === 'en'
                     ? 'If you already booked before, sign in there to see history, waitlist status, and linked bookings.'
                     : 'Si ya reservaste antes, entra ahí para ver historial, estado de lista de espera y reservas vinculadas.'}

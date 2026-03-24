@@ -39,7 +39,7 @@ export default function LandingPage() {
           <div className="sidebar-logo">
             <CalendarCheck size={18} />
           </div>
-          <span style={{ fontWeight: 700, fontSize: 18 }}>Apoint</span>
+          <span style={{ fontWeight: 600, fontSize: 18 }}>Apoint</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <a href="#pricing" className="btn btn-ghost" style={{ fontSize: 13 }}>Ver planes</a>
@@ -49,7 +49,7 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="landing-hero">
-        <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 16px', lineHeight: 1.15 }}>
+        <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 600, fontFamily: 'var(--font-display)', letterSpacing: '-0.02em', margin: '0 0 16px', lineHeight: 1.15 }}>
           Gestiona tus citas de forma<br />simple y profesional
         </h1>
         <p style={{ fontSize: 'clamp(1rem, 1.5vw, 1.2rem)', color: 'var(--text-muted)', maxWidth: 600, margin: '0 auto 32px' }}>
@@ -70,10 +70,10 @@ export default function LandingPage() {
             { icon: <Bell size={24} />, title: 'Recordatorios', desc: 'Notificaciones automáticas por email para reducir ausencias.' },
           ].map((f) => (
             <div key={f.title} className="panel" style={{ padding: 24, display: 'grid', gap: 10 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#eaf1ff', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 44, height: 44, borderRadius: 8, background: '#EFF8F5', color: '#1A8E69', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {f.icon}
               </div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{f.title}</h3>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{f.title}</h3>
               <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>{f.desc}</p>
             </div>
           ))}
@@ -82,7 +82,7 @@ export default function LandingPage() {
 
       {/* How it works */}
       <section className="landing-section" style={{ textAlign: 'center' }}>
-        <h2 style={{ fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: 800, marginBottom: 32, letterSpacing: '-0.01em' }}>
+        <h2 style={{ fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: 600, marginBottom: 32, letterSpacing: '-0.01em' }}>
           Cómo funciona
         </h2>
         <div className="landing-steps">
@@ -92,10 +92,10 @@ export default function LandingPage() {
             { step: '3', title: 'Gestiona todo', desc: 'Confirma, reagenda o cancela desde tu panel.' },
           ].map((s) => (
             <div key={s.step} style={{ display: 'grid', gap: 10, justifyItems: 'center' }}>
-              <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 6, background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 18 }}>
                 {s.step}
               </div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{s.title}</h3>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{s.title}</h3>
               <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>{s.desc}</p>
             </div>
           ))}
@@ -104,20 +104,20 @@ export default function LandingPage() {
 
       {/* Pricing */}
       <section id="pricing" className="landing-section" style={{ textAlign: 'center' }}>
-        <h2 style={{ fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: 800, marginBottom: 32, letterSpacing: '-0.01em' }}>
+        <h2 style={{ fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: 600, marginBottom: 32, letterSpacing: '-0.01em' }}>
           Planes
         </h2>
         <div className="landing-pricing">
           {PLANS.map((plan) => (
             <div key={plan.key} className={`landing-plan-card${plan.recommended ? ' recommended' : ''}`}>
               {plan.recommended ? (
-                <span style={{ justifySelf: 'center', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: '#eaf1ff', color: '#1d4ed8' }}>
+                <span style={{ justifySelf: 'center', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 4, background: '#EFF8F5', color: '#1A8E69' }}>
                   Recomendado
                 </span>
               ) : null}
               <div>
-                <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{plan.name}</h3>
-                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 8 }}>{plan.price}</div>
+                <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{plan.name}</h3>
+                <div style={{ fontSize: 28, fontWeight: 600, fontFamily: 'var(--font-display)', marginTop: 8 }}>{plan.price}</div>
               </div>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8, textAlign: 'left' }}>
                 {plan.features.map((f) => (
@@ -142,7 +142,7 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section className="landing-section" style={{ textAlign: 'center', paddingBottom: 80 }}>
-        <h2 style={{ fontSize: 'clamp(1.3rem, 2vw, 1.8rem)', fontWeight: 800, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 'clamp(1.3rem, 2vw, 1.8rem)', fontWeight: 600, marginBottom: 16 }}>
           ¿Listo para simplificar tu agenda?
         </h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: 24, fontSize: 15 }}>
@@ -154,12 +154,12 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer style={{ borderTop: '1px solid var(--border)', padding: '24px', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
+      <footer style={{ borderTop: '1.5px solid var(--border)', padding: '24px', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
           <div className="sidebar-logo" style={{ width: 24, height: 24, borderRadius: 6 }}>
             <CalendarCheck size={14} />
           </div>
-          <span style={{ fontWeight: 700, color: 'var(--text)' }}>Apoint</span>
+          <span style={{ fontWeight: 600, color: 'var(--text)' }}>Apoint</span>
         </div>
         © {new Date().getFullYear()} Apoint. Todos los derechos reservados.
       </footer>

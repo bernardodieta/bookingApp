@@ -107,24 +107,24 @@ export function StaffProfileSection({ apiUrl, token }: StaffProfileSectionProps)
   return (
     <section style={{ display: 'grid', gap: 16 }}>
       <div className="panel" style={{ padding: 24 }}>
-        <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>Mi Perfil Profesional</h2>
-        <p style={{ margin: '0 0 20px', fontSize: 13, color: '#64748b' }}>
+        <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 600 }}>Mi Perfil Profesional</h2>
+        <p style={{ margin: '0 0 20px', fontSize: 13, color: '#9E9B93' }}>
           Estos datos se muestran a los clientes cuando eligen profesional para su cita.
         </p>
 
-        <div style={{ marginBottom: 16, padding: 12, borderRadius: 8, background: '#f8fafc', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ marginBottom: 16, padding: 12, borderRadius: 8, background: '#f8fafc', border: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
           {photoUrl && !photoError ? (
             <img
               src={photoUrl}
               alt={fullName}
               onError={() => setPhotoError(true)}
-              style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+              style={{ width: 56, height: 56, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
             />
           ) : (
-            <UserCircle size={56} style={{ color: '#94a3b8', flexShrink: 0 }} />
+            <UserCircle size={56} style={{ color: '#9E9B93', flexShrink: 0 }} />
           )}
           <div>
-            <div style={{ fontSize: 13, color: '#64748b' }}>Nombre</div>
+            <div style={{ fontSize: 13, color: '#9E9B93' }}>Nombre</div>
             <div style={{ fontWeight: 600 }}>{fullName}</div>
           </div>
         </div>
@@ -181,7 +181,7 @@ export function StaffProfileSection({ apiUrl, token }: StaffProfileSectionProps)
               maxLength={500}
               style={{ width: '100%', minHeight: 100 }}
             />
-            <small style={{ color: '#94a3b8' }}>{bio.length}/500</small>
+            <small style={{ color: '#9E9B93' }}>{bio.length}/500</small>
           </label>
 
           <label>

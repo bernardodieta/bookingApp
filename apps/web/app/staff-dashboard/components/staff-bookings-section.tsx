@@ -25,9 +25,9 @@ type StaffBookingsSectionProps = {
 };
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string; borderClass: string }> = {
-  pending:     { label: 'Pendiente',     color: '#b45309', bg: '#fef9c3', borderClass: 'booking-card-pending' },
-  confirmed:   { label: 'Confirmada',    color: '#166534', bg: '#dcfce7', borderClass: 'booking-card-confirmed' },
-  cancelled:   { label: 'Cancelada',     color: '#991b1b', bg: '#fee2e2', borderClass: 'booking-card-cancelled' },
+  pending:     { label: 'Pendiente',     color: '#BA7517', bg: '#FAEEDA', borderClass: 'booking-card-pending' },
+  confirmed:   { label: 'Confirmada',    color: '#0D5C44', bg: '#EFF8F5', borderClass: 'booking-card-confirmed' },
+  cancelled:   { label: 'Cancelada',     color: '#E24B4A', bg: '#FCEBEB', borderClass: 'booking-card-cancelled' },
   completed:   { label: 'Completada',    color: '#1e3a5f', bg: '#dbeafe', borderClass: 'booking-card-completed' },
   rescheduled: { label: 'Reprogramada',  color: '#6d28d9', bg: '#ede9fe', borderClass: '' },
   no_show:     { label: 'No asistió',    color: '#4b5563', bg: '#f3f4f6', borderClass: '' }
@@ -211,10 +211,10 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
   return (
     <section>
       {/* Greeting */}
-      <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#0f172a' }}>
+      <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 600, color: '#1A1917' }}>
         {getGreeting()}, {displayName}
       </h2>
-      <p style={{ margin: '0 0 16px', fontSize: 14, color: '#64748b' }}>
+      <p style={{ margin: '0 0 16px', fontSize: 14, color: '#9E9B93' }}>
         {loading ? 'Cargando tus citas...' : `Tienes ${todayCount} cita${todayCount !== 1 ? 's' : ''} para hoy`}
       </p>
 
@@ -226,7 +226,7 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
               <div className="stat-label">Citas hoy</div>
               <div className="stat-value">{todayCount}</div>
             </div>
-            <CalendarDays size={20} style={{ color: '#94a3b8' }} />
+            <CalendarDays size={20} style={{ color: '#9E9B93' }} />
           </div>
           <div className="stat-card" style={pendingCount > 0 ? { borderColor: '#f59e0b' } : undefined}>
             <div>
@@ -235,7 +235,7 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
                 {pendingCount}
               </div>
             </div>
-            <Clock size={20} style={{ color: pendingCount > 0 ? 'var(--warning)' : '#94a3b8' }} />
+            <Clock size={20} style={{ color: pendingCount > 0 ? 'var(--warning)' : '#9E9B93' }} />
           </div>
           <div className="stat-card">
             <div>
@@ -245,7 +245,7 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
                   {fmtTime(nextBooking.startAt)} · {nextBooking.customerName}
                 </div>
               ) : (
-                <div style={{ fontSize: 13, color: '#94a3b8' }}>Sin citas</div>
+                <div style={{ fontSize: 13, color: '#9E9B93' }}>Sin citas</div>
               )}
             </div>
           </div>
@@ -257,7 +257,7 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border, #e2e8f0)', fontSize: 13 }}
+          style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid var(--border, #D8D5CF)', fontSize: 13 }}
         >
           <option value="">Todos los estados</option>
           <option value="pending">Pendiente</option>
@@ -296,10 +296,10 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
           }}
         >
           <div className="modal-content" ref={modalRef}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: '#991b1b' }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 600, color: '#E24B4A' }}>
               Cancelar cita
             </h3>
-            <label style={{ display: 'grid', gap: 4, fontSize: 13, fontWeight: 500, color: '#374151' }}>
+            <label style={{ display: 'grid', gap: 4, fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>
               Razón (opcional)
               <textarea
                 value={cancelReason}
@@ -317,7 +317,7 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
                 className="btn btn-primary"
                 disabled={cancelLoading}
                 onClick={handleCancel}
-                style={{ background: 'var(--danger, #b91c1c)', fontSize: 13 }}
+                style={{ background: 'var(--danger, #E24B4A)', fontSize: 13 }}
               >
                 {cancelLoading ? 'Cancelando...' : 'Confirmar cancelación'}
               </button>
@@ -342,7 +342,7 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
       {!loading && (
         <>
           {/* Today's bookings */}
-          <h3 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600, color: '#374151' }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600, color: '#5E5C55' }}>
             Hoy ({todayBookings.length})
           </h3>
           {todayBookings.length > 0 ? (
@@ -353,15 +353,15 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
             </div>
           ) : (
             <div className="panel" style={{ padding: 24, textAlign: 'center', marginBottom: 20 }}>
-              <CalendarDays size={28} style={{ color: '#94a3b8', marginBottom: 8 }} />
-              <p style={{ margin: 0, fontSize: 14, color: '#94a3b8' }}>Sin citas para hoy. ¡Día tranquilo!</p>
+              <CalendarDays size={28} style={{ color: '#9E9B93', marginBottom: 8 }} />
+              <p style={{ margin: 0, fontSize: 14, color: '#9E9B93' }}>Sin citas para hoy. ¡Día tranquilo!</p>
             </div>
           )}
 
           {/* Upcoming bookings */}
           {upcomingBookings.length > 0 && (
             <>
-              <h3 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600, color: '#374151' }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600, color: '#5E5C55' }}>
                 Próximas ({upcomingBookings.length})
               </h3>
               <div style={{ display: 'grid', gap: 8, marginBottom: 20 }}>
@@ -396,11 +396,11 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
 
           {bookings.length === 0 && (
             <div className="panel" style={{ padding: 32, textAlign: 'center' }}>
-              <CalendarDays size={36} style={{ color: '#94a3b8', marginBottom: 10 }} />
-              <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#374151' }}>
+              <CalendarDays size={36} style={{ color: '#9E9B93', marginBottom: 10 }} />
+              <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#5E5C55' }}>
                 Aún no tienes citas asignadas
               </p>
-              <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>
+              <p style={{ margin: 0, fontSize: 13, color: '#9E9B93' }}>
                 Las citas aparecerán aquí cuando el negocio te asigne reservas.
               </p>
             </div>
@@ -452,21 +452,21 @@ function BookingCard({
                 color: meta.color,
                 background: meta.bg,
                 padding: '2px 8px',
-                borderRadius: 99
+                borderRadius: 4
               }}
             >
               {meta.label}
             </span>
           </div>
-          <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+          <p style={{ margin: 0, fontSize: 13, color: '#9E9B93' }}>
             {booking.service.name} · {fmt(booking.startAt)} — {fmtTime(booking.endAt)}
           </p>
-          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#94a3b8' }}>{booking.customerEmail}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#9E9B93' }}>{booking.customerEmail}</p>
           {booking.notes && (
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>{booking.notes}</p>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#9E9B93', fontStyle: 'italic' }}>{booking.notes}</p>
           )}
           {booking.cancellationReason && (
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#991b1b' }}>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#E24B4A' }}>
               Razón: {booking.cancellationReason}
             </p>
           )}
@@ -481,7 +481,7 @@ function BookingCard({
                 type="button"
                 onClick={() => onAction(booking.id, 'confirm')}
                 className="btn btn-ghost"
-                style={{ fontSize: 12, color: 'var(--success)', borderColor: '#bbf7d0', padding: '4px 10px' }}
+                style={{ fontSize: 12, color: 'var(--success)', borderColor: '#C8EDE1', padding: '4px 10px' }}
               >
                 Confirmar
               </button>
@@ -490,7 +490,7 @@ function BookingCard({
                   type="button"
                   onClick={onCancel}
                   className="btn btn-ghost"
-                  style={{ fontSize: 12, color: 'var(--danger)', borderColor: '#fecaca', padding: '4px 10px' }}
+                  style={{ fontSize: 12, color: 'var(--danger)', borderColor: '#F7C1C1', padding: '4px 10px' }}
                 >
                   Cancelar
                 </button>
@@ -512,7 +512,7 @@ function BookingCard({
                   type="button"
                   onClick={onCancel}
                   className="btn btn-ghost"
-                  style={{ fontSize: 12, color: 'var(--danger)', borderColor: '#fecaca', padding: '4px 10px' }}
+                  style={{ fontSize: 12, color: 'var(--danger)', borderColor: '#F7C1C1', padding: '4px 10px' }}
                 >
                   Cancelar
                 </button>
@@ -545,7 +545,7 @@ function BookingCard({
               type="button"
               onClick={onCancel}
               className="btn btn-ghost"
-              style={{ fontSize: 12, color: 'var(--danger)', borderColor: '#fecaca', padding: '4px 10px' }}
+              style={{ fontSize: 12, color: 'var(--danger)', borderColor: '#F7C1C1', padding: '4px 10px' }}
             >
               Cancelar
             </button>

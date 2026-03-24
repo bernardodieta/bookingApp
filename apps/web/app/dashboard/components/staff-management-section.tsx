@@ -185,11 +185,11 @@ export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChang
 
       {/* Delete confirmation */}
       {deleteId && (
-        <div className="panel" style={{ marginBottom: 12, padding: 16, border: '1px solid var(--danger, #b91c1c)', borderRadius: 8 }}>
-          <p style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600, color: '#991b1b' }}>
+        <div className="panel" style={{ marginBottom: 12, padding: 16, border: '1.5px solid var(--danger, #E24B4A)', borderRadius: 8 }}>
+          <p style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600, color: '#E24B4A' }}>
             ¿Eliminar a {staff.find((s) => s.id === deleteId)?.fullName}?
           </p>
-          <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748b' }}>
+          <p style={{ margin: '0 0 12px', fontSize: 13, color: '#9E9B93' }}>
             Se eliminarán sus reglas de disponibilidad, excepciones y asignaciones. Esta acción no se puede deshacer.
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -198,7 +198,7 @@ export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChang
               className="btn btn-primary"
               disabled={deleteLoading}
               onClick={handleDelete}
-              style={{ background: 'var(--danger, #b91c1c)', fontSize: 13 }}
+              style={{ background: 'var(--danger, #E24B4A)', fontSize: 13 }}
             >
               {deleteLoading ? 'Eliminando...' : 'Sí, eliminar'}
             </button>
@@ -342,7 +342,7 @@ export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChang
                               Cancelar
                             </button>
                           </div>
-                          {editError && <div style={{ color: '#991b1b', fontSize: 11 }}>{editError}</div>}
+                          {editError && <div style={{ color: '#E24B4A', fontSize: 11 }}>{editError}</div>}
                         </div>
                       </td>
                     </>
@@ -350,7 +350,7 @@ export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChang
                     <>
                       <td style={{ fontWeight: 500 }}>{member.fullName}</td>
                       <td style={{ fontSize: 13 }}>{member.email}</td>
-                      <td style={{ fontSize: 13, color: '#64748b' }}>{member.specialty || '—'}</td>
+                      <td style={{ fontSize: 13, color: '#9E9B93' }}>{member.specialty || '—'}</td>
                       <td>
                         <span
                           style={{
@@ -358,8 +358,8 @@ export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChang
                             fontWeight: 600,
                             padding: '2px 8px',
                             borderRadius: 99,
-                            color: member.active ? '#166534' : '#991b1b',
-                            background: member.active ? '#dcfce7' : '#fee2e2'
+                            color: member.active ? '#0D5C44' : '#E24B4A',
+                            background: member.active ? '#EFF8F5' : '#FCEBEB'
                           }}
                         >
                           {member.active ? 'Activo' : 'Inactivo'}
@@ -371,7 +371,7 @@ export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChang
                             style={{
                               fontSize: 11,
                               fontWeight: 500,
-                              color: member.userId ? '#166534' : '#94a3b8'
+                              color: member.userId ? '#0D5C44' : '#9E9B93'
                             }}
                           >
                             {member.userId ? 'Registrado' : 'Sin cuenta'}
@@ -379,9 +379,9 @@ export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChang
                           {!member.userId && tenantSlug && (
                             <button
                               type="button"
-                              title="Copiar link de registro"
+                              title="Copiar link de invitación para que el staff se registre"
                               onClick={() => {
-                                const url = `${window.location.origin}/public/${tenantSlug}/mis-citas`;
+                                const url = `${window.location.origin}/login?mode=staff-register&tenant=${encodeURIComponent(tenantSlug)}`;
                                 navigator.clipboard.writeText(url).then(() => {
                                   setCopiedId(member.id);
                                   setTimeout(() => setCopiedId(null), 2000);
@@ -392,13 +392,13 @@ export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChang
                                 border: 'none',
                                 cursor: 'pointer',
                                 fontSize: 11,
-                                color: copiedId === member.id ? '#166534' : 'var(--primary, #2563eb)',
+                                color: copiedId === member.id ? '#0D5C44' : 'var(--primary, #2EBF8F)',
                                 fontWeight: 500,
                                 padding: '2px 4px',
                                 borderRadius: 4
                               }}
                             >
-                              {copiedId === member.id ? '✓ Copiado' : 'Copiar link'}
+                              {copiedId === member.id ? '✓ Copiado' : 'Invitar'}
                             </button>
                           )}
                         </div>
@@ -417,7 +417,7 @@ export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChang
                             type="button"
                             className="btn btn-ghost"
                             onClick={() => setDeleteId(member.id)}
-                            style={{ fontSize: 12, color: 'var(--danger, #b91c1c)' }}
+                            style={{ fontSize: 12, color: 'var(--danger, #E24B4A)' }}
                           >
                             Eliminar
                           </button>

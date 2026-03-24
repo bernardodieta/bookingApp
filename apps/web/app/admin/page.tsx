@@ -42,10 +42,10 @@ type PlanRequest = {
 };
 
 const STATUS_META: Record<PlanRequest['status'], { label: string; color: string; bg: string }> = {
-  pending:   { label: 'Pendiente',   color: '#b45309', bg: '#fffbeb' },
-  contacted: { label: 'Contactado',  color: '#2563eb', bg: '#eff6ff' },
-  converted: { label: 'Convertido',  color: '#15803d', bg: '#f0fdf4' },
-  rejected:  { label: 'Rechazado',   color: '#b91c1c', bg: '#fef2f2' },
+  pending:   { label: 'Pendiente',   color: '#BA7517', bg: '#fffbeb' },
+  contacted: { label: 'Contactado',  color: '#2EBF8F', bg: '#EFF8F5' },
+  converted: { label: 'Convertido',  color: '#2EBF8F', bg: '#EFF8F5' },
+  rejected:  { label: 'Rechazado',   color: '#E24B4A', bg: '#FCEBEB' },
 };
 
 type ActiveView = 'tenants' | 'audit' | 'plan-requests';
@@ -53,15 +53,15 @@ type ActiveView = 'tenants' | 'audit' | 'plan-requests';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 const PLAN_META = {
-  free:     { label: 'Free',     color: '#64748b', bg: '#f1f5f9', limits: '50 citas/mes · 1 staff' },
-  pro:      { label: 'Pro',      color: '#2563eb', bg: '#eff6ff', limits: 'Ilimitado · 5 staff' },
+  free:     { label: 'Free',     color: '#9E9B93', bg: '#EEECE8', limits: '50 citas/mes · 1 staff' },
+  pro:      { label: 'Pro',      color: '#2EBF8F', bg: '#EFF8F5', limits: 'Ilimitado · 5 staff' },
   business: { label: 'Business', color: '#7c3aed', bg: '#f5f3ff', limits: 'Ilimitado · staff ilimitado' }
 } as const;
 
 function PlanBadge({ plan }: { plan: Tenant['plan'] }) {
   const m = PLAN_META[plan];
   return (
-    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999, color: m.color, background: m.bg }}>
+    <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 4, color: m.color, background: m.bg }}>
       {m.label}
     </span>
   );
@@ -293,14 +293,14 @@ export default function SuperAdminPage() {
   // ── Auth gate ────────────────────────────────────────────────────────────
   if (!authed) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg, #f6f8fc)', padding: 24 }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg, #F8F7F5)', padding: 24 }}>
         <div className="panel" style={{ width: '100%', maxWidth: 380, display: 'grid', gap: 20, padding: 32 }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 52, height: 52, borderRadius: 14, background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 8, background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
               <Shield size={24} />
             </div>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Super Admin</h1>
-            <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b' }}>Panel de administración de tenants</p>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Super Admin</h1>
+            <p style={{ margin: '6px 0 0', fontSize: 13, color: '#9E9B93' }}>Panel de administración de tenants</p>
           </div>
           <form onSubmit={handleAuth} style={{ display: 'grid', gap: 12 }}>
             <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
@@ -317,7 +317,7 @@ export default function SuperAdminPage() {
             <button type="submit" disabled={loading || !secret} className="btn btn-primary">
               {loading ? 'Verificando...' : 'Entrar'}
             </button>
-            {error ? <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#b91c1c' }}>{error}</div> : null}
+            {error ? <div style={{ background: '#FCEBEB', border: '1.5px solid #fca5a5', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#E24B4A' }}>{error}</div> : null}
           </form>
         </div>
       </div>
@@ -330,12 +330,12 @@ export default function SuperAdminPage() {
       {/* Sidebar */}
       <aside className="dashboard-sidebar surface">
         <div className="sidebar-brand">
-          <div className="sidebar-logo" style={{ background: '#eaf1ff', color: '#1d4ed8' }}>
+          <div className="sidebar-logo" style={{ background: '#EFF8F5', color: '#1A8E69' }}>
             <Shield size={18} />
           </div>
           <div>
-            <div style={{ fontWeight: 700 }}>Super Admin</div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>Panel de sistema</div>
+            <div style={{ fontWeight: 600 }}>Super Admin</div>
+            <div style={{ fontSize: 12, color: '#9E9B93' }}>Panel de sistema</div>
           </div>
         </div>
 
@@ -356,7 +356,7 @@ export default function SuperAdminPage() {
             <Inbox size={16} />
             <span>Solicitudes</span>
             {planRequests.filter((r) => r.status === 'pending').length > 0 && (
-              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, lineHeight: '18px', background: '#fef3c7', color: '#b45309', borderRadius: 999, padding: '0 6px' }}>
+              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, lineHeight: '18px', background: '#fef3c7', color: '#BA7517', borderRadius: 4, padding: '0 6px' }}>
                 {planRequests.filter((r) => r.status === 'pending').length}
               </span>
             )}
@@ -407,13 +407,13 @@ export default function SuperAdminPage() {
                 </div>
 
                 {/* Feedback */}
-                {error ? <div className="panel" style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', fontSize: 13, marginBottom: 12 }}>{error}</div> : null}
-                {success ? <div className="panel" style={{ background: '#f0fdf4', border: '1px solid #86efac', color: '#166534', fontSize: 13, marginBottom: 12 }}>{success}</div> : null}
+                {error ? <div className="panel" style={{ background: '#FCEBEB', border: '1.5px solid #fca5a5', color: '#E24B4A', fontSize: 13, marginBottom: 12 }}>{error}</div> : null}
+                {success ? <div className="panel" style={{ background: '#EFF8F5', border: '1.5px solid #86efac', color: '#0D5C44', fontSize: 13, marginBottom: 12 }}>{success}</div> : null}
 
                 {/* Create form */}
                 {showCreate ? (
                   <div className="panel" style={{ marginBottom: 16 }}>
-                    <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700 }}>Crear nuevo tenant</h3>
+                    <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 600 }}>Crear nuevo tenant</h3>
                     <form onSubmit={handleCreate} style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                       <label style={{ display: 'grid', gap: 5, fontSize: 13 }}>
                         Nombre del negocio *
@@ -458,21 +458,21 @@ export default function SuperAdminPage() {
                       <div className="stat-label">Total tenants</div>
                       <div className="stat-value">{tenants.length}</div>
                     </div>
-                    <Building2 size={20} style={{ color: '#94a3b8' }} />
+                    <Building2 size={20} style={{ color: '#9E9B93' }} />
                   </div>
                   <div className="stat-card">
                     <div>
                       <div className="stat-label">Total bookings</div>
                       <div className="stat-value">{tenants.reduce((sum, t) => sum + t.bookingsCount, 0)}</div>
                     </div>
-                    <CalendarDays size={20} style={{ color: '#94a3b8' }} />
+                    <CalendarDays size={20} style={{ color: '#9E9B93' }} />
                   </div>
                   <div className="stat-card">
                     <div>
                       <div className="stat-label">Total staff</div>
                       <div className="stat-value">{tenants.reduce((sum, t) => sum + t.staffCount, 0)}</div>
                     </div>
-                    <Users size={20} style={{ color: '#94a3b8' }} />
+                    <Users size={20} style={{ color: '#9E9B93' }} />
                   </div>
                 </div>
 
@@ -483,10 +483,10 @@ export default function SuperAdminPage() {
                     return (
                       <div key={key} className="panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
                         <div>
-                          <div style={{ fontWeight: 700, color: m.color, fontSize: 13 }}>{m.label}</div>
-                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{m.limits}</div>
+                          <div style={{ fontWeight: 600, color: m.color, fontSize: 13 }}>{m.label}</div>
+                          <div style={{ fontSize: 12, color: '#9E9B93', marginTop: 2 }}>{m.limits}</div>
                         </div>
-                        <div style={{ fontSize: 26, fontWeight: 800 }}>{count}</div>
+                        <div style={{ fontSize: 26, fontWeight: 600 }}>{count}</div>
                       </div>
                     );
                   })}
@@ -518,7 +518,7 @@ export default function SuperAdminPage() {
                               <select
                                 value={t.plan}
                                 onChange={(e) => void handleChangePlan(t.id, e.target.value as Tenant['plan'])}
-                                style={{ fontSize: 11, padding: '2px 4px', borderRadius: 5, border: '1px solid var(--border)' }}
+                                style={{ fontSize: 11, padding: '2px 4px', borderRadius: 5, border: '1.5px solid var(--border)' }}
                               >
                                 <option value="free">free</option>
                                 <option value="pro">pro</option>
@@ -526,13 +526,13 @@ export default function SuperAdminPage() {
                               </select>
                             </div>
                           </td>
-                          <td style={{ color: '#64748b', fontSize: 12 }}>{t.ownerEmail ?? '—'}</td>
+                          <td style={{ color: '#9E9B93', fontSize: 12 }}>{t.ownerEmail ?? '—'}</td>
                           <td style={{ textAlign: 'center' }}>{t.bookingsCount}</td>
                           <td style={{ textAlign: 'center' }}>{t.staffCount}</td>
-                          <td style={{ fontFamily: 'monospace', fontSize: 11, color: t.customDomain ? 'var(--primary)' : '#94a3b8' }}>
+                          <td style={{ fontFamily: 'monospace', fontSize: 11, color: t.customDomain ? 'var(--primary)' : '#9E9B93' }}>
                             {t.customDomain ?? '—'}
                           </td>
-                          <td style={{ color: '#64748b', whiteSpace: 'nowrap', fontSize: 12 }}>
+                          <td style={{ color: '#9E9B93', whiteSpace: 'nowrap', fontSize: 12 }}>
                             {new Date(t.createdAt).toLocaleDateString('es-MX')}
                           </td>
                           <td>
@@ -550,7 +550,7 @@ export default function SuperAdminPage() {
                     </tbody>
                   </table>
                   {!tenants.length && !loading ? (
-                    <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8' }}>
+                    <div style={{ padding: '40px 20px', textAlign: 'center', color: '#9E9B93' }}>
                       No hay tenants registrados. Crea el primero.
                     </div>
                   ) : null}
@@ -585,7 +585,7 @@ export default function SuperAdminPage() {
                 ))}
               </div>
 
-              {prError ? <div className="panel" style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', fontSize: 13, marginBottom: 12 }}>{prError}</div> : null}
+              {prError ? <div className="panel" style={{ background: '#FCEBEB', border: '1.5px solid #fca5a5', color: '#E24B4A', fontSize: 13, marginBottom: 12 }}>{prError}</div> : null}
 
               <div className="panel table-wrap" style={{ padding: 0 }}>
                 <table className="table-base">
@@ -601,17 +601,17 @@ export default function SuperAdminPage() {
                       const sm = STATUS_META[r.status];
                       return (
                         <tr key={r.id} style={r.status === 'pending' ? { borderLeft: '3px solid #f59e0b' } : undefined}>
-                          <td style={{ whiteSpace: 'nowrap', fontSize: 12, color: '#64748b' }}>{new Date(r.createdAt).toLocaleDateString('es-MX')}</td>
+                          <td style={{ whiteSpace: 'nowrap', fontSize: 12, color: '#9E9B93' }}>{new Date(r.createdAt).toLocaleDateString('es-MX')}</td>
                           <td style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</td>
-                          <td style={{ fontSize: 12, color: '#64748b' }}>{r.email}</td>
-                          <td style={{ fontSize: 12, color: '#64748b' }}>{r.phone ?? '—'}</td>
+                          <td style={{ fontSize: 12, color: '#9E9B93' }}>{r.email}</td>
+                          <td style={{ fontSize: 12, color: '#9E9B93' }}>{r.phone ?? '—'}</td>
                           <td style={{ fontSize: 13 }}>{r.businessName}</td>
                           <td><PlanBadge plan={r.requestedPlan} /></td>
                           <td>
                             <select
                               value={r.status}
                               onChange={(e) => void updatePlanRequest(r.id, { status: e.target.value as PlanRequest['status'] })}
-                              style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--border)', background: sm.bg, color: sm.color, fontWeight: 700 }}
+                              style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1.5px solid var(--border)', background: sm.bg, color: sm.color, fontWeight: 600 }}
                             >
                               <option value="pending">Pendiente</option>
                               <option value="contacted">Contactado</option>
@@ -653,7 +653,7 @@ export default function SuperAdminPage() {
                               </button>
                             ) : null}
                             {expandedMessage === r.id && r.message ? (
-                              <div style={{ marginTop: 6, padding: '8px 10px', borderRadius: 6, background: '#f8fafc', border: '1px solid var(--border)', fontSize: 12, color: '#374151', maxWidth: 260, whiteSpace: 'pre-wrap' }}>
+                              <div style={{ marginTop: 6, padding: '8px 10px', borderRadius: 6, background: '#f8fafc', border: '1.5px solid var(--border)', fontSize: 12, color: '#5E5C55', maxWidth: 260, whiteSpace: 'pre-wrap' }}>
                                 {r.message}
                               </div>
                             ) : null}
@@ -664,7 +664,7 @@ export default function SuperAdminPage() {
                   </tbody>
                 </table>
                 {!planRequests.length && !prLoading ? (
-                  <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8' }}>
+                  <div style={{ padding: '40px 20px', textAlign: 'center', color: '#9E9B93' }}>
                     No hay solicitudes.
                   </div>
                 ) : null}
@@ -721,7 +721,7 @@ export default function SuperAdminPage() {
                 </div>
               </form>
 
-              {auditError ? <div className="panel" style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', fontSize: 13, marginBottom: 12 }}>{auditError}</div> : null}
+              {auditError ? <div className="panel" style={{ background: '#FCEBEB', border: '1.5px solid #fca5a5', color: '#E24B4A', fontSize: 13, marginBottom: 12 }}>{auditError}</div> : null}
 
               <div className="panel table-wrap" style={{ padding: 0 }}>
                 <table className="table-base">
@@ -739,23 +739,23 @@ export default function SuperAdminPage() {
                     {auditLogs.map((entry) => (
                       <tr key={entry.id}>
                         <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{new Date(entry.createdAt).toLocaleString('es-MX')}</td>
-                        <td style={{ fontSize: 12, color: '#64748b' }}>
+                        <td style={{ fontSize: 12, color: '#9E9B93' }}>
                           {tenants.find((t) => t.id === (entry as unknown as Record<string,string>).tenantId)?.name ?? (entry as unknown as Record<string,string>).tenantId ?? '—'}
                         </td>
                         <td>
-                          <span style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>
+                          <span style={{ fontFamily: 'monospace', fontSize: 11, background: '#EEECE8', padding: '2px 6px', borderRadius: 4 }}>
                             {entry.action}
                           </span>
                         </td>
                         <td style={{ fontSize: 13 }}>{entry.entity}</td>
-                        <td style={{ fontFamily: 'monospace', fontSize: 11, color: '#64748b' }}>{entry.entityId ?? '—'}</td>
-                        <td style={{ fontFamily: 'monospace', fontSize: 11, color: '#64748b' }}>{entry.actorUserId ?? '—'}</td>
+                        <td style={{ fontFamily: 'monospace', fontSize: 11, color: '#9E9B93' }}>{entry.entityId ?? '—'}</td>
+                        <td style={{ fontFamily: 'monospace', fontSize: 11, color: '#9E9B93' }}>{entry.actorUserId ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 {!auditLogs.length && !auditLoading ? (
-                  <div style={{ padding: '32px 20px', textAlign: 'center', color: '#94a3b8' }}>
+                  <div style={{ padding: '32px 20px', textAlign: 'center', color: '#9E9B93' }}>
                     Sin registros. Configura filtros y consulta.
                   </div>
                 ) : null}
@@ -770,10 +770,10 @@ export default function SuperAdminPage() {
               onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}
             >
               <div className="modal-content">
-                <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#991b1b' }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 600, color: '#E24B4A' }}>
                   Eliminar tenant
                 </h3>
-                <p style={{ margin: '0 0 16px', fontSize: 14, color: '#374151' }}>
+                <p style={{ margin: '0 0 16px', fontSize: 14, color: '#5E5C55' }}>
                   ¿Eliminar permanentemente el tenant <strong>&quot;{deleteTarget.name}&quot;</strong>? Esta acción no se puede deshacer.
                 </p>
                 <div style={{ display: 'flex', gap: 8 }}>
