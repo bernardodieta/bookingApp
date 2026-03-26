@@ -269,7 +269,7 @@ function getWaitlistStatusMeta(status: string, locale: 'es' | 'en') {
       return {
         label: locale === 'en' ? 'Waiting' : 'En espera',
         style: {
-          border: '1px solid #f59e0b',
+          border: '1.5px solid #f59e0b',
           background: '#fef3c7',
           color: '#92400e'
         }
@@ -278,34 +278,34 @@ function getWaitlistStatusMeta(status: string, locale: 'es' | 'en') {
       return {
         label: locale === 'en' ? 'Notified' : 'Notificado',
         style: {
-          border: '1px solid #2563eb',
-          background: '#dbeafe',
-          color: '#1e3a8a'
+          border: '1.5px solid #2EBF8F',
+          background: '#EFF8F5',
+          color: '#1A8E69'
         }
       };
     case 'booked':
       return {
         label: locale === 'en' ? 'Converted to booking' : 'Convertido en reserva',
         style: {
-          border: '1px solid #16a34a',
-          background: '#dcfce7',
-          color: '#166534'
+          border: '1.5px solid #2EBF8F',
+          background: '#EFF8F5',
+          color: '#0D5C44'
         }
       };
     case 'cancelled':
       return {
         label: locale === 'en' ? 'Cancelled' : 'Cancelado',
         style: {
-          border: '1px solid #dc2626',
-          background: '#fee2e2',
-          color: '#991b1b'
+          border: '1.5px solid #E24B4A',
+          background: '#FCEBEB',
+          color: '#E24B4A'
         }
       };
     default:
       return {
         label: status,
         style: {
-          border: '1px solid var(--border)',
+          border: '1.5px solid var(--border)',
           background: '#f8fafc',
           color: '#334155'
         }
@@ -319,34 +319,34 @@ function getBookingStatusMeta(status: string, locale: 'es' | 'en') {
       return {
         label: locale === 'en' ? 'Confirmed' : 'Confirmada',
         style: {
-          border: '1px solid #16a34a',
-          background: '#dcfce7',
-          color: '#166534'
+          border: '1.5px solid #2EBF8F',
+          background: '#EFF8F5',
+          color: '#0D5C44'
         }
       };
     case 'cancelled':
       return {
         label: locale === 'en' ? 'Cancelled' : 'Cancelada',
         style: {
-          border: '1px solid #dc2626',
-          background: '#fee2e2',
-          color: '#991b1b'
+          border: '1.5px solid #E24B4A',
+          background: '#FCEBEB',
+          color: '#E24B4A'
         }
       };
     case 'rescheduled':
       return {
         label: locale === 'en' ? 'Rescheduled' : 'Reprogramada',
         style: {
-          border: '1px solid #2563eb',
-          background: '#dbeafe',
-          color: '#1e3a8a'
+          border: '1.5px solid #2EBF8F',
+          background: '#EFF8F5',
+          color: '#1A8E69'
         }
       };
     case 'completed':
       return {
         label: locale === 'en' ? 'Completed' : 'Completada',
         style: {
-          border: '1px solid #0f766e',
+          border: '1.5px solid #0f766e',
           background: '#ccfbf1',
           color: '#115e59'
         }
@@ -355,7 +355,7 @@ function getBookingStatusMeta(status: string, locale: 'es' | 'en') {
       return {
         label: locale === 'en' ? 'No show' : 'No asistió',
         style: {
-          border: '1px solid #f59e0b',
+          border: '1.5px solid #f59e0b',
           background: '#fef3c7',
           color: '#92400e'
         }
@@ -364,7 +364,7 @@ function getBookingStatusMeta(status: string, locale: 'es' | 'en') {
       return {
         label: status,
         style: {
-          border: '1px solid var(--border)',
+          border: '1.5px solid var(--border)',
           background: '#f8fafc',
           color: '#334155'
         }
@@ -955,7 +955,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
           alignItems: 'center',
           justifyContent: 'center',
           padding: '32px 16px',
-          background: 'radial-gradient(circle at top, #eff6ff 0%, var(--bg) 40%, var(--bg) 100%)'
+          background: '#F8F7F5'
         }}
       >
         {GOOGLE_CLIENT_ID ? <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" /> : null}
@@ -969,7 +969,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
               justifyContent: 'center',
               width: 52,
               height: 52,
-              borderRadius: 14,
+              borderRadius: 8,
               background: 'var(--primary)',
               color: '#fff',
               marginBottom: 14
@@ -977,8 +977,8 @@ export default function CustomerBookingsPage({ params }: PageProps) {
           >
             <ClipboardList size={24} />
           </div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.3px' }}>{copy.pageTitle}</h1>
-          <p style={{ margin: '6px 0 0', fontSize: 14, color: '#64748b' }}>{copy.pageSubtitle}</p>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#1A1917', letterSpacing: '-0.3px' }}>{copy.pageTitle}</h1>
+          <p style={{ margin: '6px 0 0', fontSize: 14, color: '#9E9B93' }}>{copy.pageSubtitle}</p>
         </div>
 
         {/* Card */}
@@ -993,7 +993,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
               gridTemplateColumns: '1fr 1fr',
               borderRadius: 8,
               background: 'var(--surface-muted)',
-              border: '1px solid var(--border)',
+              border: '1.5px solid var(--border)',
               padding: 3,
               gap: 2
             }}
@@ -1012,8 +1012,8 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                   fontWeight: 600,
                   fontSize: 14,
                   background: authMode === mode ? 'var(--surface)' : 'transparent',
-                  color: authMode === mode ? 'var(--primary)' : '#64748b',
-                  boxShadow: authMode === mode ? '0 1px 3px rgba(0,0,0,0.09)' : 'none',
+                  color: authMode === mode ? 'var(--primary)' : '#9E9B93',
+
                   transition: 'all 0.15s'
                 }}
               >
@@ -1028,13 +1028,13 @@ export default function CustomerBookingsPage({ params }: PageProps) {
             style={{ display: 'grid', gap: 14 }}
           >
             {authMode === 'register' ? (
-              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#5E5C55' }}>
                 {copy.fullName}
                 <input value={fullName} onChange={(event) => setFullName(event.target.value)} style={{ width: '100%' }} />
               </label>
             ) : null}
 
-            <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+            <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#5E5C55' }}>
               {copy.email}
               <input
                 type="email"
@@ -1045,7 +1045,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
               />
             </label>
 
-            <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+            <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#5E5C55' }}>
               {copy.password}
               <input
                 type="password"
@@ -1068,12 +1068,12 @@ export default function CustomerBookingsPage({ params }: PageProps) {
           </form>
 
           {/* Staff hint */}
-          <p style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', margin: 0 }}>
+          <p style={{ fontSize: 12, color: '#9E9B93', textAlign: 'center', margin: 0 }}>
             {copy.staffHint}
           </p>
 
           {/* Divider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#94a3b8', fontSize: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#9E9B93', fontSize: 12 }}>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
             {locale === 'en' ? 'or continue with' : 'o continúa con'}
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
@@ -1085,12 +1085,12 @@ export default function CustomerBookingsPage({ params }: PageProps) {
               <>
                 <div ref={googleButtonRef} />
                 {!googleReady && !googleLoading ? (
-                  <small style={{ color: '#94a3b8' }}>{copy.googleLoading}</small>
+                  <small style={{ color: '#9E9B93' }}>{copy.googleLoading}</small>
                 ) : null}
-                {googleLoading ? <small style={{ color: '#94a3b8' }}>{copy.googleValidating}</small> : null}
+                {googleLoading ? <small style={{ color: '#9E9B93' }}>{copy.googleValidating}</small> : null}
               </>
             ) : (
-              <small style={{ color: '#94a3b8', textAlign: 'center' }}>{copy.googleUnavailable}</small>
+              <small style={{ color: '#9E9B93', textAlign: 'center' }}>{copy.googleUnavailable}</small>
             )}
           </div>
 
@@ -1100,7 +1100,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
         </div>
 
         {/* Footer link */}
-        <p style={{ margin: '20px 0 0', fontSize: 13, color: '#64748b', textAlign: 'center' }}>
+        <p style={{ margin: '20px 0 0', fontSize: 13, color: '#9E9B93', textAlign: 'center' }}>
           {locale === 'en' ? 'Looking to book an appointment? ' : '¿Quieres agendar una cita? '}
           <a
             href={`/public/${params.slug}`}
@@ -1120,7 +1120,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       <header
         className="dashboard-topbar surface"
         style={{
-          borderBottom: '1px solid var(--border)',
+          borderBottom: '1.5px solid var(--border)',
           position: 'sticky',
           top: 0,
           zIndex: 20,
@@ -1133,7 +1133,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
           </div>
           <div>
             <strong style={{ fontSize: 15, display: 'block', lineHeight: 1.2 }}>{copy.pageTitle}</strong>
-            <span style={{ fontSize: 11, color: '#64748b' }}>
+            <span style={{ fontSize: 11, color: '#9E9B93' }}>
               {locale === 'en' ? 'Your booking portal' : 'Tu portal de reservas'}
             </span>
           </div>
@@ -1155,7 +1155,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
       <nav
         style={{
           background: 'var(--surface)',
-          borderBottom: '1px solid var(--border)',
+          borderBottom: '1.5px solid var(--border)',
           display: 'flex',
           position: 'sticky',
           top: 57,
@@ -1179,7 +1179,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
               border: 'none',
               borderBottom: activeView === id ? '2px solid var(--primary)' : '2px solid transparent',
               background: 'transparent',
-              color: activeView === id ? 'var(--primary)' : '#64748b',
+              color: activeView === id ? 'var(--primary)' : '#9E9B93',
               fontWeight: activeView === id ? 600 : 400,
               fontSize: 13,
               cursor: 'pointer',
@@ -1192,10 +1192,10 @@ export default function CustomerBookingsPage({ params }: PageProps) {
             {count > 0 ? (
               <span
                 style={{
-                  fontSize: 11, fontWeight: 700, lineHeight: '18px',
-                  background: activeView === id ? 'var(--primary)' : '#e2e8f0',
-                  color: activeView === id ? '#fff' : '#475569',
-                  borderRadius: 999, padding: '0 6px'
+                  fontSize: 11, fontWeight: 600, lineHeight: '18px',
+                  background: activeView === id ? 'var(--primary)' : '#D8D5CF',
+                  color: activeView === id ? '#fff' : '#5E5C55',
+                  borderRadius: 4, padding: '0 6px'
                 }}
               >{count}</span>
             ) : null}
@@ -1218,7 +1218,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
         {activeView === 'bookings' ? (
           <div style={{ display: 'grid', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
                 {locale === 'en' ? 'Your bookings' : 'Citas registradas'}
               </h2>
               <button
@@ -1228,10 +1228,10 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                 title={copy.refresh}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '5px 10px', borderRadius: 7,
-                  border: '1px solid var(--border)', background: 'var(--surface-muted)',
+                  padding: '5px 10px', borderRadius: 6,
+                  border: '1.5px solid var(--border)', background: 'var(--surface-muted)',
                   cursor: loading ? 'not-allowed' : 'pointer',
-                  fontSize: 12, color: '#64748b'
+                  fontSize: 12, color: '#9E9B93'
                 }}
               >
                 <RefreshCw size={13} style={{ opacity: loading ? 0.4 : 1 }} />
@@ -1241,11 +1241,11 @@ export default function CustomerBookingsPage({ params }: PageProps) {
 
             {!bookings.length ? (
               <div className="panel" style={{ textAlign: 'center', padding: 32, display: 'grid', gap: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'center' }}><CalendarDays size={36} style={{ color: '#94a3b8' }} /></div>
-                <p style={{ margin: 0, fontWeight: 600, color: '#374151' }}>
+                <div style={{ display: 'flex', justifyContent: 'center' }}><CalendarDays size={36} style={{ color: '#9E9B93' }} /></div>
+                <p style={{ margin: 0, fontWeight: 600, color: '#5E5C55' }}>
                   {locale === 'en' ? 'No bookings yet' : 'Aún no tienes citas'}
                 </p>
-                <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>{copy.bookNowHint}</p>
+                <p style={{ margin: 0, fontSize: 13, color: '#9E9B93' }}>{copy.bookNowHint}</p>
                 <button type="button" className="btn btn-primary" onClick={() => setActiveView('booking')} style={{ justifyContent: 'center' }}>
                   {copy.bookNow}
                 </button>
@@ -1259,7 +1259,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                 <>
                   {upcomingBookings.length > 0 && (
                     <>
-                      <h3 style={{ margin: '4px 0 4px', fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                      <h3 style={{ margin: '4px 0 4px', fontSize: 13, fontWeight: 600, color: '#5E5C55' }}>
                         {locale === 'en' ? 'Upcoming' : 'Próximas'} ({upcomingBookings.length})
                       </h3>
                       {upcomingBookings.map((booking) => {
@@ -1272,18 +1272,18 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <strong style={{ fontSize: 15 }}>{booking.service?.name ?? copy.fallbackService}</strong>
                                 {isBookingToday && (
-                                  <span style={{ fontSize: 10, fontWeight: 700, background: 'var(--primary)', color: '#fff', borderRadius: 999, padding: '2px 6px' }}>
+                                  <span style={{ fontSize: 10, fontWeight: 600, background: 'var(--primary)', color: '#fff', borderRadius: 4, padding: '2px 6px' }}>
                                     {locale === 'en' ? 'Today' : 'Hoy'}
                                   </span>
                                 )}
                               </div>
-                              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 10px', ...statusMeta.style }}>
+                              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, borderRadius: 4, padding: '3px 10px', ...statusMeta.style }}>
                                 {statusMeta.label}
                               </span>
                             </div>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#555', fontSize: 13 }}>
                               <Clock size={13} /> {formatDateTime(booking.startAt, locale)} — {formatTime(booking.endAt)}
-                              {durationMin ? <span style={{ color: '#94a3b8' }}>({durationMin} min)</span> : null}
+                              {durationMin ? <span style={{ color: '#9E9B93' }}>({durationMin} min)</span> : null}
                             </span>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#555', fontSize: 13 }}><User size={13} /> {booking.staff?.fullName ?? 'N/A'}</span>
                           </article>
@@ -1293,7 +1293,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                   )}
                   {pastOrCancelled.length > 0 && (
                     <>
-                      <h3 style={{ margin: '8px 0 4px', fontSize: 13, fontWeight: 600, color: '#64748b' }}>
+                      <h3 style={{ margin: '8px 0 4px', fontSize: 13, fontWeight: 600, color: '#9E9B93' }}>
                         {locale === 'en' ? 'Past' : 'Anteriores'} ({pastOrCancelled.length})
                       </h3>
                       {pastOrCancelled.map((booking) => {
@@ -1303,13 +1303,13 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                           <article key={booking.id} className="panel" style={{ display: 'grid', gap: 8, padding: 16, opacity: 0.75 }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                               <strong style={{ fontSize: 15 }}>{booking.service?.name ?? copy.fallbackService}</strong>
-                              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 10px', ...statusMeta.style }}>
+                              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, borderRadius: 4, padding: '3px 10px', ...statusMeta.style }}>
                                 {statusMeta.label}
                               </span>
                             </div>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#555', fontSize: 13 }}>
                               <Clock size={13} /> {formatDateTime(booking.startAt, locale)} — {formatTime(booking.endAt)}
-                              {durationMin ? <span style={{ color: '#94a3b8' }}>({durationMin} min)</span> : null}
+                              {durationMin ? <span style={{ color: '#9E9B93' }}>({durationMin} min)</span> : null}
                             </span>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#555', fontSize: 13 }}><User size={13} /> {booking.staff?.fullName ?? 'N/A'}</span>
                           </article>
@@ -1326,16 +1326,16 @@ export default function CustomerBookingsPage({ params }: PageProps) {
         {/* Lista de espera */}
         {activeView === 'waitlist' ? (
           <div style={{ display: 'grid', gap: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
               {locale === 'en' ? 'Waitlist' : 'Lista de espera'}
             </h2>
             {!waitlistEntries.length ? (
               <div className="panel" style={{ textAlign: 'center', padding: 32, display: 'grid', gap: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'center' }}><Clock size={36} style={{ color: '#94a3b8' }} /></div>
-                <p style={{ margin: 0, fontWeight: 600, color: '#374151' }}>
+                <div style={{ display: 'flex', justifyContent: 'center' }}><Clock size={36} style={{ color: '#9E9B93' }} /></div>
+                <p style={{ margin: 0, fontWeight: 600, color: '#5E5C55' }}>
                   {locale === 'en' ? 'No waitlist entries' : 'Sin entradas en lista de espera'}
                 </p>
-                <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+                <p style={{ margin: 0, fontSize: 13, color: '#9E9B93' }}>
                   {locale === 'en'
                     ? "When your preferred slot opens up, we'll notify you."
                     : 'Cuando haya disponibilidad en tu horario preferido, te notificaremos.'}
@@ -1347,7 +1347,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                 <article key={entry.id} className="panel" style={{ display: 'grid', gap: 8, padding: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                     <strong style={{ fontSize: 15 }}>{entry.service?.name ?? copy.fallbackService}</strong>
-                    <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 10px', ...statusMeta.style }}>
+                    <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, borderRadius: 4, padding: '3px 10px', ...statusMeta.style }}>
                       {statusMeta.label}
                     </span>
                   </div>
@@ -1377,7 +1377,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
           <div style={{ display: 'grid', gap: 16 }}>
 
             {/* Section header - Account */}
-            <h3 style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <h3 style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 600, color: '#9E9B93', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {locale === 'en' ? 'Account' : 'Cuenta'}
             </h3>
 
@@ -1386,8 +1386,8 @@ export default function CustomerBookingsPage({ params }: PageProps) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div
                   style={{
-                    width: 36, height: 36, borderRadius: 9,
-                    background: '#eff6ff', color: 'var(--primary)',
+                    width: 36, height: 36, borderRadius: 6,
+                    background: '#EFF8F5', color: 'var(--primary)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                   }}
                 >
@@ -1395,7 +1395,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                 </div>
                 <div>
                   <strong style={{ display: 'block', fontSize: 14 }}>{copy.navClaim}</strong>
-                  <span style={{ fontSize: 12, color: '#64748b' }}>{copy.claimSubtitle}</span>
+                  <span style={{ fontSize: 12, color: '#9E9B93' }}>{copy.claimSubtitle}</span>
                 </div>
               </div>
               <button
@@ -1431,7 +1431,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
             </section>
 
             {/* Section header - Session */}
-            <h3 style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <h3 style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 600, color: '#9E9B93', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {locale === 'en' ? 'Session' : 'Sesión'}
             </h3>
 
@@ -1443,8 +1443,8 @@ export default function CustomerBookingsPage({ params }: PageProps) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div
                   style={{
-                    width: 36, height: 36, borderRadius: 9,
-                    background: '#fef2f2', color: '#b91c1c',
+                    width: 36, height: 36, borderRadius: 6,
+                    background: '#FCEBEB', color: '#E24B4A',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                   }}
                 >
@@ -1452,7 +1452,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                 </div>
                 <div>
                   <strong style={{ display: 'block', fontSize: 14 }}>{copy.navLogout}</strong>
-                  <span style={{ fontSize: 12, color: '#64748b' }}>
+                  <span style={{ fontSize: 12, color: '#9E9B93' }}>
                     {locale === 'en' ? 'Clear your current session.' : 'Cierra tu sesión actual.'}
                   </span>
                 </div>
@@ -1463,8 +1463,8 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
                   padding: '8px 14px', borderRadius: 8,
-                  border: '1px solid #fca5a5', background: '#fef2f2',
-                  cursor: 'pointer', fontSize: 13, color: '#b91c1c', fontWeight: 600
+                  border: '1.5px solid #fca5a5', background: '#FCEBEB',
+                  cursor: 'pointer', fontSize: 13, color: '#E24B4A', fontWeight: 600
                 }}
               >
                 <LogOut size={14} />
@@ -1480,11 +1480,11 @@ export default function CustomerBookingsPage({ params }: PageProps) {
         <div style={{ position: 'fixed', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
 
           {/* Sub-header */}
-          <div className="surface" style={{ borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          <div className="surface" style={{ borderBottom: '1.5px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
             <button
               type="button"
               onClick={() => { setActiveView('bookings'); void refreshBookings(); setSubmitSuccess(''); setSubmitError(''); setWlSuccess(''); setWlError(''); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#374151' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#5E5C55' }}
             >
               ← {locale === 'en' ? 'Back' : 'Volver'}
             </button>
@@ -1564,10 +1564,10 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                     <Clock3 size={16} />
                     {locale === 'en' ? '2. Pick a time slot' : '2. Selecciona un horario'}
                   </strong>
-                  {slotsLoading ? <div style={{ color: '#64748b', fontSize: 13 }}>{locale === 'en' ? 'Loading...' : 'Cargando...'}</div> : null}
+                  {slotsLoading ? <div style={{ color: '#9E9B93', fontSize: 13 }}>{locale === 'en' ? 'Loading...' : 'Cargando...'}</div> : null}
                   {slotsError ? <div className="status-error">{slotsError}</div> : null}
                   {!slotsLoading && !slotsError && !slots.length ? (
-                    <div style={{ color: '#64748b', fontSize: 13 }}>
+                    <div style={{ color: '#9E9B93', fontSize: 13 }}>
                       {locale === 'en' ? 'No slots available for current filters.' : 'Sin horarios disponibles para los filtros actuales.'}
                     </div>
                   ) : null}
@@ -1580,9 +1580,9 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                           onClick={() => setSelectedSlot(slot.startAt)}
                           style={{
                             padding: '8px 14px', borderRadius: 8,
-                            border: selectedSlot === slot.startAt ? '2px solid var(--primary)' : '1px solid var(--border)',
-                            background: selectedSlot === slot.startAt ? '#eff6ff' : 'var(--surface)',
-                            color: selectedSlot === slot.startAt ? 'var(--primary)' : '#374151',
+                            border: selectedSlot === slot.startAt ? '2px solid var(--primary)' : '1.5px solid var(--border)',
+                            background: selectedSlot === slot.startAt ? '#EFF8F5' : 'var(--surface)',
+                            color: selectedSlot === slot.startAt ? 'var(--primary)' : '#5E5C55',
                             fontWeight: selectedSlot === slot.startAt ? 700 : 400,
                             cursor: 'pointer', fontSize: 14
                           }}
@@ -1602,11 +1602,11 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                   </strong>
 
                   {selectedSlot ? (
-                    <div style={{ padding: '8px 12px', borderRadius: 8, background: '#eff6ff', border: '1px solid #bfdbfe', fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>
+                    <div style={{ padding: '8px 12px', borderRadius: 8, background: '#EFF8F5', border: '1.5px solid #C8EDE1', fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>
                       <Clock size={13} style={{ flexShrink: 0 }} /> {locale === 'en' ? 'Selected:' : 'Seleccionado:'} {formatDateTime(selectedSlot, locale)}
                     </div>
                   ) : (
-                    <div style={{ padding: '8px 12px', borderRadius: 8, background: '#fafafa', border: '1px solid var(--border)', fontSize: 13, color: '#94a3b8' }}>
+                    <div style={{ padding: '8px 12px', borderRadius: 8, background: '#fafafa', border: '1.5px solid var(--border)', fontSize: 13, color: '#9E9B93' }}>
                       {locale === 'en' ? 'Select a time slot above first' : 'Primero selecciona un horario arriba'}
                     </div>
                   )}
@@ -1670,7 +1670,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
                     {locale === 'en' ? 'No suitable slot? Join the waitlist' : '¿Sin horario? Únete a la lista de espera'}
                   </summary>
                   <div style={{ marginTop: 14, display: 'grid', gap: 12 }}>
-                    <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+                    <p style={{ margin: 0, fontSize: 13, color: '#9E9B93' }}>
                       {locale === 'en'
                         ? "We'll notify you when a slot opens that matches your preference."
                         : 'Te avisaremos cuando se libere un cupo que coincida con tu preferencia.'}
@@ -1709,9 +1709,9 @@ export default function CustomerBookingsPage({ params }: PageProps) {
             position: 'fixed', bottom: 20, right: 16,
             display: 'flex', alignItems: 'center', gap: 8,
             background: 'var(--primary)', color: '#fff',
-            padding: '12px 20px', borderRadius: 99,
+            padding: '12px 20px', borderRadius: 8,
             fontWeight: 600, fontSize: 14,
-            boxShadow: '0 4px 14px rgba(37,99,235,0.35)',
+
             border: 'none', cursor: 'pointer', zIndex: 50
           }}
         >

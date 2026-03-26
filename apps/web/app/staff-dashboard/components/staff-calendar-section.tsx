@@ -20,13 +20,13 @@ type StaffCalendarSectionProps = {
 };
 
 const PROVIDER_LABELS: Record<string, { name: string; color: string; bg: string }> = {
-  google:    { name: 'Google Calendar',    color: '#166534', bg: '#dcfce7' },
+  google:    { name: 'Google Calendar',    color: '#0D5C44', bg: '#EFF8F5' },
   microsoft: { name: 'Microsoft Outlook', color: '#1e3a5f', bg: '#dbeafe' }
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  connected:    { label: 'Conectado',    color: '#166534' },
-  error:        { label: 'Error',        color: '#991b1b' },
+  connected:    { label: 'Conectado',    color: '#0D5C44' },
+  error:        { label: 'Error',        color: '#E24B4A' },
   disconnected: { label: 'Desconectado', color: '#4b5563' }
 };
 
@@ -118,8 +118,8 @@ export function StaffCalendarSection({ apiUrl, token }: StaffCalendarSectionProp
 
   return (
     <section>
-      <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Sincronización</h2>
-      <p style={{ margin: '0 0 16px', fontSize: 14, color: '#64748b' }}>
+      <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 600, color: '#1A1917' }}>Sincronización</h2>
+      <p style={{ margin: '0 0 16px', fontSize: 14, color: '#9E9B93' }}>
         Vincula tu calendario para que las citas se sincronicen automáticamente.
       </p>
 
@@ -194,7 +194,7 @@ export function StaffCalendarSection({ apiUrl, token }: StaffCalendarSectionProp
                         color: providerMeta.color,
                         background: providerMeta.bg,
                         padding: '2px 8px',
-                        borderRadius: 99
+                        borderRadius: 4
                       }}
                     >
                       {providerMeta.name}
@@ -203,14 +203,14 @@ export function StaffCalendarSection({ apiUrl, token }: StaffCalendarSectionProp
                       {statusInfo.label}
                     </span>
                   </div>
-                  <p style={{ margin: 0, fontSize: 13, color: '#374151' }}>{account.calendarId}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#94a3b8' }}>
+                  <p style={{ margin: 0, fontSize: 13, color: '#5E5C55' }}>{account.calendarId}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#9E9B93' }}>
                     {account.lastSyncAt
                       ? `Última sync: ${new Date(account.lastSyncAt).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`
                       : 'Sin sincronización aún'}
                   </p>
                   {account.lastError && (
-                    <p style={{ margin: '2px 0 0', fontSize: 11, color: '#991b1b' }}>{account.lastError}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 11, color: '#E24B4A' }}>{account.lastError}</p>
                   )}
                 </div>
                 <button
@@ -218,7 +218,7 @@ export function StaffCalendarSection({ apiUrl, token }: StaffCalendarSectionProp
                   className="btn btn-ghost"
                   disabled={disconnectLoading === account.id}
                   onClick={() => handleDisconnect(account.id)}
-                  style={{ fontSize: 12, color: 'var(--danger, #b91c1c)', display: 'flex', alignItems: 'center', gap: 4 }}
+                  style={{ fontSize: 12, color: 'var(--danger, #E24B4A)', display: 'flex', alignItems: 'center', gap: 4 }}
                 >
                   <Trash2 size={12} />
                   {disconnectLoading === account.id ? 'Quitando...' : 'Desconectar'}
@@ -230,11 +230,11 @@ export function StaffCalendarSection({ apiUrl, token }: StaffCalendarSectionProp
       ) : (
         !loading && (
           <div className="panel" style={{ padding: 32, textAlign: 'center' }}>
-            <Calendar size={36} style={{ color: '#94a3b8', marginBottom: 10 }} />
-            <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#374151' }}>
+            <Calendar size={36} style={{ color: '#9E9B93', marginBottom: 10 }} />
+            <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#5E5C55' }}>
               Sin calendarios vinculados
             </p>
-            <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>
+            <p style={{ margin: 0, fontSize: 13, color: '#9E9B93' }}>
               Conecta Google Calendar o Microsoft Outlook para que tus citas se sincronicen automáticamente.
             </p>
           </div>

@@ -119,8 +119,8 @@ export default function StaffDashboardClient() {
             <CalendarDays size={18} />
           </div>
           <div>
-            <div style={{ fontWeight: 700 }}>Panel de Staff</div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>{staffName}</div>
+            <div style={{ fontWeight: 600 }}>Panel de Staff</div>
+            <div style={{ fontSize: 12, color: '#9E9B93' }}>{staffName}</div>
           </div>
         </div>
 

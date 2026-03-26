@@ -24,9 +24,9 @@ type AgendaSectionProps = {
 };
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  pending:   { label: 'Pendiente',  color: '#b45309', bg: '#fef9c3' },
-  confirmed: { label: 'Confirmada', color: '#166534', bg: '#dcfce7' },
-  cancelled: { label: 'Cancelada',  color: '#991b1b', bg: '#fee2e2' },
+  pending:   { label: 'Pendiente',  color: '#BA7517', bg: '#FAEEDA' },
+  confirmed: { label: 'Confirmada', color: '#0D5C44', bg: '#EFF8F5' },
+  cancelled: { label: 'Cancelada',  color: '#E24B4A', bg: '#FCEBEB' },
   completed: { label: 'Completada', color: '#1e3a5f', bg: '#dbeafe' },
   no_show:   { label: 'No asistió', color: '#4b5563', bg: '#f3f4f6' }
 };
@@ -158,8 +158,8 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
           marginBottom: 16,
           alignItems: 'flex-end',
           background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderRadius: 10,
+          border: '1.5px solid var(--border)',
+          borderRadius: 6,
           padding: '12px 16px'
         }}
       >
@@ -195,8 +195,8 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
       </div>
 
       {/* Feedback */}
-      {error ? <div className="panel" style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', marginBottom: 12, fontSize: 13 }}>{error}</div> : null}
-      {cancelSuccess ? <div className="panel" style={{ background: '#f0fdf4', border: '1px solid #86efac', color: '#166534', marginBottom: 12, fontSize: 13 }}>{cancelSuccess}</div> : null}
+      {error ? <div className="panel" style={{ background: '#FCEBEB', border: '1.5px solid #fca5a5', color: '#E24B4A', marginBottom: 12, fontSize: 13 }}>{error}</div> : null}
+      {cancelSuccess ? <div className="panel" style={{ background: '#EFF8F5', border: '1.5px solid #86efac', color: '#0D5C44', marginBottom: 12, fontSize: 13 }}>{cancelSuccess}</div> : null}
 
       {/* Cancel confirmation modal */}
       {cancelId ? (
@@ -206,8 +206,8 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16
           }}
         >
-          <div style={{ background: '#fff', borderRadius: 14, padding: 24, maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', display: 'grid', gap: 14 }}>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Cancelar cita</h3>
+          <div style={{ background: '#fff', borderRadius: 8, padding: 24, maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', display: 'grid', gap: 14 }}>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>Cancelar cita</h3>
             <p style={{ margin: 0, fontSize: 14, color: '#555' }}>
               Esta acción no se puede deshacer. Se enviará un correo de notificación al cliente.
             </p>
@@ -221,7 +221,7 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
                 autoFocus
               />
             </label>
-            {cancelError ? <div style={{ fontSize: 12, color: '#b91c1c' }}>{cancelError}</div> : null}
+            {cancelError ? <div style={{ fontSize: 12, color: '#E24B4A' }}>{cancelError}</div> : null}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button
                 type="button"
@@ -235,7 +235,7 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
                 type="button"
                 onClick={() => void handleCancel()}
                 disabled={cancelLoading}
-                style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontWeight: 700, cursor: 'pointer', opacity: cancelLoading ? 0.6 : 1 }}
+                style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontWeight: 600, cursor: 'pointer', opacity: cancelLoading ? 0.6 : 1 }}
               >
                 {cancelLoading ? 'Cancelando...' : 'Confirmar cancelación'}
               </button>
@@ -246,7 +246,7 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
 
       {/* Empty state */}
       {!loading && bookings.length === 0 && !error ? (
-        <div className="panel" style={{ textAlign: 'center', padding: '32px 16px', color: '#94a3b8' }}>
+        <div className="panel" style={{ textAlign: 'center', padding: '32px 16px', color: '#9E9B93' }}>
           No hay citas en el período seleccionado.
         </div>
       ) : null}
@@ -258,20 +258,20 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
             style={{
               display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10,
               padding: '8px 14px', background: 'var(--surface-muted, #f8fafc)',
-              borderRadius: 10, border: '1px solid var(--border)'
+              borderRadius: 6, border: '1.5px solid var(--border)'
             }}
           >
             <div
               style={{
-                width: 32, height: 32, borderRadius: '50%', background: '#2563eb22',
-                color: '#2563eb', fontWeight: 800, fontSize: 14,
+                width: 32, height: 32, borderRadius: 6, background: 'rgba(46,191,143,0.1)',
+                color: '#2EBF8F', fontWeight: 600, fontSize: 14,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
               }}
             >
               {staff.fullName.charAt(0).toUpperCase()}
             </div>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>{staff.fullName}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#64748b' }}>
+            <span style={{ fontWeight: 600, fontSize: 15 }}>{staff.fullName}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9E9B93' }}>
               {items.length} {items.length === 1 ? 'cita' : 'citas'}
             </span>
           </div>
@@ -293,7 +293,7 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
                   {/* Status badge */}
                   <span
                     style={{
-                      flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 999,
+                      flexShrink: 0, fontSize: 11, fontWeight: 600, borderRadius: 4,
                       padding: '3px 10px', color: meta.color, background: meta.bg
                     }}
                   >
@@ -302,13 +302,13 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
 
                   {/* Info */}
                   <div style={{ flex: 1, minWidth: 180 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{b.customerName}</div>
-                    <div style={{ fontSize: 12, color: '#64748b' }}>{b.customerEmail}</div>
-                    <div style={{ fontSize: 13, color: '#374151', marginTop: 2 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{b.customerName}</div>
+                    <div style={{ fontSize: 12, color: '#9E9B93' }}>{b.customerEmail}</div>
+                    <div style={{ fontSize: 13, color: '#5E5C55', marginTop: 2 }}>
                       🗓 {fmt(b.startAt)} · {b.service.name}
                     </div>
                     {b.cancellationReason ? (
-                      <div style={{ fontSize: 12, color: '#991b1b', marginTop: 2 }}>
+                      <div style={{ fontSize: 12, color: '#E24B4A', marginTop: 2 }}>
                         Motivo: {b.cancellationReason}
                       </div>
                     ) : null}
@@ -323,7 +323,7 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
                       type="button"
                       onClick={() => { setCancelId(b.id); setCancelReason(''); setCancelError(''); }}
                       style={{
-                        flexShrink: 0, background: 'transparent', border: '1px solid #fca5a5',
+                        flexShrink: 0, background: 'transparent', border: '1.5px solid #fca5a5',
                         color: '#dc2626', borderRadius: 8, padding: '5px 12px',
                         fontSize: 12, fontWeight: 600, cursor: 'pointer'
                       }}

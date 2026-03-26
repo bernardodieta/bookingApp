@@ -1,8 +1,13 @@
 'use client';
 
 import Script from 'next/script';
+<<<<<<< HEAD
 import { FormEvent, Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+=======
+import { FormEvent, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+>>>>>>> 1cf86de39bd6057ea631af9cf7c36bfaee28417c
 import { z } from 'zod';
 import { Building2 } from 'lucide-react';
 
@@ -48,30 +53,22 @@ const staffRegisterSchema = z.object({
   password: z.string().min(1, 'La contraseña es obligatoria.').min(8, 'La contraseña debe tener al menos 8 caracteres.')
 });
 
-const customerRegisterSchema = z.object({
-  tenantSlug: z.string().trim().min(1, 'El identificador del negocio es obligatorio.'),
-  fullName: z.string().trim().min(1, 'El nombre es obligatorio.'),
-  email: z.string().trim().min(1, 'El email es obligatorio.').email('Email inválido.'),
-  password: z.string().min(1, 'La contraseña es obligatoria.').min(8, 'La contraseña debe tener al menos 8 caracteres.')
-});
 
 type AuthResponse = {
   accessToken: string;
   user?: { role?: string; staffId?: string };
 };
 
-type AuthMode = 'login' | 'staff-register' | 'customer-register';
+type AuthMode = 'login' | 'staff-register';
 
 const MODE_LABELS: Record<AuthMode, string> = {
   login: 'Iniciar sesión',
   'staff-register': 'Registro staff',
-  'customer-register': 'Registro cliente',
 };
 
 const MODE_SUBTITLES: Record<AuthMode, string> = {
   login: 'Inicia sesión en tu panel de gestión.',
-  'staff-register': 'Registrate como miembro del equipo de un negocio.',
-  'customer-register': 'Crea tu cuenta de cliente para gestionar tus reservas.',
+  'staff-register': 'Completá tu registro como miembro del equipo.',
 };
 
 function redirectByRole(router: ReturnType<typeof useRouter>, role?: string) {
@@ -100,12 +97,18 @@ function parseApiError(text: string, fallback: string): string {
 
 function LoginPageInner() {
   const router = useRouter();
-  const [mode, setMode] = useState<AuthMode>('login');
+  const searchParams = useSearchParams();
+
+  // Support invitation links: ?mode=staff-register&tenant=my-slug
+  const urlMode = searchParams.get('mode');
+  const urlTenant = searchParams.get('tenant');
+  const isInvitationFlow = urlMode === 'staff-register' && !!urlTenant;
+
+  const [mode, setMode] = useState<AuthMode>(isInvitationFlow ? 'staff-register' : 'login');
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
-  const [email, setEmail] = useState('owner@demo.com');
-  const [password, setPassword] = useState('Password123');
-  const [tenantSlug, setTenantSlug] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState(isInvitationFlow ? '' : 'owner@demo.com');
+  const [password, setPassword] = useState(isInvitationFlow ? '' : 'Password123');
+  const [tenantSlug, setTenantSlug] = useState(urlTenant ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -143,9 +146,11 @@ function LoginPageInner() {
     if (newMode === 'login') {
       setEmail('owner@demo.com');
       setPassword('Password123');
+      setTenantSlug('');
     } else {
       setEmail('');
       setPassword('');
+      setTenantSlug(urlTenant ?? '');
     }
   }
 
@@ -219,43 +224,6 @@ function LoginPageInner() {
         handleAuthSuccess(payload, normalizedApiUrl);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'No se pudo registrar como staff.');
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      const parsed = customerRegisterSchema.safeParse({ tenantSlug, fullName, email, password });
-      if (!parsed.success) {
-        const errs: Record<string, string> = {};
-        for (const issue of parsed.error.issues) {
-          const key = issue.path[0] as string;
-          if (!errs[key]) errs[key] = issue.message;
-        }
-        setFieldErrors(errs);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const slug = tenantSlug.trim();
-        const response = await fetch(new URL(`/public/${encodeURIComponent(slug)}/customer-portal/unified-register`, normalizedApiUrl).toString(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fullName: fullName.trim(), email: email.trim(), password })
-        });
-        if (!response.ok) {
-          throw new Error(parseApiError(await response.text(), 'No se pudo crear la cuenta.'));
-        }
-        const payload = (await response.json()) as AuthResponse;
-        if (!payload.accessToken) throw new Error('No se recibió accessToken.');
-
-        // Customer portal token — redirect to their portal
-        if (payload.user?.role === 'staff') {
-          handleAuthSuccess(payload, normalizedApiUrl);
-        } else {
-          setSuccess('Cuenta creada correctamente. Ahora podés iniciar sesión desde la página del negocio.');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'No se pudo crear la cuenta.');
       } finally {
         setLoading(false);
       }
@@ -361,21 +329,19 @@ function LoginPageInner() {
     borderRadius: 8,
     transition: 'all 0.15s',
     background: active ? 'var(--surface, #fff)' : 'transparent',
-    color: active ? 'var(--primary, #2563eb)' : '#64748b',
-    boxShadow: active ? '0 1px 3px rgba(0,0,0,0.09)' : 'none',
+    color: active ? 'var(--brand-600)' : 'var(--neutral-400)',
+    boxShadow: 'none',
   });
 
   const fieldErrorStyle: React.CSSProperties = {
     fontSize: 12,
-    color: '#dc2626',
+    color: 'var(--error-400)',
     margin: '2px 0 0',
   };
 
   const buttonLabel = mode === 'login'
     ? (loading ? 'Ingresando...' : 'Entrar')
-    : mode === 'staff-register'
-      ? (loading ? 'Registrando...' : 'Crear cuenta staff')
-      : (loading ? 'Registrando...' : 'Crear cuenta');
+    : (loading ? 'Registrando...' : 'Crear cuenta staff');
 
   return (
     <>
@@ -389,7 +355,7 @@ function LoginPageInner() {
           alignItems: 'center',
           justifyContent: 'center',
           padding: '32px 16px',
-          background: 'radial-gradient(circle at top, #eff6ff 0%, var(--bg, #f6f8fc) 40%, var(--bg, #f6f8fc) 100%)'
+          background: 'var(--bg)'
         }}
       >
         {/* Brand */}
@@ -401,18 +367,18 @@ function LoginPageInner() {
               justifyContent: 'center',
               width: 52,
               height: 52,
-              borderRadius: 14,
-              background: 'var(--primary, #2563eb)',
+              borderRadius: 8,
+              background: 'var(--primary, #2EBF8F)',
               color: '#fff',
               marginBottom: 14
             }}
           >
             <Building2 size={24} />
           </div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.3px' }}>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: 'var(--neutral-900)', letterSpacing: '-0.3px' }}>
             {MODE_LABELS[mode]}
           </h1>
-          <p style={{ margin: '6px 0 0', fontSize: 14, color: '#64748b' }}>
+          <p style={{ margin: '6px 0 0', fontSize: 14, color: 'var(--neutral-400)' }}>
             {MODE_SUBTITLES[mode]}
           </p>
         </div>
@@ -420,19 +386,21 @@ function LoginPageInner() {
         {/* Card */}
         <div className="panel" style={{ width: '100%', maxWidth: 440, padding: '28px 28px 24px', display: 'grid', gap: 18 }}>
 
-          {/* Mode tabs */}
-          <div style={{ display: 'flex', gap: 4, background: 'var(--bg, #f1f5f9)', borderRadius: 10, padding: 4 }}>
-            {(['login', 'staff-register', 'customer-register'] as AuthMode[]).map((m) => (
-              <button key={m} type="button" style={tabStyle(mode === m)} onClick={() => switchMode(m)}>
-                {MODE_LABELS[m]}
-              </button>
-            ))}
-          </div>
+          {/* Mode tabs — only shown when arriving via staff invitation link */}
+          {isInvitationFlow && (
+            <div style={{ display: 'flex', gap: 4, background: 'var(--neutral-100)', borderRadius: 8, padding: 4 }}>
+              {(['staff-register', 'login'] as AuthMode[]).map((m) => (
+                <button key={m} type="button" style={tabStyle(mode === m)} onClick={() => switchMode(m)}>
+                  {MODE_LABELS[m]}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={onSubmit} style={{ display: 'grid', gap: 14 }}>
-            {(mode === 'staff-register' || mode === 'customer-register') && (
-              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+            {mode === 'staff-register' && !urlTenant && (
+              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: 'var(--neutral-600)' }}>
                 Identificador del negocio
                 <input
                   type="text"
@@ -443,28 +411,10 @@ function LoginPageInner() {
                   autoComplete="off"
                 />
                 {fieldErrors.tenantSlug && <span style={fieldErrorStyle}>{fieldErrors.tenantSlug}</span>}
-                <small style={{ color: '#94a3b8', fontSize: 12 }}>
-                  Pedile al negocio su identificador (slug).
-                </small>
               </label>
             )}
 
-            {mode === 'customer-register' && (
-              <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
-                Nombre completo
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Ej: Juan Pérez"
-                  style={{ width: '100%' }}
-                  autoComplete="name"
-                />
-                {fieldErrors.fullName && <span style={fieldErrorStyle}>{fieldErrors.fullName}</span>}
-              </label>
-            )}
-
-            <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+            <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: 'var(--neutral-600)' }}>
               Email
               <input
                 type="email"
@@ -476,7 +426,7 @@ function LoginPageInner() {
               {fieldErrors.email && <span style={fieldErrorStyle}>{fieldErrors.email}</span>}
             </label>
 
-            <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: '#374151' }}>
+            <label style={{ display: 'grid', gap: 5, fontSize: 14, fontWeight: 500, color: 'var(--neutral-600)' }}>
               Contraseña
               <input
                 type="password"
@@ -490,10 +440,10 @@ function LoginPageInner() {
             </label>
 
             <details style={{ fontSize: 13 }}>
-              <summary style={{ cursor: 'pointer', color: '#94a3b8', userSelect: 'none', listStyle: 'none' }}>
+              <summary style={{ cursor: 'pointer', color: 'var(--neutral-400)', userSelect: 'none', listStyle: 'none' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Avanzado</span>
               </summary>
-              <label style={{ display: 'grid', gap: 5, marginTop: 10, fontWeight: 500, color: '#374151' }}>
+              <label style={{ display: 'grid', gap: 5, marginTop: 10, fontWeight: 500, color: 'var(--neutral-600)' }}>
                 API URL
                 <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} style={{ width: '100%', fontSize: 12 }} />
               </label>
@@ -511,20 +461,20 @@ function LoginPageInner() {
 
           {mode === 'login' && (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#94a3b8', fontSize: 12 }}>
-                <div style={{ flex: 1, height: 1, background: 'var(--border, #e2e8f0)' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--neutral-400)', fontSize: 12 }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--border, #D8D5CF)' }} />
                 o continúa con
-                <div style={{ flex: 1, height: 1, background: 'var(--border, #e2e8f0)' }} />
+                <div style={{ flex: 1, height: 1, background: 'var(--border, #D8D5CF)' }} />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                 {GOOGLE_CLIENT_ID ? (
                   <>
                     <div ref={setGoogleButtonNode} />
-                    {googleScriptLoaded && !googleReady ? <small style={{ color: '#94a3b8' }}>Cargando botón de Google...</small> : null}
-                    {googleLoading ? <small style={{ color: '#94a3b8' }}>Validando sesión de Google...</small> : null}
+                    {googleScriptLoaded && !googleReady ? <small style={{ color: 'var(--neutral-400)' }}>Cargando botón de Google...</small> : null}
+                    {googleLoading ? <small style={{ color: 'var(--neutral-400)' }}>Validando sesión de Google...</small> : null}
                   </>
                 ) : (
-                  <small style={{ color: '#94a3b8', textAlign: 'center' }}>
+                  <small style={{ color: 'var(--neutral-400)', textAlign: 'center' }}>
                     Configura NEXT_PUBLIC_GOOGLE_CLIENT_ID para habilitar Google SSO.
                   </small>
                 )}

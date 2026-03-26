@@ -1,7 +1,7 @@
+import { useState } from 'react';
 import { Notice } from './notice';
 
 type PaymentsSectionProps = {
-  paymentsView: 'register' | 'history';
   token: string;
   paymentsLoading: boolean;
   loadPayments: () => Promise<void>;
@@ -76,6 +76,8 @@ type PaymentsSectionProps = {
 };
 
 export function PaymentsSection(props: PaymentsSectionProps) {
+  const [view, setView] = useState<'register' | 'history'>('register');
+
   const canUseStripe =
     typeof props.onCreateStripeCheckoutSession === 'function' &&
     typeof props.onConfirmStripeSession === 'function' &&
@@ -86,17 +88,21 @@ export function PaymentsSection(props: PaymentsSectionProps) {
   const stripeLoading = props.stripeLoading ?? false;
   const stripeError = props.stripeError ?? '';
 
-  const showRegisterPanel = props.paymentsView === 'register';
-  const showHistoryPanel = props.paymentsView === 'history';
+  const showRegisterPanel = view === 'register';
+  const showHistoryPanel = view === 'history';
 
   return (
     <section className="section-block" style={{ marginTop: 28 }}>
-      <h2 className="section-title">Pagos (MVP)</h2>
-      <p className="section-subtitle">
-        {showRegisterPanel
-          ? 'Registra pago completo o depósito para una reserva.'
-          : 'Consulta historial reciente de pagos y genera nota de venta.'}
-      </p>
+      <h2 className="section-title">Pagos</h2>
+
+      <div className="tabbar">
+        <button type="button" className={`tab-btn ${view === 'register' ? 'active' : ''}`} onClick={() => setView('register')}>
+          Registrar pago
+        </button>
+        <button type="button" className={`tab-btn ${view === 'history' ? 'active' : ''}`} onClick={() => setView('history')}>
+          Historial
+        </button>
+      </div>
 
       <div className="section-actions" style={{ marginBottom: 12 }}>
         <button
@@ -172,7 +178,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
             {props.quickPaymentLoading ? 'Registrando...' : 'Registrar pago'}
           </button>
           {canUseStripe ? (
-            <div className="section-form" style={{ gap: 6, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+            <div className="section-form" style={{ gap: 6, borderTop: '1.5px solid var(--border)', paddingTop: 8 }}>
               <strong style={{ fontSize: 13 }}>Stripe</strong>
               <div className="section-actions">
                 <button

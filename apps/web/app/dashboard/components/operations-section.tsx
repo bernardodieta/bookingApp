@@ -1,23 +1,11 @@
-import { type ServiceItem, type StaffMember } from '../dashboard-types';
+import { useState } from 'react';
 import { Notice } from './notice';
-import { QuickSetupWizard } from './quick-setup-wizard';
+
+type OperationsTab = 'hub' | 'booking' | 'waitlist' | 'availability';
 
 type OperationsSectionProps = {
-  operationsView:
-    | 'quick-setup'
-    | 'quick-service'
-    | 'quick-staff'
-    | 'quick-booking'
-    | 'quick-waitlist'
-    | 'availability-rules'
-    | 'availability-exceptions'
-    | 'availability-overview';
   apiUrl: string;
   token: string;
-  wizardOnServiceCreated: (service: ServiceItem) => void;
-  wizardOnStaffCreated: (staff: StaffMember) => void;
-  wizardOnNavigateToStaff: () => void;
-  wizardOnNavigateToServices: () => void;
   serviceLoading: boolean;
   staffLoading: boolean;
 
@@ -175,7 +163,7 @@ type OperationsSectionProps = {
   onDeleteAvailabilityException: (exceptionId: string) => Promise<void>;
 };
 
-const DAY_OF_WEEK_LABEL: Record<number, string> = {
+const DAY_LABEL: Record<number, string> = {
   0: 'Domingo',
   1: 'Lunes',
   2: 'Martes',
@@ -186,206 +174,197 @@ const DAY_OF_WEEK_LABEL: Record<number, string> = {
 };
 
 export function OperationsSection(props: OperationsSectionProps) {
-  const isQuickView = props.operationsView.startsWith('quick-') && props.operationsView !== 'quick-setup';
-  const isAvailabilityView = props.operationsView.startsWith('availability-');
-
-  const quickViewTitle: Record<'quick-service' | 'quick-staff' | 'quick-booking' | 'quick-waitlist', string> = {
-    'quick-service': 'Crear servicio',
-    'quick-staff': 'Crear staff',
-    'quick-booking': 'Crear booking',
-    'quick-waitlist': 'Join waitlist'
-  };
-
-  const quickViewSubtitle: Record<'quick-service' | 'quick-staff' | 'quick-booking' | 'quick-waitlist', string> = {
-    'quick-service': 'Alta rápida de un nuevo servicio del negocio.',
-    'quick-staff': 'Alta rápida de un miembro del staff.',
-    'quick-booking': 'Crear una reserva manual para un cliente.',
-    'quick-waitlist': 'Agregar un cliente a lista de espera.'
-  };
-
-  const showRulesPanel = props.operationsView === 'availability-overview' || props.operationsView === 'availability-rules';
-  const showExceptionsPanel = props.operationsView === 'availability-overview' || props.operationsView === 'availability-exceptions';
-  const showRulesForm = props.operationsView === 'availability-rules';
-  const showExceptionsForm = props.operationsView === 'availability-exceptions';
+  const [tab, setTab] = useState<OperationsTab>('hub');
 
   return (
-    <>
-      {props.operationsView === 'quick-setup' ? (
-        <section className="section-block" style={{ marginTop: 28 }}>
-          <h2 className="section-title">Configuración rápida</h2>
-          <p className="section-subtitle">Crea un servicio y un miembro del staff en pocos pasos.</p>
-          <QuickSetupWizard
-            apiUrl={props.apiUrl}
-            token={props.token}
-            serviceOptions={props.serviceOptions}
-            onServiceCreated={props.wizardOnServiceCreated}
-            onStaffCreated={props.wizardOnStaffCreated}
-            onNavigateToStaff={props.wizardOnNavigateToStaff}
-            onNavigateToServices={props.wizardOnNavigateToServices}
-          />
-        </section>
-      ) : null}
+    <section className="section-block" style={{ marginTop: 28 }}>
+      <h2 className="section-title">Operaciones</h2>
 
-      {isQuickView ? (
-        <section className="section-block" style={{ marginTop: 28 }}>
-          <h2 className="section-title">{quickViewTitle[props.operationsView as 'quick-service' | 'quick-staff' | 'quick-booking' | 'quick-waitlist']}</h2>
-          <p className="section-subtitle">{quickViewSubtitle[props.operationsView as 'quick-service' | 'quick-staff' | 'quick-booking' | 'quick-waitlist']}</p>
+      <div className="tabbar">
+        <button type="button" className={`tab-btn ${tab === 'hub' ? 'active' : ''}`} onClick={() => setTab('hub')}>
+          Alta rápida
+        </button>
+        <button type="button" className={`tab-btn ${tab === 'booking' ? 'active' : ''}`} onClick={() => setTab('booking')}>
+          Nueva cita
+        </button>
+        <button type="button" className={`tab-btn ${tab === 'waitlist' ? 'active' : ''}`} onClick={() => setTab('waitlist')}>
+          Lista de espera
+        </button>
+        <button type="button" className={`tab-btn ${tab === 'availability' ? 'active' : ''}`} onClick={() => setTab('availability')}>
+          Disponibilidad
+        </button>
+      </div>
 
-          <div className="section-grid section-grid-2" style={{ marginBottom: 8 }}>
-            {props.operationsView === 'quick-service' ? (
-              <form onSubmit={props.onCreateService} className="panel section-form" style={{ gap: 8 }}>
-                <strong>Crear servicio</strong>
-                <label>
-                  Nombre
-                  <input value={props.quickServiceName} onChange={(e) => props.setQuickServiceName(e.target.value)} className="w-full" />
-                </label>
-                <label>
-                  Duración (min)
-                  <input type="number" min={5} value={props.quickServiceDuration} onChange={(e) => props.setQuickServiceDuration(e.target.value)} className="w-full" />
-                </label>
-                <label>
-                  Precio
-                  <input type="number" min={0} step="0.01" value={props.quickServicePrice} onChange={(e) => props.setQuickServicePrice(e.target.value)} className="w-full" />
-                </label>
-                <button type="submit" disabled={!props.canSubmitQuickService} className="btn btn-primary section-button-md">
-                  {props.quickServiceLoading ? 'Creando...' : 'Crear servicio'}
-                </button>
-                {!props.canSubmitQuickService && props.quickServiceDisabledReason ? <div style={{ color: '#666', fontSize: 12 }}>{props.quickServiceDisabledReason}</div> : null}
-                <Notice tone="error" message={props.quickServiceError} onClose={() => props.setQuickServiceError('')} />
-              </form>
-            ) : null}
+      {tab === 'hub' ? (
+        <>
+          <p className="section-subtitle">Crea un servicio y un miembro del equipo para empezar a aceptar citas.</p>
+          <div className="section-grid section-grid-2">
+            <form onSubmit={props.onCreateService} className="panel section-form">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <strong style={{ fontSize: '0.97rem' }}>Nuevo servicio</strong>
+              </div>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Nombre</span>
+                <input value={props.quickServiceName} onChange={(e) => props.setQuickServiceName(e.target.value)} className="w-full" placeholder="Ej: Corte de cabello" />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Duración (minutos)</span>
+                <input type="number" min={5} value={props.quickServiceDuration} onChange={(e) => props.setQuickServiceDuration(e.target.value)} className="w-full" placeholder="30" />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Precio</span>
+                <input type="number" min={0} step="0.01" value={props.quickServicePrice} onChange={(e) => props.setQuickServicePrice(e.target.value)} className="w-full" placeholder="0.00" />
+              </label>
+              <button type="submit" disabled={!props.canSubmitQuickService || props.quickServiceLoading} className="btn btn-primary w-full">
+                {props.quickServiceLoading ? 'Creando...' : 'Crear servicio'}
+              </button>
+              {!props.canSubmitQuickService && props.quickServiceDisabledReason ? (
+                <div style={{ color: '#9E9B93', fontSize: 12 }}>{props.quickServiceDisabledReason}</div>
+              ) : null}
+              <Notice tone="error" message={props.quickServiceError} onClose={() => props.setQuickServiceError('')} />
+              <Notice tone="success" message={props.quickServiceSuccess} onClose={() => props.setQuickServiceSuccess('')} />
+            </form>
 
-            {props.operationsView === 'quick-staff' ? (
-              <form onSubmit={props.onCreateStaff} className="panel section-form" style={{ gap: 8 }}>
-                <strong>Crear staff</strong>
-                <label>
-                  Nombre completo
-                  <input value={props.quickStaffName} onChange={(e) => props.setQuickStaffName(e.target.value)} className="w-full" />
-                </label>
-                <label>
-                  Email
-                  <input type="email" value={props.quickStaffEmail} onChange={(e) => props.setQuickStaffEmail(e.target.value)} className="w-full" />
-                </label>
-                <button type="submit" disabled={!props.canSubmitQuickStaff} className="btn btn-primary section-button-md">
-                  {props.quickStaffLoading ? 'Creando...' : 'Crear staff'}
-                </button>
-                {!props.canSubmitQuickStaff && props.quickStaffDisabledReason ? <div style={{ color: '#666', fontSize: 12 }}>{props.quickStaffDisabledReason}</div> : null}
-                <Notice tone="error" message={props.quickStaffError} onClose={() => props.setQuickStaffError('')} />
-              </form>
-            ) : null}
-
-            {props.operationsView === 'quick-booking' ? (
-              <form onSubmit={props.onCreateBooking} className="panel section-form" style={{ gap: 8 }}>
-                <strong>Crear booking</strong>
-                <label>
-                  Servicio
-                  <select value={props.quickBookingServiceId} onChange={(e) => props.setQuickBookingServiceId(e.target.value)} className="w-full" disabled={props.serviceLoading}>
-                    <option value="">Seleccionar</option>
-                    {props.serviceOptions.map((entry) => (
-                      <option key={entry.id} value={entry.id}>
-                        {entry.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Staff
-                  <select value={props.quickBookingStaffId} onChange={(e) => props.setQuickBookingStaffId(e.target.value)} className="w-full" disabled={props.staffLoading}>
-                    <option value="">Seleccionar</option>
-                    {props.staffOptions.map((entry) => (
-                      <option key={entry.id} value={entry.id}>
-                        {entry.fullName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Inicio
-                  <input type="datetime-local" value={props.quickBookingStartAt} onChange={(e) => props.setQuickBookingStartAt(e.target.value)} className="w-full" />
-                </label>
-                <label>
-                  Cliente
-                  <input value={props.quickBookingCustomerName} onChange={(e) => props.setQuickBookingCustomerName(e.target.value)} className="w-full" />
-                </label>
-                <label>
-                  Email cliente
-                  <input type="email" value={props.quickBookingCustomerEmail} onChange={(e) => props.setQuickBookingCustomerEmail(e.target.value)} className="w-full" />
-                </label>
-                <label>
-                  Notas (opcional)
-                  <input value={props.quickBookingNotes} onChange={(e) => props.setQuickBookingNotes(e.target.value)} className="w-full" />
-                </label>
-                <button type="submit" disabled={!props.canSubmitQuickBooking} className="btn btn-primary section-button-md">
-                  {props.quickBookingLoading ? 'Creando...' : 'Crear booking'}
-                </button>
-                {!props.canSubmitQuickBooking && props.quickBookingDisabledReason ? <div style={{ color: '#666', fontSize: 12 }}>{props.quickBookingDisabledReason}</div> : null}
-                <Notice tone="error" message={props.quickBookingError} onClose={() => props.setQuickBookingError('')} />
-              </form>
-            ) : null}
-
-            {props.operationsView === 'quick-waitlist' ? (
-              <form onSubmit={props.onJoinWaitlist} className="panel section-form" style={{ gap: 8 }}>
-                <strong>Join waitlist</strong>
-                <label>
-                  Servicio
-                  <select value={props.quickWaitlistServiceId} onChange={(e) => props.setQuickWaitlistServiceId(e.target.value)} className="w-full" disabled={props.serviceLoading}>
-                    <option value="">Seleccionar</option>
-                    {props.serviceOptions.map((entry) => (
-                      <option key={entry.id} value={entry.id}>
-                        {entry.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Staff
-                  <select value={props.quickWaitlistStaffId} onChange={(e) => props.setQuickWaitlistStaffId(e.target.value)} className="w-full" disabled={props.staffLoading}>
-                    <option value="">Seleccionar</option>
-                    {props.staffOptions.map((entry) => (
-                      <option key={entry.id} value={entry.id}>
-                        {entry.fullName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Fecha/hora preferida
-                  <input type="datetime-local" value={props.quickWaitlistPreferredStartAt} onChange={(e) => props.setQuickWaitlistPreferredStartAt(e.target.value)} className="w-full" />
-                </label>
-                <label>
-                  Cliente
-                  <input value={props.quickWaitlistCustomerName} onChange={(e) => props.setQuickWaitlistCustomerName(e.target.value)} className="w-full" />
-                </label>
-                <label>
-                  Email cliente
-                  <input type="email" value={props.quickWaitlistCustomerEmail} onChange={(e) => props.setQuickWaitlistCustomerEmail(e.target.value)} className="w-full" />
-                </label>
-                <label>
-                  Notas (opcional)
-                  <input value={props.quickWaitlistNotes} onChange={(e) => props.setQuickWaitlistNotes(e.target.value)} className="w-full" />
-                </label>
-                <button type="submit" disabled={!props.canSubmitQuickWaitlist} className="btn btn-primary section-button-md">
-                  {props.quickWaitlistLoading ? 'Agregando...' : 'Agregar waitlist'}
-                </button>
-                {!props.canSubmitQuickWaitlist && props.quickWaitlistDisabledReason ? <div style={{ color: '#666', fontSize: 12 }}>{props.quickWaitlistDisabledReason}</div> : null}
-                <Notice tone="error" message={props.quickWaitlistError} onClose={() => props.setQuickWaitlistError('')} />
-              </form>
-            ) : null}
+            <form onSubmit={props.onCreateStaff} className="panel section-form">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <strong style={{ fontSize: '0.97rem' }}>Nuevo miembro del equipo</strong>
+              </div>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Nombre completo</span>
+                <input value={props.quickStaffName} onChange={(e) => props.setQuickStaffName(e.target.value)} className="w-full" placeholder="Ej: María García" />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Email</span>
+                <input type="email" value={props.quickStaffEmail} onChange={(e) => props.setQuickStaffEmail(e.target.value)} className="w-full" placeholder="maria@ejemplo.com" />
+              </label>
+              <button type="submit" disabled={!props.canSubmitQuickStaff || props.quickStaffLoading} className="btn btn-primary w-full">
+                {props.quickStaffLoading ? 'Creando...' : 'Agregar al equipo'}
+              </button>
+              {!props.canSubmitQuickStaff && props.quickStaffDisabledReason ? (
+                <div style={{ color: '#9E9B93', fontSize: 12 }}>{props.quickStaffDisabledReason}</div>
+              ) : null}
+              <Notice tone="error" message={props.quickStaffError} onClose={() => props.setQuickStaffError('')} />
+              <Notice tone="success" message={props.quickStaffSuccess} onClose={() => props.setQuickStaffSuccess('')} />
+            </form>
           </div>
-        </section>
+        </>
       ) : null}
 
-      {isAvailabilityView ? (
-        <section className="section-block" style={{ marginTop: 28 }}>
-        <h2 className="section-title">Disponibilidad configurada</h2>
-        <p className="section-subtitle">Lista de reglas y excepciones actuales del tenant autenticado.</p>
+      {tab === 'booking' ? (
+        <>
+          <p className="section-subtitle">Crea una reserva manual para un cliente.</p>
+          <div style={{ maxWidth: 560 }}>
+            <form onSubmit={props.onCreateBooking} className="panel section-form">
+              <strong style={{ fontSize: '0.97rem' }}>Nueva cita</strong>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Servicio</span>
+                <select value={props.quickBookingServiceId} onChange={(e) => props.setQuickBookingServiceId(e.target.value)} className="w-full" disabled={props.serviceLoading}>
+                  <option value="">Seleccionar servicio</option>
+                  {props.serviceOptions.map((entry) => (
+                    <option key={entry.id} value={entry.id}>{entry.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Profesional</span>
+                <select value={props.quickBookingStaffId} onChange={(e) => props.setQuickBookingStaffId(e.target.value)} className="w-full" disabled={props.staffLoading}>
+                  <option value="">Seleccionar profesional</option>
+                  {props.staffOptions.map((entry) => (
+                    <option key={entry.id} value={entry.id}>{entry.fullName}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Fecha y hora</span>
+                <input type="datetime-local" value={props.quickBookingStartAt} onChange={(e) => props.setQuickBookingStartAt(e.target.value)} className="w-full" />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Nombre del cliente</span>
+                <input value={props.quickBookingCustomerName} onChange={(e) => props.setQuickBookingCustomerName(e.target.value)} className="w-full" placeholder="Nombre completo" />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Email del cliente</span>
+                <input type="email" value={props.quickBookingCustomerEmail} onChange={(e) => props.setQuickBookingCustomerEmail(e.target.value)} className="w-full" placeholder="cliente@ejemplo.com" />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Notas (opcional)</span>
+                <input value={props.quickBookingNotes} onChange={(e) => props.setQuickBookingNotes(e.target.value)} className="w-full" placeholder="Indicaciones especiales..." />
+              </label>
+              <button type="submit" disabled={!props.canSubmitQuickBooking || props.quickBookingLoading} className="btn btn-primary w-full">
+                {props.quickBookingLoading ? 'Creando...' : 'Crear cita'}
+              </button>
+              {!props.canSubmitQuickBooking && props.quickBookingDisabledReason ? (
+                <div style={{ color: '#9E9B93', fontSize: 12 }}>{props.quickBookingDisabledReason}</div>
+              ) : null}
+              <Notice tone="error" message={props.quickBookingError} onClose={() => props.setQuickBookingError('')} />
+              <Notice tone="success" message={props.quickBookingSuccess} onClose={() => props.setQuickBookingSuccess('')} />
+            </form>
+          </div>
+        </>
+      ) : null}
 
-        <div className="section-grid section-grid-2" style={{ marginBottom: 8 }}>
-          {showRulesForm ? (
-            <form onSubmit={props.onCreateAvailabilityRule} className="panel section-form" style={{ gap: 8 }}>
-              <strong>Crear regla disponibilidad</strong>
-              <label>
-                Día semana
+      {tab === 'waitlist' ? (
+        <>
+          <p className="section-subtitle">Agrega un cliente a la lista de espera.</p>
+          <div style={{ maxWidth: 560 }}>
+            <form onSubmit={props.onJoinWaitlist} className="panel section-form">
+              <strong style={{ fontSize: '0.97rem' }}>Lista de espera</strong>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Servicio</span>
+                <select value={props.quickWaitlistServiceId} onChange={(e) => props.setQuickWaitlistServiceId(e.target.value)} className="w-full" disabled={props.serviceLoading}>
+                  <option value="">Seleccionar servicio</option>
+                  {props.serviceOptions.map((entry) => (
+                    <option key={entry.id} value={entry.id}>{entry.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Profesional</span>
+                <select value={props.quickWaitlistStaffId} onChange={(e) => props.setQuickWaitlistStaffId(e.target.value)} className="w-full" disabled={props.staffLoading}>
+                  <option value="">Cualquier profesional</option>
+                  {props.staffOptions.map((entry) => (
+                    <option key={entry.id} value={entry.id}>{entry.fullName}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Fecha y hora preferida</span>
+                <input type="datetime-local" value={props.quickWaitlistPreferredStartAt} onChange={(e) => props.setQuickWaitlistPreferredStartAt(e.target.value)} className="w-full" />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Nombre del cliente</span>
+                <input value={props.quickWaitlistCustomerName} onChange={(e) => props.setQuickWaitlistCustomerName(e.target.value)} className="w-full" placeholder="Nombre completo" />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Email del cliente</span>
+                <input type="email" value={props.quickWaitlistCustomerEmail} onChange={(e) => props.setQuickWaitlistCustomerEmail(e.target.value)} className="w-full" placeholder="cliente@ejemplo.com" />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Notas (opcional)</span>
+                <input value={props.quickWaitlistNotes} onChange={(e) => props.setQuickWaitlistNotes(e.target.value)} className="w-full" placeholder="Indicaciones especiales..." />
+              </label>
+              <button type="submit" disabled={!props.canSubmitQuickWaitlist || props.quickWaitlistLoading} className="btn btn-primary w-full">
+                {props.quickWaitlistLoading ? 'Agregando...' : 'Agregar a lista de espera'}
+              </button>
+              {!props.canSubmitQuickWaitlist && props.quickWaitlistDisabledReason ? (
+                <div style={{ color: '#9E9B93', fontSize: 12 }}>{props.quickWaitlistDisabledReason}</div>
+              ) : null}
+              <Notice tone="error" message={props.quickWaitlistError} onClose={() => props.setQuickWaitlistError('')} />
+              <Notice tone="success" message={props.quickWaitlistSuccess} onClose={() => props.setQuickWaitlistSuccess('')} />
+            </form>
+          </div>
+        </>
+      ) : null}
+
+      {tab === 'availability' ? (
+        <>
+          <p className="section-subtitle">Gestiona los horarios disponibles y excepciones del negocio.</p>
+
+          <div className="section-grid section-grid-2" style={{ marginBottom: 16 }}>
+            <form onSubmit={props.onCreateAvailabilityRule} className="panel section-form">
+              <strong style={{ fontSize: '0.97rem' }}>Nueva regla de disponibilidad</strong>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Día de la semana</span>
                 <select value={props.quickRuleDayOfWeek} onChange={(e) => props.setQuickRuleDayOfWeek(e.target.value)} className="w-full">
                   <option value="1">Lunes</option>
                   <option value="2">Martes</option>
@@ -396,241 +375,220 @@ export function OperationsSection(props: OperationsSectionProps) {
                   <option value="0">Domingo</option>
                 </select>
               </label>
-              <label>
-                Hora inicio
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Hora inicio</span>
                 <input type="time" value={props.quickRuleStartTime} onChange={(e) => props.setQuickRuleStartTime(e.target.value)} className="w-full" />
               </label>
-              <label>
-                Hora fin
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Hora fin</span>
                 <input type="time" value={props.quickRuleEndTime} onChange={(e) => props.setQuickRuleEndTime(e.target.value)} className="w-full" />
               </label>
-              <label>
-                Staff
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Profesional (opcional)</span>
                 <select value={props.quickRuleStaffId} onChange={(e) => props.setQuickRuleStaffId(e.target.value)} className="w-full" disabled={props.staffLoading}>
-                  <option value="">Seleccionar</option>
+                  <option value="">Todos los profesionales</option>
                   {props.staffOptions.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.fullName}
-                    </option>
+                    <option key={entry.id} value={entry.id}>{entry.fullName}</option>
                   ))}
                 </select>
               </label>
-              <button type="submit" disabled={!props.canSubmitQuickRule} className="btn btn-primary section-button-lg">
+              <button type="submit" disabled={!props.canSubmitQuickRule || props.quickRuleLoading} className="btn btn-primary w-full">
                 {props.quickRuleLoading ? 'Creando...' : 'Crear regla'}
               </button>
-              {!props.canSubmitQuickRule && props.quickRuleDisabledReason ? <div style={{ color: '#666', fontSize: 12 }}>{props.quickRuleDisabledReason}</div> : null}
+              {!props.canSubmitQuickRule && props.quickRuleDisabledReason ? (
+                <div style={{ color: '#9E9B93', fontSize: 12 }}>{props.quickRuleDisabledReason}</div>
+              ) : null}
               <Notice tone="error" message={props.quickRuleError} onClose={() => props.setQuickRuleError('')} />
+              <Notice tone="success" message={props.quickRuleSuccess} onClose={() => props.setQuickRuleSuccess('')} />
             </form>
-          ) : null}
 
-          {showExceptionsForm ? (
-            <form onSubmit={props.onCreateAvailabilityException} className="panel section-form" style={{ gap: 8 }}>
-              <strong>Crear excepción disponibilidad</strong>
-              <label>
-                Fecha
+            <form onSubmit={props.onCreateAvailabilityException} className="panel section-form">
+              <strong style={{ fontSize: '0.97rem' }}>Nueva excepción</strong>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Fecha</span>
                 <input type="date" value={props.quickExceptionDate} onChange={(e) => props.setQuickExceptionDate(e.target.value)} className="w-full" />
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input type="checkbox" checked={props.quickExceptionFullDay} onChange={(e) => props.setQuickExceptionFullDay(e.target.checked)} />
-                Bloqueo todo el día
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Bloquear todo el día</span>
               </label>
-              <label>
-                Hora inicio
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Hora inicio</span>
                 <input type="time" value={props.quickExceptionStartTime} onChange={(e) => props.setQuickExceptionStartTime(e.target.value)} className="w-full" disabled={props.quickExceptionFullDay} />
               </label>
-              <label>
-                Hora fin
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Hora fin</span>
                 <input type="time" value={props.quickExceptionEndTime} onChange={(e) => props.setQuickExceptionEndTime(e.target.value)} className="w-full" disabled={props.quickExceptionFullDay} />
               </label>
-              <label>
-                Staff
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Profesional (opcional)</span>
                 <select value={props.quickExceptionStaffId} onChange={(e) => props.setQuickExceptionStaffId(e.target.value)} className="w-full" disabled={props.staffLoading}>
-                  <option value="">Seleccionar</option>
+                  <option value="">Todos los profesionales</option>
                   {props.staffOptions.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.fullName}
-                    </option>
+                    <option key={entry.id} value={entry.id}>{entry.fullName}</option>
                   ))}
                 </select>
               </label>
-              <label>
-                Nota (opcional)
-                <input value={props.quickExceptionNote} onChange={(e) => props.setQuickExceptionNote(e.target.value)} className="w-full" />
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#5E5C55' }}>Nota (opcional)</span>
+                <input value={props.quickExceptionNote} onChange={(e) => props.setQuickExceptionNote(e.target.value)} className="w-full" placeholder="Ej: Feriado nacional" />
               </label>
-              <button type="submit" disabled={!props.canSubmitQuickException} className="btn btn-primary section-button-lg">
+              <button type="submit" disabled={!props.canSubmitQuickException || props.quickExceptionLoading} className="btn btn-primary w-full">
                 {props.quickExceptionLoading ? 'Creando...' : 'Crear excepción'}
               </button>
-              {!props.canSubmitQuickException && props.quickExceptionDisabledReason ? <div style={{ color: '#666', fontSize: 12 }}>{props.quickExceptionDisabledReason}</div> : null}
+              {!props.canSubmitQuickException && props.quickExceptionDisabledReason ? (
+                <div style={{ color: '#9E9B93', fontSize: 12 }}>{props.quickExceptionDisabledReason}</div>
+              ) : null}
               <Notice tone="error" message={props.quickExceptionError} onClose={() => props.setQuickExceptionError('')} />
+              <Notice tone="success" message={props.quickExceptionSuccess} onClose={() => props.setQuickExceptionSuccess('')} />
             </form>
-          ) : null}
-        </div>
-
-        <div className="section-actions" style={{ marginBottom: 12 }}>
-          <button
-            type="button"
-            disabled={props.availabilityLoading || !props.token.trim()}
-            onClick={() => {
-              void props.loadAvailabilityData();
-            }}
-            className="btn btn-ghost section-button-lg"
-          >
-            {props.availabilityLoading ? 'Cargando...' : 'Refresh disponibilidad'}
-          </button>
-        </div>
-
-        <Notice tone="error" message={props.availabilityError} withMargin onClose={() => props.setAvailabilityError('')} />
-        <Notice tone="error" message={props.availabilityActionError} withMargin onClose={() => props.setAvailabilityActionError('')} />
-
-        <div className="section-grid section-grid-2">
-          {showRulesPanel ? (
-          <div className="panel">
-            <strong>Rules</strong>
-            <div className="table-wrap" style={{ marginTop: 8 }}>
-              <table className="table-base">
-                <thead>
-                  <tr>
-                    <th>Día</th>
-                    <th>Horario</th>
-                    <th>Staff</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {props.availabilityRules.map((rule) => (
-                    <tr key={rule.id}>
-                      <td>{DAY_OF_WEEK_LABEL[rule.dayOfWeek] ?? String(rule.dayOfWeek)}</td>
-                      <td>{rule.startTime} - {rule.endTime}</td>
-                      <td>{props.staffOptions.find((entry) => entry.id === rule.staffId)?.fullName ?? rule.staffId ?? '-'}</td>
-                      <td>{rule.isActive ? 'Activa' : 'Inactiva'}</td>
-                      <td>
-                        <div className="section-actions" style={{ gap: 6 }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void props.onToggleAvailabilityRule(rule);
-                            }}
-                            disabled={props.availabilityActionLoadingId === `rule-toggle-${rule.id}` || props.availabilityActionLoadingId === `rule-delete-${rule.id}`}
-                            className="btn btn-ghost"
-                          >
-                            {props.availabilityActionLoadingId === `rule-toggle-${rule.id}` ? 'Guardando...' : rule.isActive ? 'Desactivar' : 'Activar'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void props.onDeleteAvailabilityRule(rule.id);
-                            }}
-                            disabled={props.availabilityActionLoadingId === `rule-delete-${rule.id}` || props.availabilityActionLoadingId === `rule-toggle-${rule.id}`}
-                            className="btn btn-ghost"
-                          >
-                            {props.availabilityActionLoadingId === `rule-delete-${rule.id}` ? 'Eliminando...' : 'Eliminar'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {!props.availabilityRules.length ? (
-                    <tr>
-                      <td colSpan={5} className="table-empty">
-                        Sin reglas cargadas.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
           </div>
-          ) : null}
 
-          {showExceptionsPanel ? (
-          <div className="panel">
-            <strong>Exceptions</strong>
-            <div className="table-wrap" style={{ marginTop: 8 }}>
-              <table className="table-base">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Horario</th>
-                    <th>Staff</th>
-                    <th>Tipo</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {props.availabilityExceptions.map((exception) => (
-                    <tr key={exception.id}>
-                      <td>{new Date(exception.date).toLocaleDateString()}</td>
-                      <td>{exception.startTime && exception.endTime ? `${exception.startTime} - ${exception.endTime}` : 'Todo el día'}</td>
-                      <td>{props.staffOptions.find((entry) => entry.id === exception.staffId)?.fullName ?? exception.staffId ?? '-'}</td>
-                      <td>{(props.availabilityExceptionUnavailableDrafts[exception.id] ?? exception.isUnavailable) ? 'No disponible' : 'Disponible'}</td>
-                      <td>
-                        <div className="section-form" style={{ gap: 6 }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <input
-                              type="checkbox"
-                              checked={props.availabilityExceptionUnavailableDrafts[exception.id] ?? exception.isUnavailable}
-                              onChange={(e) =>
-                                props.setAvailabilityExceptionUnavailableDrafts((current) => ({
-                                  ...current,
-                                  [exception.id]: e.target.checked
-                                }))
-                              }
-                            />
-                            No disponible
-                          </label>
-                          <input
-                            value={props.availabilityExceptionNoteDrafts[exception.id] ?? exception.note ?? ''}
-                            onChange={(e) =>
-                              props.setAvailabilityExceptionNoteDrafts((current) => ({
-                                ...current,
-                                [exception.id]: e.target.value
-                              }))
-                            }
-                            placeholder="Nota"
-                              className="w-full"
-                          />
-                            <div className="section-actions" style={{ gap: 6 }}>
+          <div className="section-actions" style={{ marginBottom: 12 }}>
+            <button
+              type="button"
+              disabled={props.availabilityLoading || !props.token.trim()}
+              onClick={() => { void props.loadAvailabilityData(); }}
+              className="btn btn-ghost"
+            >
+              {props.availabilityLoading ? 'Cargando...' : 'Actualizar disponibilidad'}
+            </button>
+          </div>
+
+          <Notice tone="error" message={props.availabilityError} withMargin onClose={() => props.setAvailabilityError('')} />
+          <Notice tone="error" message={props.availabilityActionError} withMargin onClose={() => props.setAvailabilityActionError('')} />
+
+          <div className="section-grid section-grid-2">
+            <div className="panel">
+              <strong style={{ fontSize: '0.95rem' }}>Reglas activas</strong>
+              <div className="table-wrap" style={{ marginTop: 10 }}>
+                <table className="table-base">
+                  <thead>
+                    <tr>
+                      <th>Día</th>
+                      <th>Horario</th>
+                      <th>Profesional</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {props.availabilityRules.map((rule) => (
+                      <tr key={rule.id}>
+                        <td>{DAY_LABEL[rule.dayOfWeek] ?? String(rule.dayOfWeek)}</td>
+                        <td>{rule.startTime} – {rule.endTime}</td>
+                        <td>{props.staffOptions.find((e) => e.id === rule.staffId)?.fullName ?? '-'}</td>
+                        <td>
+                          <span style={{ color: rule.isActive ? 'var(--success)' : 'var(--text-muted)', fontWeight: 500, fontSize: 13 }}>
+                            {rule.isActive ? 'Activa' : 'Inactiva'}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="section-actions" style={{ gap: 6 }}>
                             <button
                               type="button"
-                              onClick={() => {
-                                void props.onSaveAvailabilityException(exception.id);
-                              }}
-                              disabled={props.availabilityActionLoadingId === `exception-save-${exception.id}` || props.availabilityActionLoadingId === `exception-delete-${exception.id}`}
-                              className="btn btn-primary"
+                              onClick={() => { void props.onToggleAvailabilityRule(rule); }}
+                              disabled={props.availabilityActionLoadingId === `rule-toggle-${rule.id}` || props.availabilityActionLoadingId === `rule-delete-${rule.id}`}
+                              className="btn btn-ghost"
+                              style={{ fontSize: 12, padding: '6px 10px' }}
                             >
-                              {props.availabilityActionLoadingId === `exception-save-${exception.id}` ? 'Guardando...' : 'Guardar'}
+                              {props.availabilityActionLoadingId === `rule-toggle-${rule.id}` ? '...' : rule.isActive ? 'Desactivar' : 'Activar'}
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                void props.onDeleteAvailabilityException(exception.id);
-                              }}
-                              disabled={props.availabilityActionLoadingId === `exception-delete-${exception.id}` || props.availabilityActionLoadingId === `exception-save-${exception.id}`}
+                              onClick={() => { void props.onDeleteAvailabilityRule(rule.id); }}
+                              disabled={props.availabilityActionLoadingId === `rule-delete-${rule.id}` || props.availabilityActionLoadingId === `rule-toggle-${rule.id}`}
                               className="btn btn-ghost"
+                              style={{ fontSize: 12, padding: '6px 10px', color: 'var(--danger)' }}
                             >
-                              {props.availabilityActionLoadingId === `exception-delete-${exception.id}` ? 'Eliminando...' : 'Eliminar'}
+                              {props.availabilityActionLoadingId === `rule-delete-${rule.id}` ? '...' : 'Eliminar'}
                             </button>
                           </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {!props.availabilityExceptions.length ? (
+                        </td>
+                      </tr>
+                    ))}
+                    {!props.availabilityRules.length ? (
+                      <tr><td colSpan={5} className="table-empty">Sin reglas configuradas.</td></tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="panel">
+              <strong style={{ fontSize: '0.95rem' }}>Excepciones</strong>
+              <div className="table-wrap" style={{ marginTop: 10 }}>
+                <table className="table-base">
+                  <thead>
                     <tr>
-                      <td colSpan={5} className="table-empty">
-                        Sin excepciones cargadas.
-                      </td>
+                      <th>Fecha</th>
+                      <th>Horario</th>
+                      <th>Profesional</th>
+                      <th>Tipo</th>
+                      <th>Acciones</th>
                     </tr>
-                  ) : null}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {props.availabilityExceptions.map((exception) => (
+                      <tr key={exception.id}>
+                        <td>{new Date(exception.date).toLocaleDateString()}</td>
+                        <td>{exception.startTime && exception.endTime ? `${exception.startTime} – ${exception.endTime}` : 'Todo el día'}</td>
+                        <td>{props.staffOptions.find((e) => e.id === exception.staffId)?.fullName ?? '-'}</td>
+                        <td>{(props.availabilityExceptionUnavailableDrafts[exception.id] ?? exception.isUnavailable) ? 'No disponible' : 'Disponible'}</td>
+                        <td>
+                          <div className="section-form" style={{ gap: 6 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <input
+                                type="checkbox"
+                                checked={props.availabilityExceptionUnavailableDrafts[exception.id] ?? exception.isUnavailable}
+                                onChange={(e) =>
+                                  props.setAvailabilityExceptionUnavailableDrafts((cur) => ({ ...cur, [exception.id]: e.target.checked }))
+                                }
+                              />
+                              <span style={{ fontSize: 12 }}>No disponible</span>
+                            </label>
+                            <input
+                              value={props.availabilityExceptionNoteDrafts[exception.id] ?? exception.note ?? ''}
+                              onChange={(e) =>
+                                props.setAvailabilityExceptionNoteDrafts((cur) => ({ ...cur, [exception.id]: e.target.value }))
+                              }
+                              placeholder="Nota"
+                              className="w-full"
+                            />
+                            <div className="section-actions" style={{ gap: 6 }}>
+                              <button
+                                type="button"
+                                onClick={() => { void props.onSaveAvailabilityException(exception.id); }}
+                                disabled={props.availabilityActionLoadingId === `exception-save-${exception.id}` || props.availabilityActionLoadingId === `exception-delete-${exception.id}`}
+                                className="btn btn-primary"
+                                style={{ fontSize: 12, padding: '6px 10px' }}
+                              >
+                                {props.availabilityActionLoadingId === `exception-save-${exception.id}` ? '...' : 'Guardar'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { void props.onDeleteAvailabilityException(exception.id); }}
+                                disabled={props.availabilityActionLoadingId === `exception-delete-${exception.id}` || props.availabilityActionLoadingId === `exception-save-${exception.id}`}
+                                className="btn btn-ghost"
+                                style={{ fontSize: 12, padding: '6px 10px', color: 'var(--danger)' }}
+                              >
+                                {props.availabilityActionLoadingId === `exception-delete-${exception.id}` ? '...' : 'Eliminar'}
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {!props.availabilityExceptions.length ? (
+                      <tr><td colSpan={5} className="table-empty">Sin excepciones configuradas.</td></tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-          ) : null}
-        </div>
-      </section>
+        </>
       ) : null}
-    </>
+    </section>
   );
 }

@@ -29,9 +29,9 @@ function StepIndicator({ currentStep }: { currentStep: Step }) {
       {steps.map((s, i) => {
         const done = (s.n as number) < (currentStep as number);
         const active = s.n === currentStep;
-        const circleColor = done ? '#22c55e' : active ? '#2563eb' : '#e2e8f0';
-        const textColor = done || active ? '#fff' : '#64748b';
-        const labelColor = active ? '#2563eb' : done ? '#22c55e' : '#94a3b8';
+        const circleColor = done ? '#2EBF8F' : active ? '#2EBF8F' : '#D8D5CF';
+        const textColor = done || active ? '#fff' : '#9E9B93';
+        const labelColor = active ? '#2EBF8F' : done ? '#2EBF8F' : '#9E9B93';
 
         return (
           <div
@@ -47,11 +47,11 @@ function StepIndicator({ currentStep }: { currentStep: Step }) {
                 style={{
                   width: 30,
                   height: 30,
-                  borderRadius: '50%',
+                  borderRadius: 6,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontWeight: 700,
+                  fontWeight: 600,
                   fontSize: 13,
                   background: circleColor,
                   color: textColor,
@@ -79,7 +79,7 @@ function StepIndicator({ currentStep }: { currentStep: Step }) {
                 style={{
                   flex: 1,
                   height: 2,
-                  background: (currentStep as number) > (s.n as number) ? '#22c55e' : '#e2e8f0',
+                  background: (currentStep as number) > (s.n as number) ? '#2EBF8F' : '#D8D5CF',
                   margin: '14px 8px 0',
                   transition: 'background 0.25s',
                 }}
@@ -356,10 +356,10 @@ export function QuickSetupWizard(props: QuickSetupWizardProps) {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                background: '#eaf1ff',
-                color: '#1d4ed8',
-                border: '1px solid #c7d8ff',
-                borderRadius: 20,
+                background: '#EFF8F5',
+                color: '#1A8E69',
+                border: '1.5px solid #C8EDE1',
+                borderRadius: 4,
                 padding: '4px 12px',
                 fontSize: 12,
                 fontWeight: 600,
@@ -412,7 +412,7 @@ export function QuickSetupWizard(props: QuickSetupWizardProps) {
               type="button"
               onClick={() => setStep(3)}
               className="btn btn-ghost"
-              style={{ color: '#64748b', fontSize: 13 }}
+              style={{ color: '#9E9B93', fontSize: 13 }}
             >
               Omitir por ahora
             </button>
@@ -441,15 +441,15 @@ export function QuickSetupWizard(props: QuickSetupWizardProps) {
                   alignItems: 'center',
                   gap: 10,
                   padding: '10px 14px',
-                  background: '#f0fdf4',
-                  border: '1px solid #bbf7d0',
-                  borderRadius: 10,
+                  background: '#EFF8F5',
+                  border: '1.5px solid #C8EDE1',
+                  borderRadius: 6,
                 }}
               >
                 <span style={{ fontSize: 18 }}>📋</span>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>Servicio creado</div>
-                  <div style={{ color: '#16a34a', fontSize: 13 }}>{createdService.name}</div>
+                  <div style={{ color: '#2EBF8F', fontSize: 13 }}>{createdService.name}</div>
                 </div>
               </div>
             )}
@@ -461,15 +461,15 @@ export function QuickSetupWizard(props: QuickSetupWizardProps) {
                   alignItems: 'center',
                   gap: 10,
                   padding: '10px 14px',
-                  background: '#f0fdf4',
-                  border: '1px solid #bbf7d0',
-                  borderRadius: 10,
+                  background: '#EFF8F5',
+                  border: '1.5px solid #C8EDE1',
+                  borderRadius: 6,
                 }}
               >
                 <span style={{ fontSize: 18 }}>👤</span>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>Staff añadido</div>
-                  <div style={{ color: '#16a34a', fontSize: 13 }}>{createdStaff.fullName}</div>
+                  <div style={{ color: '#2EBF8F', fontSize: 13 }}>{createdStaff.fullName}</div>
                 </div>
               </div>
             ) : (
@@ -479,13 +479,13 @@ export function QuickSetupWizard(props: QuickSetupWizardProps) {
                   alignItems: 'center',
                   gap: 10,
                   padding: '10px 14px',
-                  background: '#fefce8',
-                  border: '1px solid #fde68a',
-                  borderRadius: 10,
+                  background: '#FAEEDA',
+                  border: '1.5px solid #FAEEDA',
+                  borderRadius: 6,
                 }}
               >
                 <span style={{ fontSize: 18 }}>⚠️</span>
-                <div style={{ fontSize: 13, color: '#92400e' }}>
+                <div style={{ fontSize: 13, color: '#BA7517' }}>
                   No se añadió staff. Puedes hacerlo desde <em>Equipo</em> cuando quieras.
                 </div>
               </div>

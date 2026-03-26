@@ -12,13 +12,12 @@ type BookingFieldDraft = {
 };
 
 const PLAN_INFO = {
-  free: { label: 'Free', color: '#64748b', bg: '#f1f5f9', limits: 'Hasta 50 reservas/mes · 1 staff' },
-  pro: { label: 'Pro', color: '#2563eb', bg: '#eff6ff', limits: 'Reservas ilimitadas · Hasta 5 staff' },
+  free: { label: 'Free', color: '#9E9B93', bg: '#EEECE8', limits: 'Hasta 50 reservas/mes · 1 staff' },
+  pro: { label: 'Pro', color: '#2EBF8F', bg: '#EFF8F5', limits: 'Reservas ilimitadas · Hasta 5 staff' },
   business: { label: 'Business', color: '#7c3aed', bg: '#f5f3ff', limits: 'Todo ilimitado' }
 } as const;
 
 type SettingsSectionProps = {
-  settingsView: 'branding' | 'widget' | 'rules' | 'form';
   onGlobalToast?: (message: string, tone?: 'success' | 'error') => void;
   apiUrl: string;
   tenantSettings: { name: string; slug: string } | null;
@@ -116,6 +115,7 @@ function stringifyBookingFields(fields: BookingFieldDraft[]) {
 }
 
 export function SettingsSection(props: SettingsSectionProps) {
+  const [view, setView] = useState<'branding' | 'widget' | 'rules' | 'form'>('branding');
   const [showAdvancedJson, setShowAdvancedJson] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null);
@@ -124,10 +124,10 @@ export function SettingsSection(props: SettingsSectionProps) {
 
   const parsedFieldsState = useMemo(() => parseBookingFields(props.bookingFormFieldsText), [props.bookingFormFieldsText]);
   const customFields = parsedFieldsState.fields;
-  const showBrandingPanel = props.settingsView === 'branding';
-  const showWidgetPanel = props.settingsView === 'widget';
-  const showRulesPanel = props.settingsView === 'rules';
-  const showFormPanel = props.settingsView === 'form';
+  const showBrandingPanel = view === 'branding';
+  const showWidgetPanel = view === 'widget';
+  const showRulesPanel = view === 'rules';
+  const showFormPanel = view === 'form';
 
   function updateFields(nextFields: BookingFieldDraft[]) {
     props.setBookingFormFieldsText(stringifyBookingFields(nextFields));
@@ -269,10 +269,22 @@ export function SettingsSection(props: SettingsSectionProps) {
 
   return (
     <section className="section-block" style={{ marginTop: 28 }}>
-      <h2 className="section-title">Tenant Settings (MVP)</h2>
-      <p className="section-subtitle">
-        Configura el formulario público con una experiencia visual para {props.tenantSettings?.name ?? 'tu negocio'}.
-      </p>
+      <h2 className="section-title">Configuración</h2>
+
+      <div className="tabbar">
+        <button type="button" className={`tab-btn ${view === 'branding' ? 'active' : ''}`} onClick={() => setView('branding')}>
+          Branding
+        </button>
+        <button type="button" className={`tab-btn ${view === 'widget' ? 'active' : ''}`} onClick={() => setView('widget')}>
+          Widget
+        </button>
+        <button type="button" className={`tab-btn ${view === 'rules' ? 'active' : ''}`} onClick={() => setView('rules')}>
+          Reglas
+        </button>
+        <button type="button" className={`tab-btn ${view === 'form' ? 'active' : ''}`} onClick={() => setView('form')}>
+          Formulario público
+        </button>
+      </div>
 
       <div className="section-actions" style={{ marginBottom: 12 }}>
         <button
@@ -310,11 +322,11 @@ export function SettingsSection(props: SettingsSectionProps) {
             const key = props.plan as keyof typeof PLAN_INFO;
             const meta = PLAN_INFO[key] ?? { label: props.plan, color: '#555', bg: '#f5f5f5', limits: '' };
             return (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: meta.bg, border: `1px solid ${meta.color}33`, borderRadius: 10, padding: '10px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: meta.bg, border: `1.5px solid ${meta.color}33`, borderRadius: 6, padding: '10px 14px' }}>
                 <div>
                   <div style={{ fontSize: 11, color: '#888', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>Tu plan actual</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                    <span style={{ fontWeight: 800, color: meta.color, fontSize: 15 }}>{meta.label}</span>
+                    <span style={{ fontWeight: 600, color: meta.color, fontSize: 15 }}>{meta.label}</span>
                     <span style={{ fontSize: 12, color: '#555' }}>{meta.limits}</span>
                   </div>
                 </div>
@@ -341,14 +353,14 @@ export function SettingsSection(props: SettingsSectionProps) {
             <div className="section-actions">
               <input
                 type="color"
-                value={props.primaryColor || '#2563eb'}
+                value={props.primaryColor || '#2EBF8F'}
                 onChange={(e) => props.setPrimaryColor(e.target.value)}
                 style={{ width: 64, padding: 4 }}
               />
               <input
                 value={props.primaryColor}
                 onChange={(e) => props.setPrimaryColor(e.target.value)}
-                placeholder="#2563eb"
+                placeholder="#2EBF8F"
                 className="w-full"
               />
             </div>
@@ -441,7 +453,7 @@ export function SettingsSection(props: SettingsSectionProps) {
                 <textarea readOnly value={widgetScriptTagSnippet} style={{ minHeight: 120, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} />
               </label>
 
-              <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+              <hr style={{ border: 0, borderTop: '1.5px solid var(--border)', margin: '8px 0' }} />
 
               <strong>Portal cliente (login/registro/Google)</strong>
               <p className="section-subtitle" style={{ fontSize: 13 }}>

@@ -16,9 +16,9 @@ export function Notice({
   }
 
   const palette: Record<NoticeTone, { background: string; color: string }> = {
-    error: { background: '#fee', color: '#900' },
-    success: { background: '#ecfdf3', color: '#166534' },
-    warning: { background: '#fff4e5', color: '#8a5300' }
+    error: { background: '#FCEBEB', color: '#E24B4A' },
+    success: { background: '#EFF8F5', color: '#0D5C44' },
+    warning: { background: '#FAEEDA', color: '#BA7517' }
   };
 
   return (

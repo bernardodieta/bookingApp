@@ -68,7 +68,7 @@ export default function PlanRequestForm({ selectedPlan, onClose }: PlanRequestFo
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.4)', padding: 24 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(26,25,23,0.34)', padding: 24 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="panel" style={{ width: '100%', maxWidth: 480, padding: 32, display: 'grid', gap: 16 }}>
@@ -82,7 +82,7 @@ export default function PlanRequestForm({ selectedPlan, onClose }: PlanRequestFo
         ) : (
           <>
             <div>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Solicitar plan {planLabels[selectedPlan]}</h2>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Solicitar plan {planLabels[selectedPlan]}</h2>
               <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
                 Completa tus datos y te contactaremos para activar tu cuenta.
               </p>
