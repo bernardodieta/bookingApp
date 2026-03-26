@@ -1,7 +1,7 @@
 'use client';
 
 import Script from 'next/script';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { Building2 } from 'lucide-react';
@@ -98,7 +98,7 @@ function parseApiError(text: string, fallback: string): string {
   return text || fallback;
 }
 
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>('login');
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
@@ -537,5 +537,13 @@ export default function LoginPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginPageInner />
+    </Suspense>
   );
 }
