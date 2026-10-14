@@ -1,0 +1,21 @@
+{
+  "name": "@apoint/mobile",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cascarón Capacitor (Android/iOS) que abre la web de Apoint",
+  "scripts": {
+    "sync": "cap sync",
+    "sync:android": "cap sync android",
+    "sync:ios": "cap sync ios",
+    "open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3",
+    "typescript": "^5.5.4"
+  }
+}

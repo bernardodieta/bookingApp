@@ -1,0 +1,55 @@
+# Builds de la app móvil (apps/mobile, Capacitor). Se lanzan a mano desde Codemagic
+# (no hay `triggering`) para no gastar minutos en cada push.
+#
+# APOINT_APP_URL: URL de la web que abre la app. Configúrala en Codemagic
+# (App settings → Environment variables) cuando la web esté publicada con https.
+# Sin ella, la app muestra apps/mobile/www/index.html avisando que falta la URL.
+
+workflows:
+  ios-sin-firma:
+    name: iOS (simulador, sin firma)
+    # Valida que el proyecto iOS compila. Sin cuenta de Apple Developer no se
+    # puede firmar ni instalar en un iPhone real; el .app resultante es para simulador.
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      node: 20
+      xcode: latest
+    scripts:
+      - name: Instalar dependencias
+        script: npm ci --workspace=@apoint/mobile --include-workspace-root
+      - name: Sincronizar Capacitor
+        script: cd apps/mobile && npx cap sync ios
+      - name: Compilar para simulador
+        script: |
+          cd apps/mobile/ios/App
+          xcodebuild \
+            -project App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+          cd build/Build/Products/Debug-iphonesimulator
+          zip -r "$CM_BUILD_DIR/Apoint-simulador.zip" App.app
+    artifacts:
+      - Apoint-simulador.zip
+
+  android-debug:
+    name: Android (APK debug)
+    instance_type: linux_x2
+    max_build_duration: 30
+    environment:
+      node: 20
+      java: 21
+    scripts:
+      - name: Instalar dependencias
+        script: npm ci --workspace=@apoint/mobile --include-workspace-root
+      - name: Sincronizar Capacitor
+        script: cd apps/mobile && npx cap sync android
+      - name: Compilar APK
+        script: cd apps/mobile/android && ./gradlew assembleDebug
+    artifacts:
+      - apps/mobile/android/app/build/outputs/apk/debug/*.apk
