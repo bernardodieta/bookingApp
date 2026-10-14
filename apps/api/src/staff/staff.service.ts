@@ -6,6 +6,7 @@ import { UpdateStaffDto } from './dto/update-staff.dto';
 import { UpdateStaffProfileDto } from './dto/update-staff-profile.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { webAppBaseUrl } from '../common/utils/app-url.util';
 
 @Injectable()
 export class StaffService {
@@ -53,8 +54,9 @@ export class StaffService {
       }
     });
 
+    // Si ya tiene cuenta en el negocio (p. ej. el dueño que también atiende) se vincula sin invitar
     const existingUser = await this.prisma.user.findFirst({
-      where: { email: normalizedEmail, tenantId: user.tenantId, role: 'staff' }
+      where: { email: normalizedEmail, tenantId: user.tenantId }
     });
     if (existingUser) {
       return this.prisma.staff.update({
@@ -69,8 +71,7 @@ export class StaffService {
       select: { name: true, slug: true }
     });
     if (tenantInfo?.slug) {
-      const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
-      const registrationUrl = `${appUrl}/public/${tenantInfo.slug}/mis-citas`;
+      const registrationUrl = `${webAppBaseUrl()}/login?mode=staff-register&tenant=${encodeURIComponent(tenantInfo.slug)}`;
       this.notifications
         .sendStaffInvitationEmail({
           tenantName: tenantInfo.name,

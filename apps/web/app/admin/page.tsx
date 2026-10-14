@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { Building2, CalendarDays, ClipboardList, Inbox, LogOut, Shield, Users, X } from 'lucide-react';
+import { localDateISO } from '../../lib/dates';
+import { apiErrorMessage } from '../../lib/api-error';
 
 type Tenant = {
   id: string;
@@ -67,7 +69,7 @@ function PlanBadge({ plan }: { plan: Tenant['plan'] }) {
   );
 }
 
-const today = new Date().toISOString().slice(0, 10);
+const today = localDateISO();
 
 export default function SuperAdminPage() {
   const [secret, setSecret] = useState('');
@@ -118,7 +120,7 @@ export default function SuperAdminPage() {
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       const data = (await res.json()) as Tenant[];
       setTenants(data);
@@ -155,7 +157,7 @@ export default function SuperAdminPage() {
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       setSuccess(`Tenant "${tenantName}" creado correctamente.`);
       setTenantName('');
@@ -182,7 +184,7 @@ export default function SuperAdminPage() {
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       setTenants((prev) => prev.map((t) => (t.id === tenantId ? { ...t, plan } : t)));
     } catch (err) {
@@ -201,7 +203,7 @@ export default function SuperAdminPage() {
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       setTenants((prev) => prev.filter((t) => t.id !== deleteTarget.id));
       setDeleteTarget(null);
@@ -217,21 +219,21 @@ export default function SuperAdminPage() {
     setAuditLoading(true);
     setAuditError('');
     try {
-      const url = new URL('/audit/logs', API_BASE);
+      const url = new URL('/admin/audit/logs', API_BASE);
       if (auditTenantId.trim()) url.searchParams.set('tenantId', auditTenantId.trim());
       if (auditAction.trim()) url.searchParams.set('action', auditAction.trim());
-      if (auditFrom) url.searchParams.set('from', `${auditFrom}T00:00:00.000Z`);
-      if (auditTo) url.searchParams.set('to', `${auditTo}T23:59:59.999Z`);
+      // Día completo en la zona horaria del navegador, no en UTC
+      if (auditFrom) url.searchParams.set('from', new Date(`${auditFrom}T00:00:00`).toISOString());
+      if (auditTo) url.searchParams.set('to', new Date(`${auditTo}T23:59:59.999`).toISOString());
       url.searchParams.set('limit', auditLimit || '50');
       if (cursor) url.searchParams.set('cursor', cursor);
 
-      // Use the super-admin secret as Bearer to hit the audit endpoint cross-tenant
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${secret}` }
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       const data = (await res.json()) as { items: AuditEntry[]; nextCursor?: string };
       setAuditLogs(data.items ?? []);
@@ -251,7 +253,7 @@ export default function SuperAdminPage() {
       const url = new URL('/admin/plan-requests', API_BASE);
       if (status) url.searchParams.set('status', status);
       const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${secret}` } });
-      if (!res.ok) throw new Error(await res.text() || `Error ${res.status}`);
+      if (!res.ok) throw new Error(apiErrorMessage(await res.text(), res.status));
       setPlanRequests(await res.json() as PlanRequest[]);
     } catch (err) {
       setPrError(err instanceof Error ? err.message : 'Error al cargar solicitudes');
@@ -268,7 +270,7 @@ export default function SuperAdminPage() {
         headers: headers(),
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error(await res.text() || `Error ${res.status}`);
+      if (!res.ok) throw new Error(apiErrorMessage(await res.text(), res.status));
       const updated = await res.json() as PlanRequest;
       setPlanRequests((prev) => prev.map((r) => (r.id === id ? updated : r)));
     } catch (err) {

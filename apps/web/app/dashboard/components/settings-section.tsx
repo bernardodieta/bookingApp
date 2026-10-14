@@ -295,7 +295,7 @@ export function SettingsSection(props: SettingsSectionProps) {
           }}
           className="btn btn-ghost section-button-md"
         >
-          {props.tenantSettingsLoading ? 'Cargando...' : 'Refresh settings'}
+          {props.tenantSettingsLoading ? 'Cargando...' : 'Actualizar configuración'}
         </button>
       </div>
 

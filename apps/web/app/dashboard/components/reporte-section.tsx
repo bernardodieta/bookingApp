@@ -1,15 +1,18 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import { localDateISO } from '../../../lib/dates';
+import { apiErrorMessage } from '../../../lib/api-error';
 
 type Booking = {
   id: string;
   status: string;
-  startTime: string;
-  endTime: string;
+  startAt: string;
+  endAt: string;
   notes: string | null;
   cancellationReason: string | null;
-  customer?: { name: string; email: string } | null;
+  customerName: string;
+  customerEmail: string;
   service?: { name: string } | null;
   staff?: { fullName: string } | null;
 };
@@ -29,16 +32,16 @@ interface Props {
   staffOptions: StaffMember[];
 }
 
-const today = new Date().toISOString().slice(0, 10);
-const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-  .toISOString()
-  .slice(0, 10);
+const today = localDateISO();
+const firstOfMonth = localDateISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 
 const STATUS_LABELS: Record<string, string> = {
   confirmed: 'Confirmada',
   completed: 'Completada',
   cancelled: 'Cancelada',
   pending: 'Pendiente',
+  no_show: 'No asistió',
+  rescheduled: 'Reprogramada',
 };
 
 function escapeCsv(val: string | null | undefined): string {
@@ -66,13 +69,13 @@ function buildCsv(bookings: Booking[]): string {
   ];
 
   const rows = bookings.map((b) => {
-    const start = new Date(b.startTime);
-    const end = new Date(b.endTime);
+    const start = new Date(b.startAt);
+    const end = new Date(b.endAt);
     const durationMin = Math.round((end.getTime() - start.getTime()) / 60_000);
     return [
       b.id,
-      b.customer?.name ?? '',
-      b.customer?.email ?? '',
+      b.customerName ?? '',
+      b.customerEmail ?? '',
       b.service?.name ?? '',
       b.staff?.fullName ?? '',
       STATUS_LABELS[b.status] ?? b.status,
@@ -122,7 +125,7 @@ export default function ReporteSection({ apiUrl, token, staffOptions }: Props) {
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       const json = (await res.json()) as ReportData;
       setData(json);
@@ -234,11 +237,11 @@ export default function ReporteSection({ apiUrl, token, staffOptions }: Props) {
                 {data.bookings.map((b) => (
                   <tr key={b.id}>
                     <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>
-                      {new Date(b.startTime).toLocaleString('es-MX')}
+                      {new Date(b.startAt).toLocaleString('es-MX')}
                     </td>
                     <td>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{b.customer?.name ?? '—'}</div>
-                      <div style={{ fontSize: 11, color: '#9E9B93' }}>{b.customer?.email ?? ''}</div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{b.customerName || '—'}</div>
+                      <div style={{ fontSize: 11, color: '#9E9B93' }}>{b.customerEmail ?? ''}</div>
                     </td>
                     <td style={{ fontSize: 13 }}>{b.service?.name ?? '—'}</td>
                     <td style={{ fontSize: 13 }}>{b.staff?.fullName ?? '—'}</td>

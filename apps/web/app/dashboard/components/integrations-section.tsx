@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { StaffMember } from '../dashboard-types';
 import { Notice } from './notice';
+import { apiErrorMessage } from '../../../lib/api-error';
 
 type IntegrationsSectionProps = {
   apiUrl: string;
@@ -100,7 +101,7 @@ type ConflictPreviewResponse = {
 async function parseJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Error ${response.status}`);
+    throw new Error(apiErrorMessage(text, response.status));
   }
 
   return (await response.json()) as T;

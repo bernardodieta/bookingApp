@@ -7,6 +7,7 @@ import { RegisterDto } from './dto/register.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { AuthUser } from '../common/types/auth-user.type';
 import { PrismaService } from '../prisma/prisma.service';
+import { slugify } from '../common/utils/slug.util';
 
 const ACCESS_EXPIRES_IN = '2h';
 
@@ -31,7 +32,7 @@ export class AuthService {
     }
 
     const tenantName = payload.tenantName.trim();
-    const slug = tenantName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const slug = slugify(tenantName);
 
     const passwordHash = this.hashPassword(payload.password);
     const created = await this.prisma.$transaction(async (tx) => {

@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { z } from 'zod';
+import { apiErrorMessage } from '../../lib/api-error';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -54,7 +55,7 @@ export default function PlanRequestForm({ selectedPlan, onClose }: PlanRequestFo
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       setSuccess(true);
     } catch (err) {

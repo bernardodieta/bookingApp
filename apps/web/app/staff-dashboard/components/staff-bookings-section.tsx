@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, ChevronDown, ChevronRight, Clock, RefreshCw } from 'lucide-react';
+import { apiErrorMessage } from '../../../lib/api-error';
 
 type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show' | 'rescheduled' | string;
 
@@ -110,7 +111,7 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       const data = (await res.json()) as StaffBooking[];
       setBookings(data);
@@ -152,7 +153,7 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       setCancelSuccess('Cita cancelada exitosamente.');
       setBookings((prev) =>
@@ -180,7 +181,7 @@ export function StaffBookingsSection({ apiUrl, token, staffName }: StaffBookings
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       const updated = (await res.json()) as StaffBooking;
       setBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, status: updated.status } : b)));

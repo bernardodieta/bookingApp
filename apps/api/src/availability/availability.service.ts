@@ -14,6 +14,12 @@ export class AvailabilityService {
   async createRule(user: AuthUser, payload: CreateAvailabilityRuleDto) {
     this.validateTimeWindow(payload.startTime, payload.endTime);
     await this.validateStaff(user, payload.staffId);
+    await this.assertNoOverlappingRule(user.tenantId, {
+      staffId: payload.staffId ?? null,
+      dayOfWeek: payload.dayOfWeek,
+      startTime: payload.startTime,
+      endTime: payload.endTime
+    });
 
     return this.prisma.availabilityRule.create({
       data: {
@@ -44,6 +50,18 @@ export class AvailabilityService {
     const endTime = payload.endTime ?? rule.endTime;
     this.validateTimeWindow(startTime, endTime);
     await this.validateStaff(user, payload.staffId);
+    if (payload.isActive ?? rule.isActive) {
+      await this.assertNoOverlappingRule(
+        user.tenantId,
+        {
+          staffId: payload.staffId !== undefined ? payload.staffId : rule.staffId,
+          dayOfWeek: payload.dayOfWeek ?? rule.dayOfWeek,
+          startTime,
+          endTime
+        },
+        id
+      );
+    }
 
     return this.prisma.availabilityRule.update({
       where: { id },
@@ -109,6 +127,33 @@ export class AvailabilityService {
       throw new NotFoundException('Excepción de disponibilidad no encontrada.');
     }
     return this.prisma.availabilityException.delete({ where: { id } });
+  }
+
+  private async assertNoOverlappingRule(
+    tenantId: string,
+    candidate: { staffId: string | null; dayOfWeek: number; startTime: string; endTime: string },
+    excludeId?: string
+  ) {
+    const sameDay = await this.prisma.availabilityRule.findMany({
+      where: {
+        tenantId,
+        staffId: candidate.staffId,
+        dayOfWeek: candidate.dayOfWeek,
+        isActive: true,
+        ...(excludeId ? { id: { not: excludeId } } : {})
+      }
+    });
+
+    const start = minutesFromTime(candidate.startTime);
+    const end = minutesFromTime(candidate.endTime);
+    const overlapping = sameDay.find(
+      (rule) => minutesFromTime(rule.startTime) < end && minutesFromTime(rule.endTime) > start
+    );
+    if (overlapping) {
+      throw new BadRequestException(
+        `Ya existe una regla activa ese día (${overlapping.startTime}–${overlapping.endTime}) que se encima con este horario.`
+      );
+    }
   }
 
   private validateTimeWindow(startTime: string, endTime: string) {

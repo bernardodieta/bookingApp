@@ -44,10 +44,12 @@ import {
   paymentsQuerySchema,
   availabilityListSchema
 } from './dashboard-schemas';
+import { localDateISO } from '../../lib/dates';
+import { apiErrorMessage } from '../../lib/api-error';
 
 const TOKEN_KEY = 'apoint.dashboard.token';
 const API_URL_KEY = 'apoint.dashboard.apiUrl';
-const today = new Date().toISOString().slice(0, 10);
+const today = localDateISO();
 
 type GlobalToastTone = 'success' | 'error';
 type GlobalToastItem = { message: string; tone: GlobalToastTone };
@@ -560,12 +562,12 @@ export default function DashboardPage() {
 
       if (!rulesResponse.ok) {
         const text = await rulesResponse.text();
-        throw new Error(text || `Error ${rulesResponse.status}`);
+        throw new Error(apiErrorMessage(text, rulesResponse.status));
       }
 
       if (!exceptionsResponse.ok) {
         const text = await exceptionsResponse.text();
-        throw new Error(text || `Error ${exceptionsResponse.status}`);
+        throw new Error(apiErrorMessage(text, exceptionsResponse.status));
       }
 
       const rulesPayload = (await rulesResponse.json()) as AvailabilityRuleItem[];
@@ -621,7 +623,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const payload = (await response.json()) as TenantSettingsResponse;
@@ -668,7 +670,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const payload = (await response.json()) as PaymentRecord[];
@@ -751,7 +753,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const payload = (await response.json()) as TenantSettingsResponse;
@@ -765,7 +767,7 @@ export default function DashboardPage() {
       setBookingFormFieldsText(JSON.stringify(payload.bookingFormFields ?? [], null, 2));
       setReminderHoursBeforeText(String(payload.reminderHoursBefore ?? reminderHoursBeforeNumber));
       setRefundPolicy(payload.refundPolicy ?? refundPolicy);
-      setTenantSettingsSuccess('Settings actualizados correctamente.');
+      setTenantSettingsSuccess('Configuración guardada correctamente.');
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'No se pudieron guardar bookingFormFields';
       setTenantSettingsError(message);
@@ -804,7 +806,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       setAvailabilityActionSuccess(`Regla ${rule.isActive ? 'desactivada' : 'activada'} correctamente.`);
@@ -844,7 +846,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       setAvailabilityActionSuccess('Regla eliminada correctamente.');
@@ -895,7 +897,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       setAvailabilityActionSuccess('Excepción actualizada correctamente.');
@@ -935,7 +937,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       setAvailabilityActionSuccess('Excepción eliminada correctamente.');
@@ -1001,12 +1003,12 @@ export default function DashboardPage() {
 
       if (!appointmentsResponse.ok) {
         const text = await appointmentsResponse.text();
-        throw new Error(text || `Error ${appointmentsResponse.status}`);
+        throw new Error(apiErrorMessage(text, appointmentsResponse.status));
       }
 
       if (!reportsResponse.ok) {
         const text = await reportsResponse.text();
-        throw new Error(text || `Error ${reportsResponse.status}`);
+        throw new Error(apiErrorMessage(text, reportsResponse.status));
       }
 
       const payload = (await appointmentsResponse.json()) as DashboardResponse;
@@ -1083,7 +1085,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       setQuickServiceSuccess('Servicio creado correctamente.');
@@ -1147,7 +1149,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const payload = (await response.json()) as StaffMember;
@@ -1232,7 +1234,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       setQuickBookingSuccess('Reserva creada correctamente.');
@@ -1289,7 +1291,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const payload = (await response.json()) as { summary?: { outstanding?: number } };
@@ -1336,7 +1338,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const payload = (await response.json()) as SaleNoteResponse;
@@ -1386,7 +1388,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const payload = (await response.json()) as {
@@ -1444,7 +1446,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const payload = (await response.json()) as { alreadyConfirmed?: boolean };
@@ -1503,7 +1505,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       setQuickRuleSuccess('Regla de disponibilidad creada correctamente.');
@@ -1570,7 +1572,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       setQuickExceptionSuccess('Excepción de disponibilidad creada correctamente.');
@@ -1633,7 +1635,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       setQuickWaitlistSuccess('Cliente agregado a lista de espera.');
@@ -1661,7 +1663,7 @@ export default function DashboardPage() {
     });
 
     if (!parsed.success) {
-      setBookingActionError(parsed.error.issues[0]?.message ?? 'No se puede cancelar booking.');
+      setBookingActionError(parsed.error.issues[0]?.message ?? 'No se puede cancelar la cita.');
       return;
     }
 
@@ -1679,7 +1681,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       setData((current) => {
@@ -1699,9 +1701,51 @@ export default function DashboardPage() {
           )
         };
       });
-      setBookingActionSuccess('Booking cancelado correctamente.');
+      setBookingActionSuccess('Cita cancelada. Se avisó al cliente por correo.');
     } catch (requestError) {
-      const message = requestError instanceof Error ? requestError.message : 'No se pudo cancelar booking';
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo cancelar la cita';
+      setBookingActionError(message);
+      showGlobalToast(message, 'error');
+    } finally {
+      setBookingActionLoadingId('');
+    }
+  }
+
+  async function onBookingStatusAction(bookingId: string, action: 'confirm' | 'complete' | 'no-show') {
+    setBookingActionError('');
+    setBookingActionSuccess('');
+    setBookingActionLoadingId(bookingId);
+
+    const nextStatus = { confirm: 'confirmed', complete: 'completed', 'no-show': 'no_show' } as const;
+    const successMessage = {
+      confirm: 'Cita confirmada.',
+      complete: 'Cita marcada como completada.',
+      'no-show': 'Cita marcada como "no asistió".'
+    };
+
+    try {
+      const response = await fetch(new URL(`/bookings/${bookingId}/${action}`, apiUrl.trim()).toString(), {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token.trim()}` }
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(apiErrorMessage(text, response.status));
+      }
+
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              bookings: current.bookings.map((entry) =>
+                entry.id === bookingId ? { ...entry, status: nextStatus[action] } : entry
+              )
+            }
+          : current
+      );
+      setBookingActionSuccess(successMessage[action]);
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo actualizar la cita';
       setBookingActionError(message);
       showGlobalToast(message, 'error');
     } finally {
@@ -1721,7 +1765,7 @@ export default function DashboardPage() {
     });
 
     if (!parsed.success) {
-      setBookingActionError(parsed.error.issues[0]?.message ?? 'No se puede reprogramar booking.');
+      setBookingActionError(parsed.error.issues[0]?.message ?? 'No se puede reprogramar la cita.');
       return;
     }
 
@@ -1747,7 +1791,7 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const updated = (await response.json()) as { id: string; startAt: string; endAt: string; status: string };
@@ -1775,9 +1819,9 @@ export default function DashboardPage() {
         ...current,
         [bookingId]: toDateTimeLocalInput(updated.startAt)
       }));
-      setBookingActionSuccess('Booking reprogramado correctamente.');
+      setBookingActionSuccess('Cita reprogramada. Se avisó al cliente por correo.');
     } catch (requestError) {
-      const message = requestError instanceof Error ? requestError.message : 'No se pudo reprogramar booking';
+      const message = requestError instanceof Error ? requestError.message : 'No se pudo reprogramar la cita';
       setBookingActionError(message);
       showGlobalToast(message, 'error');
     } finally {
@@ -1909,6 +1953,7 @@ export default function DashboardPage() {
           setBookingActionSuccess={setBookingActionSuccess}
           data={data}
           onCancelBooking={onCancelBooking}
+          onBookingStatusAction={onBookingStatusAction}
           onRescheduleBooking={onRescheduleBooking}
           bookingActionLoadingId={bookingActionLoadingId}
           rescheduleDrafts={rescheduleDrafts}
@@ -1922,6 +1967,7 @@ export default function DashboardPage() {
           apiUrl={apiUrl}
           token={token}
           staffOptions={staffOptions}
+          active={activeSection === 'agenda'}
         />
       </div>
 

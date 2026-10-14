@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Notice } from './notice';
+import { apiErrorMessage } from '../../../lib/api-error';
 
 type StaffRecord = {
   id: string;
@@ -60,7 +61,7 @@ export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChang
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       setStaff(await res.json());
     } catch (err) {
@@ -124,7 +125,7 @@ export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChang
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       const updated = (await res.json()) as StaffRecord;
       setStaff((prev) => prev.map((s) => (s.id === editId ? { ...s, ...updated } : s)));
@@ -150,7 +151,7 @@ export function StaffManagementSection({ apiUrl, token, tenantSlug, onStaffChang
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       setStaff((prev) => prev.filter((s) => s.id !== deleteId));
       setDeleteId(null);

@@ -5,11 +5,16 @@ import { AdminService } from './admin.service';
 import { AdminCreateTenantDto } from './dto/admin-create-tenant.dto';
 import { AdminChangePlanDto } from './dto/admin-change-plan.dto';
 import { UpdatePlanRequestDto } from './dto/update-plan-request.dto';
+import { AdminAuditLogsQueryDto } from './dto/admin-audit-logs-query.dto';
+import { AuditService } from '../audit/audit.service';
 
 @Controller('admin')
 @UseGuards(AdminGuard)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly auditService: AuditService
+  ) {}
 
   @Get('tenants')
   listTenants() {
@@ -29,6 +34,12 @@ export class AdminController {
   @Delete('tenants/:id')
   deleteTenant(@Param('id') id: string) {
     return this.adminService.deleteTenant(id);
+  }
+
+  @Get('audit/logs')
+  auditLogs(@Query() query: AdminAuditLogsQueryDto) {
+    const { tenantId, ...filters } = query;
+    return this.auditService.query(tenantId, filters);
   }
 
   @Get('plan-requests')

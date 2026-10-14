@@ -20,13 +20,18 @@ export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(user: AuthUser, query: AuditLogsQueryDto) {
+    return this.query(user.tenantId, query);
+  }
+
+  /** Consulta paginada; sin tenantId devuelve logs de todos los tenants (solo super-admin). */
+  async query(tenantId: string | undefined, query: AuditLogsQueryDto) {
     const limit = query.limit ?? 50;
 
     if (query.cursor) {
       const cursorExists = await this.prisma.auditLog.findFirst({
         where: {
           id: query.cursor,
-          tenantId: user.tenantId
+          ...(tenantId ? { tenantId } : {})
         },
         select: { id: true }
       });
@@ -37,7 +42,7 @@ export class AuditService {
     }
 
     const where: Prisma.AuditLogWhereInput = {
-      tenantId: user.tenantId,
+      ...(tenantId ? { tenantId } : {}),
       ...(query.action ? { action: query.action } : {}),
       ...(query.actorUserId ? { actorUserId: query.actorUserId } : {}),
       ...(query.from || query.to

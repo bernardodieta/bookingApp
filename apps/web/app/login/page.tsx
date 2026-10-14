@@ -1,13 +1,8 @@
 'use client';
 
 import Script from 'next/script';
-<<<<<<< HEAD
 import { FormEvent, Suspense, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-=======
-import { FormEvent, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
->>>>>>> 1cf86de39bd6057ea631af9cf7c36bfaee28417c
 import { z } from 'zod';
 import { Building2 } from 'lucide-react';
 
@@ -16,6 +11,8 @@ const API_URL_KEY = 'apoint.dashboard.apiUrl';
 const ROLE_KEY = 'apoint.dashboard.role';
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+// Cambiar la URL de la API desde el login solo tiene sentido en desarrollo
+const ALLOW_API_URL_OVERRIDE = process.env.NODE_ENV !== 'production';
 
 declare global {
   interface Window {
@@ -68,7 +65,7 @@ const MODE_LABELS: Record<AuthMode, string> = {
 
 const MODE_SUBTITLES: Record<AuthMode, string> = {
   login: 'Inicia sesión en tu panel de gestión.',
-  'staff-register': 'Completá tu registro como miembro del equipo.',
+  'staff-register': 'Completa tu registro como miembro del equipo.',
 };
 
 function redirectByRole(router: ReturnType<typeof useRouter>, role?: string) {
@@ -106,8 +103,8 @@ function LoginPageInner() {
 
   const [mode, setMode] = useState<AuthMode>(isInvitationFlow ? 'staff-register' : 'login');
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
-  const [email, setEmail] = useState(isInvitationFlow ? '' : 'owner@demo.com');
-  const [password, setPassword] = useState(isInvitationFlow ? '' : 'Password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [tenantSlug, setTenantSlug] = useState(urlTenant ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -122,7 +119,7 @@ function LoginPageInner() {
     const storedToken = localStorage.getItem(TOKEN_KEY);
     const storedApiUrl = localStorage.getItem(API_URL_KEY);
     const storedRole = localStorage.getItem(ROLE_KEY);
-    if (storedApiUrl) {
+    if (storedApiUrl && ALLOW_API_URL_OVERRIDE) {
       setApiUrl(storedApiUrl);
     }
     if (storedToken) {
@@ -144,8 +141,8 @@ function LoginPageInner() {
     setSuccess('');
     setFieldErrors({});
     if (newMode === 'login') {
-      setEmail('owner@demo.com');
-      setPassword('Password123');
+      setEmail('');
+      setPassword('');
       setTenantSlug('');
     } else {
       setEmail('');
@@ -439,15 +436,17 @@ function LoginPageInner() {
               {fieldErrors.password && <span style={fieldErrorStyle}>{fieldErrors.password}</span>}
             </label>
 
-            <details style={{ fontSize: 13 }}>
-              <summary style={{ cursor: 'pointer', color: 'var(--neutral-400)', userSelect: 'none', listStyle: 'none' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Avanzado</span>
-              </summary>
-              <label style={{ display: 'grid', gap: 5, marginTop: 10, fontWeight: 500, color: 'var(--neutral-600)' }}>
-                API URL
-                <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} style={{ width: '100%', fontSize: 12 }} />
-              </label>
-            </details>
+            {ALLOW_API_URL_OVERRIDE && (
+              <details style={{ fontSize: 13 }}>
+                <summary style={{ cursor: 'pointer', color: 'var(--neutral-400)', userSelect: 'none', listStyle: 'none' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Avanzado</span>
+                </summary>
+                <label style={{ display: 'grid', gap: 5, marginTop: 10, fontWeight: 500, color: 'var(--neutral-600)' }}>
+                  API URL
+                  <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} style={{ width: '100%', fontSize: 12 }} />
+                </label>
+              </details>
+            )}
 
             <button
               type="submit"
@@ -459,7 +458,7 @@ function LoginPageInner() {
             </button>
           </form>
 
-          {mode === 'login' && (
+          {mode === 'login' && GOOGLE_CLIENT_ID && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--neutral-400)', fontSize: 12 }}>
                 <div style={{ flex: 1, height: 1, background: 'var(--border, #D8D5CF)' }} />
@@ -467,17 +466,9 @@ function LoginPageInner() {
                 <div style={{ flex: 1, height: 1, background: 'var(--border, #D8D5CF)' }} />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                {GOOGLE_CLIENT_ID ? (
-                  <>
-                    <div ref={setGoogleButtonNode} />
-                    {googleScriptLoaded && !googleReady ? <small style={{ color: 'var(--neutral-400)' }}>Cargando botón de Google...</small> : null}
-                    {googleLoading ? <small style={{ color: 'var(--neutral-400)' }}>Validando sesión de Google...</small> : null}
-                  </>
-                ) : (
-                  <small style={{ color: 'var(--neutral-400)', textAlign: 'center' }}>
-                    Configura NEXT_PUBLIC_GOOGLE_CLIENT_ID para habilitar Google SSO.
-                  </small>
-                )}
+                <div ref={setGoogleButtonNode} />
+                {googleScriptLoaded && !googleReady ? <small style={{ color: 'var(--neutral-400)' }}>Cargando botón de Google...</small> : null}
+                {googleLoading ? <small style={{ color: 'var(--neutral-400)' }}>Validando sesión de Google...</small> : null}
               </div>
             </>
           )}

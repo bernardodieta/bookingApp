@@ -4,6 +4,7 @@ import { BookingsService } from '../bookings/bookings.service';
 import { CreateBookingDto } from '../bookings/dto/create-booking.dto';
 import { PublicSlotsQueryDto } from './dto/public-slots-query.dto';
 import { JoinWaitlistDto } from '../bookings/dto/join-waitlist.dto';
+import { webAppBaseUrl } from '../common/utils/app-url.util';
 
 @Controller('public/:slugOrDomain')
 export class PublicBookingsController {
@@ -196,8 +197,7 @@ export class PublicBookingsController {
   }
 
   private getWebAppBaseUrl() {
-    const raw = process.env.NEXT_PUBLIC_APP_URL ?? process.env.WEB_APP_URL ?? 'http://localhost:3000';
-    return raw.replace(/\/+$/, '');
+    return webAppBaseUrl();
   }
 
   private getBookingUrl(tenant: { slug: string; customDomain: string | null }) {

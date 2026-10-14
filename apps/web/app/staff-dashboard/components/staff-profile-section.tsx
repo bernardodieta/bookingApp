@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { UserCircle } from 'lucide-react';
+import { apiErrorMessage } from '../../../lib/api-error';
 
 type StaffProfileSectionProps = {
   apiUrl: string;
@@ -31,7 +32,7 @@ export function StaffProfileSection({ apiUrl, token }: StaffProfileSectionProps)
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       const data = await res.json();
       setFullName(data.fullName ?? '');
@@ -75,7 +76,7 @@ export function StaffProfileSection({ apiUrl, token }: StaffProfileSectionProps)
 
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
 
       setSuccess('Perfil actualizado correctamente.');

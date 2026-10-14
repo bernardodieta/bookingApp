@@ -72,6 +72,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3001"
+      # URL pública del frontend: links de invitación de staff, Stripe y widget
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}

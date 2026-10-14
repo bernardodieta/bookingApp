@@ -21,8 +21,12 @@ function createBookingsService() {
     waitlistEntry: {
       findFirst: jest.fn(),
       update: jest.fn()
-    }
+    },
+    $executeRaw: jest.fn(),
+    $transaction: jest.fn()
   };
+  // La transacción interactiva recibe el mismo mock como cliente
+  prisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prisma));
 
   const notificationsService = {
     sendBookingCreatedEmails: jest.fn(),

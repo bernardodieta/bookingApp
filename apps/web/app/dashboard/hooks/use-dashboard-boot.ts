@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { ServiceItem, StaffMember } from '../dashboard-types';
+import { apiErrorMessage } from '../../../lib/api-error';
 
 type UseDashboardBootParams = {
   apiUrl: string;
@@ -127,12 +128,12 @@ export function useDashboardBoot(params: UseDashboardBootParams) {
 
         if (!staffResponse.ok) {
           const text = await staffResponse.text();
-          throw new Error(text || `Error ${staffResponse.status}`);
+          throw new Error(apiErrorMessage(text, staffResponse.status));
         }
 
         if (!servicesResponse.ok) {
           const text = await servicesResponse.text();
-          throw new Error(text || `Error ${servicesResponse.status}`);
+          throw new Error(apiErrorMessage(text, servicesResponse.status));
         }
 
         const staffPayload = (await staffResponse.json()) as StaffMember[];

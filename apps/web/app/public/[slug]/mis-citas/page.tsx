@@ -4,6 +4,8 @@ import Script from 'next/script';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import { CalendarDays, CheckCircle2, Clock, Clock3, ClipboardList, Hash, Link2, ListChecks, LogOut, MoreHorizontal, Plus, RefreshCw, Send, User } from 'lucide-react';
+import { localDateISO } from '../../../../lib/dates';
+import { apiErrorMessage } from '../../../../lib/api-error';
 
 type PageProps = {
   params: {
@@ -71,7 +73,7 @@ type PortalView = 'bookings' | 'waitlist' | 'more' | 'booking';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = localDateISO();
 
 const DASHBOARD_TOKEN_KEY = 'apoint.dashboard.token';
 const DASHBOARD_API_URL_KEY = 'apoint.dashboard.apiUrl';
@@ -146,7 +148,7 @@ function formatDateTime(value: string, locale: 'es' | 'en' = 'es') {
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return date.toLocaleString(locale === 'en' ? 'en-US' : 'es-MX');
+  return date.toLocaleString(locale === 'en' ? 'en-US' : 'es-MX', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function formatTime(value: string) {
@@ -168,7 +170,7 @@ const PORTAL_COPY = {
     pageSubtitle: 'Portal del cliente para consultar historial y próximas reservas.',
     accessTitle: '1) Acceso de cliente',
     accessSubtitle: 'Inicia sesión si ya tienes cuenta o crea una nueva para gestionar tus reservas.',
-    staffHint: '¿Eres miembro del equipo? Registrate con el email que te asignó el negocio.',
+    staffHint: '¿Eres miembro del equipo? Regístrate con el email que te asignó el negocio.',
     loginMode: 'Iniciar sesión',
     registerMode: 'Crear cuenta',
     fullName: 'Nombre',
@@ -177,7 +179,6 @@ const PORTAL_COPY = {
     processing: 'Procesando...',
     refresh: 'Recargar citas',
     googleLoading: 'Cargando botón de Google...',
-    googleUnavailable: 'Google SSO no configurado en entorno (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`).',
     googleValidating: 'Validando sesión de Google...',
     claimTitle: '2) Vincular historial previo',
     claimSubtitle: 'Si ya reservabas antes sin cuenta, vincula ese historial con un código enviado por email.',
@@ -226,7 +227,6 @@ const PORTAL_COPY = {
     processing: 'Processing...',
     refresh: 'Refresh bookings',
     googleLoading: 'Loading Google button...',
-    googleUnavailable: 'Google SSO is not configured in environment (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`).',
     googleValidating: 'Validating Google session...',
     claimTitle: '2) Link previous history',
     claimSubtitle: 'If you booked before without an account, link that history using an email code.',
@@ -663,7 +663,7 @@ export default function CustomerBookingsPage({ params }: PageProps) {
         url.searchParams.set('staffId', staffId);
         url.searchParams.set('date', bookingDate);
         const res = await fetch(url.toString());
-        if (!res.ok) { const t = await res.text(); throw new Error(t || `Error ${res.status}`); }
+        if (!res.ok) { const t = await res.text(); throw new Error(apiErrorMessage(t, res.status)); }
         const p = (await res.json()) as PublicSlotsResponse;
         if (!cancelled) { setSlots(p.slots ?? []); setSelectedSlot(''); }
       } catch (err) {
@@ -1072,27 +1072,23 @@ export default function CustomerBookingsPage({ params }: PageProps) {
             {copy.staffHint}
           </p>
 
-          {/* Divider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#9E9B93', fontSize: 12 }}>
-            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-            {locale === 'en' ? 'or continue with' : 'o continúa con'}
-            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-          </div>
-
-          {/* Google SSO */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            {GOOGLE_CLIENT_ID ? (
-              <>
+          {/* Google SSO: solo si está configurado (sin aviso técnico para el cliente final) */}
+          {GOOGLE_CLIENT_ID ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#9E9B93', fontSize: 12 }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                {locale === 'en' ? 'or continue with' : 'o continúa con'}
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                 <div ref={googleButtonRef} />
                 {!googleReady && !googleLoading ? (
                   <small style={{ color: '#9E9B93' }}>{copy.googleLoading}</small>
                 ) : null}
                 {googleLoading ? <small style={{ color: '#9E9B93' }}>{copy.googleValidating}</small> : null}
-              </>
-            ) : (
-              <small style={{ color: '#9E9B93', textAlign: 'center' }}>{copy.googleUnavailable}</small>
-            )}
-          </div>
+              </div>
+            </>
+          ) : null}
 
           {/* Feedback */}
           {error ? <div className="status-error">{error}</div> : null}

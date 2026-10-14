@@ -10,6 +10,16 @@ type EmailPayload = {
   html: string;
 };
 
+/** Los nombres y notas los escribe el cliente final: nunca van crudos al HTML del correo. */
+function escapeHtml(value: string | null | undefined) {
+  return (value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -40,6 +50,8 @@ export class NotificationsService {
     startAt: Date;
     endAt: Date;
     timeZone: string;
+    /** Dueños/admins del negocio y el profesional asignado */
+    businessEmails: string[];
   }) {
     const startAtLabel = this.formatDateInTimeZone(input.startAt, input.timeZone);
     const endAtLabel = this.formatDateInTimeZone(input.endAt, input.timeZone);
@@ -56,7 +68,7 @@ export class NotificationsService {
       '',
       `Gracias por reservar en ${input.tenantName}.`
     ].join('\n');
-    const clientHtml = `<p>Hola ${input.customerName},</p><p>Tu reserva fue confirmada en <strong>${input.tenantName}</strong>.</p><ul><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Inicio:</strong> ${startAtLabel}</li><li><strong>Fin:</strong> ${endAtLabel}</li></ul><p>Gracias por reservar en ${input.tenantName}.</p>`;
+    const clientHtml = `<p>Hola ${escapeHtml(input.customerName)},</p><p>Tu reserva fue confirmada en <strong>${escapeHtml(input.tenantName)}</strong>.</p><ul><li><strong>Servicio:</strong> ${escapeHtml(input.serviceName)}</li><li><strong>Profesional:</strong> ${escapeHtml(input.staffName)}</li><li><strong>Inicio:</strong> ${startAtLabel}</li><li><strong>Fin:</strong> ${endAtLabel}</li></ul><p>Gracias por reservar en ${escapeHtml(input.tenantName)}.</p>`;
 
     await this.sendWithFallback({
       to: input.customerEmail,
@@ -65,7 +77,16 @@ export class NotificationsService {
       html: clientHtml
     });
 
-    if (this.businessNotificationEmail) {
+    // NOTIFICATIONS_BUSINESS_EMAIL queda como copia global opcional (p. ej. soporte de la plataforma)
+    const businessRecipients = [
+      ...new Set(
+        [...input.businessEmails, this.businessNotificationEmail]
+          .map((email) => email?.trim().toLowerCase())
+          .filter((email): email is string => !!email)
+      )
+    ];
+
+    for (const recipient of businessRecipients) {
       const businessSubject = `Nueva reserva - ${input.tenantName}`;
       const businessText = [
         `Se registró una nueva reserva en ${input.tenantName}.`,
@@ -77,10 +98,10 @@ export class NotificationsService {
         `Inicio: ${startAtLabel}`,
         `Fin: ${endAtLabel}`
       ].join('\n');
-      const businessHtml = `<p>Se registró una nueva reserva en <strong>${input.tenantName}</strong>.</p><ul><li><strong>Cliente:</strong> ${input.customerName} (${input.customerEmail})</li><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Inicio:</strong> ${startAtLabel}</li><li><strong>Fin:</strong> ${endAtLabel}</li></ul>`;
+      const businessHtml = `<p>Se registró una nueva reserva en <strong>${escapeHtml(input.tenantName)}</strong>.</p><ul><li><strong>Cliente:</strong> ${escapeHtml(input.customerName)} (${escapeHtml(input.customerEmail)})</li><li><strong>Servicio:</strong> ${escapeHtml(input.serviceName)}</li><li><strong>Profesional:</strong> ${escapeHtml(input.staffName)}</li><li><strong>Inicio:</strong> ${startAtLabel}</li><li><strong>Fin:</strong> ${endAtLabel}</li></ul>`;
 
       await this.sendWithFallback({
-        to: this.businessNotificationEmail,
+        to: recipient,
         subject: businessSubject,
         text: businessText,
         html: businessHtml
@@ -107,7 +128,7 @@ export class NotificationsService {
       `Profesional: ${input.staffName}`,
       `Horario sugerido: ${preferredStartAtLabel}`
     ].join('\n');
-    const html = `<p>Hola ${input.customerName},</p><p>Se liberó un cupo para tu lista de espera.</p><ul><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Horario sugerido:</strong> ${preferredStartAtLabel}</li></ul>`;
+    const html = `<p>Hola ${escapeHtml(input.customerName)},</p><p>Se liberó un cupo para tu lista de espera.</p><ul><li><strong>Servicio:</strong> ${escapeHtml(input.serviceName)}</li><li><strong>Profesional:</strong> ${escapeHtml(input.staffName)}</li><li><strong>Horario sugerido:</strong> ${preferredStartAtLabel}</li></ul>`;
 
     await this.sendWithFallback({
       to: input.customerEmail,
@@ -141,7 +162,7 @@ export class NotificationsService {
       `Fin: ${endAtLabel}`,
       `Anticipación del recordatorio: ${input.reminderHoursBefore}h`
     ].join('\n');
-    const html = `<p>Hola ${input.customerName},</p><p>Te recordamos tu cita en <strong>${input.tenantName}</strong>.</p><ul><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Inicio:</strong> ${startAtLabel}</li><li><strong>Fin:</strong> ${endAtLabel}</li><li><strong>Anticipación del recordatorio:</strong> ${input.reminderHoursBefore}h</li></ul>`;
+    const html = `<p>Hola ${escapeHtml(input.customerName)},</p><p>Te recordamos tu cita en <strong>${escapeHtml(input.tenantName)}</strong>.</p><ul><li><strong>Servicio:</strong> ${escapeHtml(input.serviceName)}</li><li><strong>Profesional:</strong> ${escapeHtml(input.staffName)}</li><li><strong>Inicio:</strong> ${startAtLabel}</li><li><strong>Fin:</strong> ${endAtLabel}</li><li><strong>Anticipación del recordatorio:</strong> ${input.reminderHoursBefore}h</li></ul>`;
 
     await this.sendWithFallback({
       to: input.customerEmail,
@@ -164,7 +185,7 @@ export class NotificationsService {
     const startAtLabel = this.formatDateInTimeZone(input.startAt, input.timeZone);
     const subject = `Tu cita fue cancelada - ${input.tenantName}`;
     const reasonLine = input.reason ? `\nMotivo: ${input.reason}` : '';
-    const reasonHtml = input.reason ? `<li><strong>Motivo:</strong> ${input.reason}</li>` : '';
+    const reasonHtml = input.reason ? `<li><strong>Motivo:</strong> ${escapeHtml(input.reason)}</li>` : '';
     const text = [
       `Hola ${input.customerName},`,
       '',
@@ -175,7 +196,36 @@ export class NotificationsService {
       '',
       'Si tienes dudas, contáctate con el negocio directamente.'
     ].join('\n');
-    const html = `<p>Hola ${input.customerName},</p><p>Lamentamos informarte que tu cita en <strong>${input.tenantName}</strong> fue cancelada.</p><ul><li><strong>Servicio:</strong> ${input.serviceName}</li><li><strong>Profesional:</strong> ${input.staffName}</li><li><strong>Fecha/hora:</strong> ${startAtLabel}</li>${reasonHtml}</ul><p>Si tienes dudas, contáctate con el negocio directamente.</p>`;
+    const html = `<p>Hola ${escapeHtml(input.customerName)},</p><p>Lamentamos informarte que tu cita en <strong>${escapeHtml(input.tenantName)}</strong> fue cancelada.</p><ul><li><strong>Servicio:</strong> ${escapeHtml(input.serviceName)}</li><li><strong>Profesional:</strong> ${escapeHtml(input.staffName)}</li><li><strong>Fecha/hora:</strong> ${startAtLabel}</li>${reasonHtml}</ul><p>Si tienes dudas, contáctate con el negocio directamente.</p>`;
+
+    await this.sendWithFallback({ to: input.customerEmail, subject, text, html });
+  }
+
+  async sendBookingRescheduledEmail(input: {
+    tenantName: string;
+    customerName: string;
+    customerEmail: string;
+    serviceName: string;
+    staffName: string;
+    previousStartAt: Date;
+    startAt: Date;
+    timeZone: string;
+  }) {
+    const previousLabel = this.formatDateInTimeZone(input.previousStartAt, input.timeZone);
+    const startAtLabel = this.formatDateInTimeZone(input.startAt, input.timeZone);
+    const subject = `Tu cita cambió de horario - ${input.tenantName}`;
+    const text = [
+      `Hola ${input.customerName},`,
+      '',
+      `Tu cita en ${input.tenantName} fue reprogramada.`,
+      `Servicio: ${input.serviceName}`,
+      `Profesional: ${input.staffName}`,
+      `Horario anterior: ${previousLabel}`,
+      `Nuevo horario: ${startAtLabel}`,
+      '',
+      'Si el nuevo horario no te funciona, contáctate con el negocio directamente.'
+    ].join('\n');
+    const html = `<p>Hola ${escapeHtml(input.customerName)},</p><p>Tu cita en <strong>${escapeHtml(input.tenantName)}</strong> fue reprogramada.</p><ul><li><strong>Servicio:</strong> ${escapeHtml(input.serviceName)}</li><li><strong>Profesional:</strong> ${escapeHtml(input.staffName)}</li><li><strong>Horario anterior:</strong> <s>${previousLabel}</s></li><li><strong>Nuevo horario:</strong> ${startAtLabel}</li></ul><p>Si el nuevo horario no te funciona, contáctate con el negocio directamente.</p>`;
 
     await this.sendWithFallback({ to: input.customerEmail, subject, text, html });
   }
@@ -191,15 +241,15 @@ export class NotificationsService {
       `Hola ${input.staffName},`,
       '',
       `Fuiste agregado/a al equipo de ${input.tenantName}.`,
-      `Para activar tu cuenta, registrate en el siguiente enlace:`,
+      `Para activar tu cuenta, regístrate en el siguiente enlace:`,
       input.registrationUrl,
       '',
       `Usa el email ${input.staffEmail} para completar el registro.`
     ].join('\n');
     const html = [
-      `<p>Hola ${input.staffName},</p>`,
-      `<p>Fuiste agregado/a al equipo de <strong>${input.tenantName}</strong>.</p>`,
-      `<p>Para activar tu cuenta, registrate en el siguiente enlace:</p>`,
+      `<p>Hola ${escapeHtml(input.staffName)},</p>`,
+      `<p>Fuiste agregado/a al equipo de <strong>${escapeHtml(input.tenantName)}</strong>.</p>`,
+      `<p>Para activar tu cuenta, regístrate en el siguiente enlace:</p>`,
       `<p><a href="${input.registrationUrl}" style="color:#2563eb;font-weight:600;">${input.registrationUrl}</a></p>`,
       `<p>Usa el email <strong>${input.staffEmail}</strong> para completar el registro.</p>`
     ].join('');

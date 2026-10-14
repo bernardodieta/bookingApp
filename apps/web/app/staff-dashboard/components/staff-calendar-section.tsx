@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Calendar, Link as LinkIcon, Trash2, RefreshCw } from 'lucide-react';
+import { apiErrorMessage } from '../../../lib/api-error';
 
 type CalendarAccount = {
   id: string;
@@ -48,7 +49,7 @@ export function StaffCalendarSection({ apiUrl, token }: StaffCalendarSectionProp
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       setAccounts(await res.json());
     } catch (err) {
@@ -76,7 +77,7 @@ export function StaffCalendarSection({ apiUrl, token }: StaffCalendarSectionProp
       );
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       const data = (await res.json()) as { authorizeUrl?: string };
       if (data.authorizeUrl) {
@@ -104,7 +105,7 @@ export function StaffCalendarSection({ apiUrl, token }: StaffCalendarSectionProp
       );
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       setAccounts((prev) => prev.filter((a) => a.id !== accountId));
       setSuccess('Calendario desconectado.');

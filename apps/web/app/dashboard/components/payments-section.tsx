@@ -1,6 +1,20 @@
 import { useState } from 'react';
 import { Notice } from './notice';
 
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  cash: 'Efectivo',
+  card: 'Tarjeta',
+  transfer: 'Transferencia',
+  link: 'Link de pago',
+  stripe: 'Stripe'
+};
+
+const PAYMENT_KIND_LABEL: Record<string, string> = {
+  full: 'Pago total',
+  deposit: 'Depósito',
+  refund: 'Reembolso'
+};
+
 type PaymentsSectionProps = {
   token: string;
   paymentsLoading: boolean;
@@ -113,11 +127,11 @@ export function PaymentsSection(props: PaymentsSectionProps) {
           }}
           className="btn btn-ghost section-button-md"
         >
-          {props.paymentsLoading ? 'Cargando...' : 'Refresh pagos'}
+          {props.paymentsLoading ? 'Cargando...' : 'Actualizar pagos'}
         </button>
       </div>
 
-      <div className="section-grid section-grid-2" style={{ marginBottom: 12 }}>
+      <div className={`section-grid ${showRegisterPanel && showHistoryPanel ? 'section-grid-2' : ''}`} style={{ marginBottom: 12 }}>
         {showRegisterPanel ? (
         <form onSubmit={props.onCreatePayment} className="panel section-form" style={{ gap: 8 }}>
           <strong>Registrar pago</strong>
@@ -153,7 +167,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
             >
               {props.paymentMethodOptions.map((method) => (
                 <option key={method} value={method}>
-                  {method}
+                  {PAYMENT_METHOD_LABEL[method] ?? method}
                 </option>
               ))}
             </select>
@@ -254,7 +268,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
                   <tr key={payment.id}>
                     <td>{new Date(payment.paidAt ?? payment.createdAt).toLocaleString()}</td>
                     <td>{payment.booking.customerName}</td>
-                    <td>{payment.kind}</td>
+                    <td>{PAYMENT_KIND_LABEL[payment.kind] ?? payment.kind}</td>
                     <td>
                       {Number(payment.amount).toFixed(2)} {payment.currency}
                     </td>
@@ -299,7 +313,7 @@ export function PaymentsSection(props: PaymentsSectionProps) {
             <div>Servicio: {props.saleNote.booking.serviceName}</div>
             <div>Staff: {props.saleNote.booking.staffName}</div>
             <div>
-              Pago: {props.saleNote.payment.amount.toFixed(2)} {props.saleNote.payment.currency} ({props.saleNote.payment.method})
+              Pago: {props.saleNote.payment.amount.toFixed(2)} {props.saleNote.payment.currency} ({PAYMENT_METHOD_LABEL[props.saleNote.payment.method] ?? props.saleNote.payment.method})
             </div>
           </div>
         </article>

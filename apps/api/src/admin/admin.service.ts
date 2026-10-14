@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import * as crypto from 'node:crypto';
 import { Plan, PlanRequestStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { slugify } from '../common/utils/slug.util';
 import { AdminCreateTenantDto } from './dto/admin-create-tenant.dto';
 import { UpdatePlanRequestDto } from './dto/update-plan-request.dto';
 
@@ -64,7 +65,7 @@ export class AdminService {
     }
 
     const tenantName = payload.tenantName.trim();
-    const baseSlug = tenantName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'tenant';
+    const baseSlug = slugify(tenantName) || 'tenant';
     const slug = await this.makeUniqueSlug(baseSlug);
 
     const passwordHash = this.hashPassword(payload.ownerPassword);

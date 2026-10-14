@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { quickCreateServiceSchema, quickCreateStaffSchema } from '../dashboard-schemas';
 import { type ServiceItem, type StaffMember } from '../dashboard-types';
 import { Notice } from './notice';
+import { apiErrorMessage } from '../../../lib/api-error';
 
 type Step = 1 | 2 | 3;
 
@@ -173,7 +174,7 @@ export function QuickSetupWizard(props: QuickSetupWizardProps) {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const created = (await response.json()) as ServiceItem;
@@ -218,7 +219,7 @@ export function QuickSetupWizard(props: QuickSetupWizardProps) {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const created = (await response.json()) as StaffMember;

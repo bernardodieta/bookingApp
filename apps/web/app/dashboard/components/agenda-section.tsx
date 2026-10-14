@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { localDateISO } from '../../../lib/dates';
+import { apiErrorMessage } from '../../../lib/api-error';
 
 type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show' | string;
 
@@ -21,6 +23,8 @@ type AgendaSectionProps = {
   apiUrl: string;
   token: string;
   staffOptions: Array<{ id: string; fullName: string }>;
+  /** La sección se monta oculta al cargar el panel; se recarga cada vez que se vuelve visible */
+  active: boolean;
 };
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -28,7 +32,8 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
   confirmed: { label: 'Confirmada', color: '#0D5C44', bg: '#EFF8F5' },
   cancelled: { label: 'Cancelada',  color: '#E24B4A', bg: '#FCEBEB' },
   completed: { label: 'Completada', color: '#1e3a5f', bg: '#dbeafe' },
-  no_show:   { label: 'No asistió', color: '#4b5563', bg: '#f3f4f6' }
+  no_show:   { label: 'No asistió', color: '#4b5563', bg: '#f3f4f6' },
+  rescheduled: { label: 'Reprogramada', color: '#6B4FBB', bg: '#F1EDFB' }
 };
 
 function statusMeta(s: string) {
@@ -39,10 +44,29 @@ function fmt(iso: string) {
   return new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-const today = new Date().toISOString().slice(0, 10);
-const oneWeekLater = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+const today = localDateISO();
+const oneWeekLater = localDateISO(new Date(Date.now() + 7 * 86_400_000));
 
-export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProps) {
+/** Un día por mes entre from y to (YYYY-MM-DD), para pedir cada mes a la API */
+function monthAnchors(from: string, to: string) {
+  const anchors: string[] = [];
+  const [fy, fm] = from.split('-').map(Number);
+  const [ty, tm] = to.split('-').map(Number);
+  if (!fy || !fm || !ty || !tm) return [from];
+  let y = fy;
+  let m = fm;
+  while ((y < ty || (y === ty && m <= tm)) && anchors.length < 24) {
+    anchors.push(`${y}-${String(m).padStart(2, '0')}-15`);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return anchors.length ? anchors : [from];
+}
+
+export function AgendaSection({ apiUrl, token, staffOptions, active }: AgendaSectionProps) {
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(oneWeekLater);
   const [filterStaffId, setFilterStaffId] = useState('');
@@ -70,31 +94,35 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
     setLoading(true);
     setError('');
     try {
-      const url = new URL('/dashboard/appointments', apiUrl);
-      url.searchParams.set('range', 'month');
-      // Use from/to by expanding the date range around "from"
-      url.searchParams.set('date', from);
-      if (filterStaffId) url.searchParams.set('staffId', filterStaffId);
-      if (filterStatus) url.searchParams.set('status', filterStatus);
+      // La API solo entiende periodos (day/week/month): se pide cada mes del rango y se filtra aquí
+      const responses = await Promise.all(
+        monthAnchors(from, to).map(async (anchor) => {
+          const url = new URL('/dashboard/appointments', apiUrl);
+          url.searchParams.set('range', 'month');
+          url.searchParams.set('date', anchor);
+          if (filterStaffId) url.searchParams.set('staffId', filterStaffId);
+          if (filterStatus) url.searchParams.set('status', filterStatus);
 
-      const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: ctrl.signal
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
-      }
-      const data = (await res.json()) as { bookings: AgendaBooking[] };
-      // Client-side date filter since API uses period-based queries
-      const fromMs = new Date(from).getTime();
-      const toMs = new Date(to).getTime() + 86_400_000; // inclusive
-      setBookings(
-        (data.bookings ?? []).filter((b) => {
-          const t = new Date(b.startAt).getTime();
-          return t >= fromMs && t <= toMs;
+          const res = await fetch(url.toString(), {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: ctrl.signal
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(apiErrorMessage(text, res.status));
+          }
+          return ((await res.json()) as { bookings: AgendaBooking[] }).bookings ?? [];
         })
       );
+      // Límites del rango en hora local (no UTC), "hasta" inclusivo
+      const fromMs = new Date(`${from}T00:00:00`).getTime();
+      const toMs = new Date(`${to}T23:59:59.999`).getTime();
+      const byId = new Map<string, AgendaBooking>();
+      for (const b of responses.flat()) {
+        const t = new Date(b.startAt).getTime();
+        if (t >= fromMs && t <= toMs) byId.set(b.id, b);
+      }
+      setBookings([...byId.values()].sort((a, b) => a.startAt.localeCompare(b.startAt)));
     } catch (err) {
       if ((err as { name?: string }).name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'Error al cargar citas');
@@ -104,8 +132,8 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
   }, [apiUrl, token, from, to, filterStaffId, filterStatus]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (active) void load();
+  }, [load, active]);
 
   async function handleCancel() {
     if (!cancelId) return;
@@ -119,7 +147,7 @@ export function AgendaSection({ apiUrl, token, staffOptions }: AgendaSectionProp
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(text, res.status));
       }
       setCancelSuccess('Cita cancelada y notificación enviada al cliente.');
       setCancelId(null);

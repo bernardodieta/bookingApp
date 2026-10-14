@@ -8,6 +8,7 @@ import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreateStripeCheckoutDto } from './dto/create-stripe-checkout.dto';
 import { ConfirmStripeSessionDto } from './dto/confirm-stripe-session.dto';
 import { PaymentsQueryDto } from './dto/payments-query.dto';
+import { webAppBaseUrl } from '../common/utils/app-url.util';
 
 @Injectable()
 export class PaymentsService {
@@ -78,7 +79,7 @@ export class PaymentsService {
   async createStripeCheckoutSession(user: AuthUser, payload: CreateStripeCheckoutDto) {
     const stripe = this.getStripeClient();
     const context = await this.resolveBookingPaymentContext(user.tenantId, payload.bookingId, payload.mode, payload.amount);
-    const webUrl = (process.env.NEXT_PUBLIC_APP_URL ?? process.env.WEB_BASE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+    const webUrl = webAppBaseUrl();
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',

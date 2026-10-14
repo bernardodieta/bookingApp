@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { BookingStatus, PaymentMethod, PaymentStatus, Plan, Prisma, RefundPolicy, WaitlistStatus } from '@prisma/client';
 import { AuthUser } from '../common/types/auth-user.type';
-import { minutesFromDate, minutesFromTime, overlaps } from '../common/utils/time.util';
+import { minutesFromTime, overlaps } from '../common/utils/time.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
@@ -44,6 +44,10 @@ export class BookingsService {
     if (Number.isNaN(startAt.getTime())) {
       throw new BadRequestException('startAt inválido.');
     }
+    // El portal público no puede reservar en el pasado; el panel sí (registro de citas ya atendidas)
+    if (autoWaitlistOnOccupied && startAt.getTime() <= Date.now()) {
+      throw new BadRequestException('No se puede reservar un horario que ya pasó.');
+    }
 
     const [service, staff, tenantSettings] = await Promise.all([
       this.prisma.service.findFirst({ where: { id: payload.serviceId, tenantId, active: true } }),
@@ -65,43 +69,66 @@ export class BookingsService {
     await this.enforceMonthlyPlanBookingLimit(tenantId, startAt, tenantSettings.plan, tenantSettings.timeZone);
 
     const normalizedEmail = payload.customerEmail.toLowerCase();
-    const customer = await this.prisma.customer.upsert({
-      where: {
-        tenantId_email: {
-          tenantId,
-          email: normalizedEmail
-        }
-      },
-      update: {
-        fullName: payload.customerName,
-        phone:
-          typeof payload.customFields?.phone === 'string' && payload.customFields.phone.trim().length > 0
-            ? payload.customFields.phone.trim()
-            : undefined,
-        metadata: payload.customFields as Prisma.InputJsonValue | undefined
-      },
-      create: {
-        tenantId,
-        fullName: payload.customerName,
-        email: normalizedEmail,
-        phone:
-          typeof payload.customFields?.phone === 'string' && payload.customFields.phone.trim().length > 0
-            ? payload.customFields.phone.trim()
-            : undefined,
-        metadata: payload.customFields as Prisma.InputJsonValue | undefined
-      }
-    });
+    const phone =
+      typeof payload.customFields?.phone === 'string' && payload.customFields.phone.trim().length > 0
+        ? payload.customFields.phone.trim()
+        : undefined;
 
+    let booking: Awaited<ReturnType<typeof this.prisma.booking.create>>;
     try {
-      await this.ensureSlotAvailability(
-        tenantId,
-        staff.id,
-        startAt,
-        endAt,
-        tenantSettings.bookingBufferMinutes,
-        tenantSettings.timeZone,
-        undefined
-      );
+      // Validar y crear en la misma transacción, serializado por profesional:
+      // sin esto, reservas simultáneas del mismo horario pasaban todas la validación.
+      booking = await this.prisma.$transaction(async (tx) => {
+        await this.lockStaffSchedule(tx, staff.id);
+        await this.ensureSlotAvailability(
+          tenantId,
+          staff.id,
+          startAt,
+          endAt,
+          tenantSettings.bookingBufferMinutes,
+          tenantSettings.timeZone,
+          undefined,
+          tx
+        );
+
+        // El cliente se crea solo si la reserva es válida (antes quedaban clientes "fantasma" de intentos rechazados)
+        const customer = await tx.customer.upsert({
+          where: {
+            tenantId_email: {
+              tenantId,
+              email: normalizedEmail
+            }
+          },
+          update: {
+            fullName: payload.customerName,
+            phone,
+            metadata: payload.customFields as Prisma.InputJsonValue | undefined
+          },
+          create: {
+            tenantId,
+            fullName: payload.customerName,
+            email: normalizedEmail,
+            phone,
+            metadata: payload.customFields as Prisma.InputJsonValue | undefined
+          }
+        });
+
+        return tx.booking.create({
+          data: {
+            tenantId,
+            customerId: customer.id,
+            serviceId: service.id,
+            staffId: staff.id,
+            customerName: payload.customerName,
+            customerEmail: normalizedEmail,
+            startAt,
+            endAt,
+            status: BookingStatus.confirmed,
+            customFields: payload.customFields as Prisma.InputJsonValue | undefined,
+            notes: payload.notes
+          }
+        });
+      });
     } catch (error) {
       if (autoWaitlistOnOccupied && this.isOccupiedSlotError(error)) {
         const waitlistEntry = await this.joinWaitlistForTenant(tenantId, {
@@ -124,22 +151,6 @@ export class BookingsService {
 
       throw error;
     }
-
-    const booking = await this.prisma.booking.create({
-      data: {
-        tenantId,
-        customerId: customer.id,
-        serviceId: service.id,
-        staffId: staff.id,
-        customerName: payload.customerName,
-        customerEmail: normalizedEmail,
-        startAt,
-        endAt,
-        status: BookingStatus.confirmed,
-        customFields: payload.customFields as Prisma.InputJsonValue | undefined,
-        notes: payload.notes
-      }
-    });
 
     await this.auditService.log({
       tenantId,
@@ -164,7 +175,12 @@ export class BookingsService {
     } catch { /* audit log is best-effort */ }
 
     try {
+      const managers = await this.prisma.user.findMany({
+        where: { tenantId, role: { in: ['owner', 'admin'] } },
+        select: { email: true }
+      });
       await this.notificationsService.sendBookingCreatedEmails({
+        businessEmails: [...managers.map((user) => user.email), staff.email],
         tenantName: tenantSettings.name,
         tenantSlug: tenantSettings.slug,
         customerName: booking.customerName,
@@ -479,10 +495,7 @@ export class BookingsService {
           tenantId,
           OR: [{ staffId: staff.id }, { staffId: null }],
           isUnavailable: true,
-          date: {
-            gte: dayStart,
-            lt: dayEnd
-          }
+          date: this.exceptionDateRange(DateTime.fromJSDate(dayStart).setZone(this.normalizeTimeZone(tenantSettings.timeZone)).toISODate()!)
         }
       }),
       this.prisma.booking.findMany({
@@ -499,6 +512,7 @@ export class BookingsService {
     ]);
 
     const unique = new Map<string, { startAt: string; endAt: string }>();
+    const now = Date.now();
 
     for (const rule of rules) {
       const ruleStart = minutesFromTime(rule.startTime);
@@ -508,6 +522,10 @@ export class BookingsService {
       for (let cursor = ruleStart; cursor + duration <= ruleEnd; cursor += SLOT_STEP_MINUTES) {
         const slotStart = new Date(dayStart.getTime() + cursor * 60_000);
         const slotEnd = new Date(slotStart.getTime() + duration * 60_000);
+
+        if (slotStart.getTime() <= now) {
+          continue;
+        }
 
         const blockedByException = exceptions.some((exception) => {
           if (!exception.startTime || !exception.endTime) {
@@ -873,23 +891,27 @@ export class BookingsService {
       booking.id
     );
     await this.enforceMonthlyPlanBookingLimit(user.tenantId, startAt, tenantSettings.plan, tenantSettings.timeZone, booking.id);
-    await this.ensureSlotAvailability(
-      user.tenantId,
-      booking.staffId,
-      startAt,
-      endAt,
-      tenantSettings.bookingBufferMinutes,
-      tenantSettings.timeZone,
-      booking.id
-    );
-
-    const updated = await this.prisma.booking.update({
-      where: { id: booking.id },
-      data: {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await this.lockStaffSchedule(tx, booking.staffId);
+      await this.ensureSlotAvailability(
+        user.tenantId,
+        booking.staffId,
         startAt,
         endAt,
-        status: BookingStatus.rescheduled
-      }
+        tenantSettings.bookingBufferMinutes,
+        tenantSettings.timeZone,
+        booking.id,
+        tx
+      );
+
+      return tx.booking.update({
+        where: { id: booking.id },
+        data: {
+          startAt,
+          endAt,
+          status: BookingStatus.rescheduled
+        }
+      });
     });
 
     await this.auditService.log({
@@ -904,6 +926,24 @@ export class BookingsService {
       } as Prisma.InputJsonValue
     });
 
+    if (booking.customerEmail) {
+      try {
+        const staff = await this.prisma.staff.findUnique({ where: { id: booking.staffId }, select: { fullName: true } });
+        await this.notificationsService.sendBookingRescheduledEmail({
+          tenantName: tenantSettings.name,
+          customerName: booking.customerName,
+          customerEmail: booking.customerEmail,
+          serviceName: service.service.name,
+          staffName: staff?.fullName ?? '',
+          previousStartAt: booking.startAt,
+          startAt,
+          timeZone: tenantSettings.timeZone
+        });
+      } catch {
+        // No bloquear la reprogramación si falla el correo
+      }
+    }
+
     try {
       await this.integrationsService.enqueueGoogleOutboundSyncJob({
         tenantId: user.tenantId,
@@ -916,6 +956,14 @@ export class BookingsService {
     return updated;
   }
 
+  /**
+   * Lock de Postgres a nivel transacción por profesional: dos reservas del mismo
+   * staff se validan y escriben una tras otra; se libera al terminar la transacción.
+   */
+  private async lockStaffSchedule(tx: Prisma.TransactionClient, staffId: string) {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${staffId}))`;
+  }
+
   private async ensureSlotAvailability(
     tenantId: string,
     staffId: string,
@@ -923,17 +971,20 @@ export class BookingsService {
     endAt: Date,
     bufferMinutes: number,
     timeZone: string,
-    excludeBookingId?: string
+    excludeBookingId?: string,
+    db: Prisma.TransactionClient = this.prisma
   ) {
     const weekDay = this.dayOfWeekInTimeZone(startAt, timeZone);
-    const startMinutes = minutesFromDate(startAt);
-    const endMinutes = minutesFromDate(endAt);
+    // Las reglas (HH:mm) están en la zona horaria del negocio, no en UTC
+    const localStart = DateTime.fromJSDate(startAt).setZone(this.normalizeTimeZone(timeZone));
+    const startMinutes = localStart.hour * 60 + localStart.minute;
+    const endMinutes = startMinutes + Math.round((endAt.getTime() - startAt.getTime()) / 60_000);
     const bufferMs = bufferMinutes * 60_000;
     const overlapStart = new Date(startAt.getTime() - bufferMs);
     const overlapEnd = new Date(endAt.getTime() + bufferMs);
 
     const [rules, exceptions, overlappingBooking] = await Promise.all([
-      this.prisma.availabilityRule.findMany({
+      db.availabilityRule.findMany({
         where: {
           tenantId,
           dayOfWeek: weekDay,
@@ -941,18 +992,15 @@ export class BookingsService {
           OR: [{ staffId }, { staffId: null }]
         }
       }),
-      this.prisma.availabilityException.findMany({
+      db.availabilityException.findMany({
         where: {
           tenantId,
           OR: [{ staffId }, { staffId: null }],
-          date: {
-            gte: this.startOfDayInTimeZone(startAt, timeZone),
-            lt: this.endOfDayInTimeZone(startAt, timeZone)
-          },
+          date: this.exceptionDateRange(localStart.toISODate()!),
           isUnavailable: true
         }
       }),
-      this.prisma.booking.findFirst({
+      db.booking.findFirst({
         where: {
           tenantId,
           staffId,
@@ -1286,6 +1334,16 @@ export class BookingsService {
         `No se puede ${action} con menos de ${requiredHours} horas de anticipación.`
       );
     }
+  }
+
+  /**
+   * Las excepciones guardan la fecha de calendario como medianoche UTC
+   * (ver AvailabilityService.createException), así que se buscan por ese día
+   * en UTC y no por el rango del día en la zona del negocio.
+   */
+  private exceptionDateRange(isoDate: string) {
+    const gte = new Date(`${isoDate}T00:00:00.000Z`);
+    return { gte, lt: new Date(gte.getTime() + 86_400_000) };
   }
 
   private normalizeTimeZone(timeZone: string) {

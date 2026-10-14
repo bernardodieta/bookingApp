@@ -48,6 +48,7 @@ type OverviewSectionProps = {
 
   onCancelBooking: (bookingId: string) => Promise<void>;
   onRescheduleBooking: (bookingId: string) => Promise<void>;
+  onBookingStatusAction: (bookingId: string, action: 'confirm' | 'complete' | 'no-show') => Promise<void>;
   bookingActionLoadingId: string;
   rescheduleDrafts: Record<string, string>;
   setRescheduleDrafts: React.Dispatch<React.SetStateAction<Record<string, string>>>;
@@ -84,7 +85,8 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
   confirmed: { label: 'Confirmada', color: '#0D5C44', bg: '#EFF8F5' },
   cancelled: { label: 'Cancelada',  color: '#E24B4A', bg: '#FCEBEB' },
   completed: { label: 'Completada', color: '#1e3a5f', bg: '#dbeafe' },
-  no_show:   { label: 'No asistió', color: '#4b5563', bg: '#f3f4f6' }
+  no_show:   { label: 'No asistió', color: '#4b5563', bg: '#f3f4f6' },
+  rescheduled: { label: 'Reprogramada', color: '#6B4FBB', bg: '#F1EDFB' }
 };
 
 function statusBadge(s: string) {
@@ -302,9 +304,43 @@ export function OverviewSection(props: OverviewSectionProps) {
                           >
                             Mover
                           </button>
+                          {booking.status === 'pending' ? (
+                            <button
+                              type="button"
+                              onClick={() => { void props.onBookingStatusAction(booking.id, 'confirm'); }}
+                              disabled={props.bookingActionLoadingId === booking.id}
+                              className="btn btn-ghost"
+                              style={{ fontSize: 12, padding: '5px 12px' }}
+                            >
+                              Confirmar
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => { void props.onBookingStatusAction(booking.id, 'complete'); }}
+                              disabled={props.bookingActionLoadingId === booking.id}
+                              className="btn btn-ghost"
+                              style={{ fontSize: 12, padding: '5px 12px' }}
+                            >
+                              Completar
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => { void props.onCancelBooking(booking.id); }}
+                            onClick={() => { void props.onBookingStatusAction(booking.id, 'no-show'); }}
+                            disabled={props.bookingActionLoadingId === booking.id}
+                            className="btn btn-ghost"
+                            style={{ fontSize: 12, padding: '5px 12px' }}
+                          >
+                            No asistió
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`¿Cancelar la cita de ${booking.customerName}? Se le enviará un correo avisándole.`)) {
+                                void props.onCancelBooking(booking.id);
+                              }
+                            }}
                             disabled={props.bookingActionLoadingId === booking.id}
                             className="btn btn-ghost"
                             style={{ fontSize: 12, padding: '5px 12px', color: 'var(--danger)' }}

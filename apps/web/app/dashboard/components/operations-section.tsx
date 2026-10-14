@@ -531,7 +531,7 @@ export function OperationsSection(props: OperationsSectionProps) {
                   <tbody>
                     {props.availabilityExceptions.map((exception) => (
                       <tr key={exception.id}>
-                        <td>{new Date(exception.date).toLocaleDateString()}</td>
+                        <td>{new Date(exception.date).toLocaleDateString('es-MX', { timeZone: 'UTC' })}</td>
                         <td>{exception.startTime && exception.endTime ? `${exception.startTime} – ${exception.endTime}` : 'Todo el día'}</td>
                         <td>{props.staffOptions.find((e) => e.id === exception.staffId)?.fullName ?? '-'}</td>
                         <td>{(props.availabilityExceptionUnavailableDrafts[exception.id] ?? exception.isUnavailable) ? 'No disponible' : 'Disponible'}</td>

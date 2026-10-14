@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { CalendarDays, Clock3, Menu, Send, UserRound, X } from 'lucide-react';
+import { localDateISO } from '../../../lib/dates';
+import { apiErrorMessage } from '../../../lib/api-error';
 
 type PublicPageProps = {
   params: {
@@ -83,7 +85,7 @@ type WaitlistResponse = {
 type PublicView = 'overview' | 'schedule' | 'booking' | 'waitlist' | 'portal';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
-const today = new Date().toISOString().slice(0, 10);
+const today = localDateISO();
 
 const COPY = {
   es: {
@@ -181,7 +183,7 @@ function formatDateTime(value: string, timeZone?: string) {
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return date.toLocaleString('es-MX', timeZone ? { timeZone } : undefined);
+  return date.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short', ...(timeZone ? { timeZone } : {}) });
 }
 
 function formatTime(value: string, timeZone?: string) {
@@ -297,8 +299,15 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
       evening: [] as PublicSlotsResponse['slots']
     };
 
+    // Misma zona horaria con la que se muestra la hora (la del negocio)
+    const hourFormatter = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      hourCycle: 'h23',
+      ...(tenant?.timeZone ? { timeZone: tenant.timeZone } : {})
+    });
+
     for (const slot of slots) {
-      const hour = new Date(slot.startAt).getHours();
+      const hour = Number(hourFormatter.format(new Date(slot.startAt)));
       if (Number.isNaN(hour)) {
         buckets.afternoon.push(slot);
         continue;
@@ -314,7 +323,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
     }
 
     return buckets;
-  }, [slots]);
+  }, [slots, tenant?.timeZone]);
 
   const selectedService = useMemo(() => services.find((entry) => entry.id === serviceId) ?? null, [services, serviceId]);
   const selectedStaff = useMemo(() => staff.find((entry) => entry.id === staffId) ?? null, [staff, staffId]);
@@ -354,19 +363,19 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
 
         if (!tenantResponse.ok) {
           const text = await tenantResponse.text();
-          throw new Error(text || `Error ${tenantResponse.status}`);
+          throw new Error(apiErrorMessage(text, tenantResponse.status));
         }
         if (!servicesResponse.ok) {
           const text = await servicesResponse.text();
-          throw new Error(text || `Error ${servicesResponse.status}`);
+          throw new Error(apiErrorMessage(text, servicesResponse.status));
         }
         if (!staffResponse.ok) {
           const text = await staffResponse.text();
-          throw new Error(text || `Error ${staffResponse.status}`);
+          throw new Error(apiErrorMessage(text, staffResponse.status));
         }
         if (!formResponse.ok) {
           const text = await formResponse.text();
-          throw new Error(text || `Error ${formResponse.status}`);
+          throw new Error(apiErrorMessage(text, formResponse.status));
         }
 
         const tenantPayload = (await tenantResponse.json()) as TenantProfile;
@@ -426,7 +435,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
         const response = await fetch(url.toString());
         if (!response.ok) {
           const text = await response.text();
-          throw new Error(text || `Error ${response.status}`);
+          throw new Error(apiErrorMessage(text, response.status));
         }
 
         const payload = (await response.json()) as PublicSlotsResponse;
@@ -524,7 +533,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const payload = (await response.json()) as BookingResponse;
@@ -601,7 +610,7 @@ export default function PublicBookingPage({ params }: PublicPageProps) {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Error ${response.status}`);
+        throw new Error(apiErrorMessage(text, response.status));
       }
 
       const payload = (await response.json()) as WaitlistResponse;

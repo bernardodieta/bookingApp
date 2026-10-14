@@ -1,0 +1,15 @@
+# Override local: agrega Mailpit para capturar correos.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: apoint-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
+
+  api:
+    depends_on:
+      mailpit:
+        condition: service_started
